@@ -1,0 +1,103 @@
+[
+  {
+    "model": "restaurants.restaurant",
+    "pk": 1,
+    "fields": {
+      "name": "Тестовый Ресторан",
+      "contacts": "test@example.com",
+      "logo": "logo.png",
+      "front_template": "default",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "restaurants.user",
+    "pk": 1,
+    "fields": {
+      "password": "pbkdf2_sha256$600000$test$test",
+      "last_login": null,
+      "is_superuser": false,
+      "username": "testuser",
+      "first_name": "",
+      "last_name": "",
+      "email": "",
+      "is_staff": false,
+      "is_active": true,
+      "date_joined": "2024-01-01T00:00:00Z",
+      "restaurant": 1
+    }
+  },
+  {
+    "model": "restaurants.category",
+    "pk": 1,
+    "fields": {
+      "name": "Основные блюда",
+      "restaurant": 1,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "restaurants.category",
+    "pk": 2,
+    "fields": {
+      "name": "Напитки",
+      "restaurant": 1,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "restaurants.dish",
+    "pk": 1,
+    "fields": {
+      "name": "Борщ",
+      "description": "Красный борщ с мясом",
+      "price": "150.00",
+      "category": 1,
+      "restaurant": 1,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "restaurants.dish",
+    "pk": 2,
+    "fields": {
+      "name": "Чай",
+      "description": "Черный чай",
+      "price": "50.00",
+      "category": 2,
+      "restaurant": 1,
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "restaurants.subscription",
+    "pk": 1,
+    "fields": {
+      "restaurant": 1,
+      "tariff": "Premium",
+      "status": "active",
+      "start_date": "2024-01-01",
+      "end_date": "2024-12-31",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  },
+  {
+    "model": "restaurants.paymenthistory",
+    "pk": 1,
+    "fields": {
+      "restaurant": 1,
+      "amount": "1000.00",
+      "paid_at": "2024-01-01T00:00:00Z",
+      "payment_method": "card",
+      "status": "completed",
+      "created_at": "2024-01-01T00:00:00Z",
+      "updated_at": "2024-01-01T00:00:00Z"
+    }
+  }
+]

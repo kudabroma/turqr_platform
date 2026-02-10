@@ -1,0 +1,242 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap');
+
+@layer base {
+  :root {
+    /* Warm restaurant palette */
+    --background: 35 30% 97%;
+    --foreground: 25 30% 15%;
+
+    --card: 35 25% 95%;
+    --card-foreground: 25 30% 15%;
+
+    --popover: 35 25% 95%;
+    --popover-foreground: 25 30% 15%;
+
+    /* Terracotta primary */
+    --primary: 16 65% 50%;
+    --primary-foreground: 35 30% 97%;
+
+    /* Olive secondary */
+    --secondary: 85 25% 35%;
+    --secondary-foreground: 35 30% 97%;
+
+    /* Warm muted tones */
+    --muted: 35 20% 90%;
+    --muted-foreground: 25 15% 45%;
+
+    /* Gold accent */
+    --accent: 42 75% 55%;
+    --accent-foreground: 25 30% 15%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 35 20% 85%;
+    --input: 35 20% 85%;
+    --ring: 16 65% 50%;
+
+    --radius: 0.75rem;
+
+    /* Custom restaurant tokens */
+    --cream: 35 30% 97%;
+    --terracotta: 16 65% 50%;
+    --terracotta-light: 16 55% 92%;
+    --olive: 85 25% 35%;
+    --olive-light: 85 20% 90%;
+    --gold: 42 75% 55%;
+    --charcoal: 25 30% 15%;
+    --warm-gray: 25 15% 45%;
+
+    /* Gradients */
+    --gradient-warm: linear-gradient(135deg, hsl(16, 65%, 50%) 0%, hsl(42, 75%, 55%) 100%);
+    --gradient-hero: linear-gradient(180deg, transparent 0%, hsl(25, 30%, 15%, 0.7) 100%);
+
+    /* Shadows */
+    --shadow-soft: 0 4px 20px -4px hsl(25, 30%, 15%, 0.08);
+    --shadow-card: 0 2px 12px -2px hsl(25, 30%, 15%, 0.1);
+    --shadow-elevated: 0 8px 30px -8px hsl(25, 30%, 15%, 0.15);
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 25 30% 10%;
+    --foreground: 35 25% 95%;
+
+    --card: 25 25% 14%;
+    --card-foreground: 35 25% 95%;
+
+    --popover: 25 25% 14%;
+    --popover-foreground: 35 25% 95%;
+
+    --primary: 16 55% 55%;
+    --primary-foreground: 25 30% 10%;
+
+    --secondary: 85 20% 45%;
+    --secondary-foreground: 35 30% 97%;
+
+    --muted: 25 20% 20%;
+    --muted-foreground: 35 15% 65%;
+
+    --accent: 42 65% 50%;
+    --accent-foreground: 25 30% 10%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 25 20% 22%;
+    --input: 25 20% 22%;
+    --ring: 16 55% 55%;
+
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-display;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-primary-foreground hover:bg-primary/90 transition-all duration-200 shadow-soft hover:shadow-elevated;
+  }
+
+  .btn-secondary {
+    @apply bg-secondary text-secondary-foreground hover:bg-secondary/90 transition-all duration-200;
+  }
+
+  .card-restaurant {
+    @apply bg-card rounded-xl shadow-card hover:shadow-elevated transition-all duration-300;
+  }
+
+  .category-chip {
+    @apply px-4 py-2 rounded-full text-sm font-medium transition-all duration-200;
+  }
+
+  .category-chip-active {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  .category-chip-inactive {
+    @apply bg-muted text-muted-foreground hover:bg-primary/10 hover:text-primary;
+  }
+
+  .dish-card {
+    @apply bg-card rounded-xl overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300;
+  }
+
+  .price-tag {
+    @apply text-primary font-semibold;
+  }
+
+  .rating-star {
+    @apply text-accent;
+  }
+
+  .search-input {
+    @apply bg-card border-border focus:border-primary focus:ring-primary/20;
+  }
+
+  .language-btn {
+    @apply px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200;
+  }
+
+  .language-btn-active {
+    @apply bg-primary text-primary-foreground;
+  }
+
+  .language-btn-inactive {
+    @apply bg-muted text-muted-foreground hover:bg-primary/10;
+  }
+
+  .filter-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium;
+  }
+
+  .filter-badge-vegan {
+    @apply bg-olive-light text-secondary;
+  }
+
+  .filter-badge-spicy {
+    @apply bg-terracotta-light text-primary;
+  }
+}
+
+@layer utilities {
+  .font-display {
+    font-family: 'Playfair Display', serif;
+  }
+
+  .font-sans {
+    font-family: 'Inter', sans-serif;
+  }
+
+  .shadow-soft {
+    box-shadow: var(--shadow-soft);
+  }
+
+  .shadow-card {
+    box-shadow: var(--shadow-card);
+  }
+
+  .shadow-elevated {
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .gradient-warm {
+    background: var(--gradient-warm);
+  }
+
+  .gradient-hero {
+    background: var(--gradient-hero);
+  }
+
+  .bg-terracotta-light {
+    background-color: hsl(var(--terracotta-light));
+  }
+
+  .bg-olive-light {
+    background-color: hsl(var(--olive-light));
+  }
+
+  .text-warm-gray {
+    color: hsl(var(--warm-gray));
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
