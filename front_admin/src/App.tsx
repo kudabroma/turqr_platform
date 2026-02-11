@@ -12,6 +12,9 @@ import DishesPage from "@/pages/admin/DishesPage";
 import SuperuserDashboard from "@/pages/super/SuperuserDashboard";
 import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
+import RestaurantPreview from "@/pages/admin_studio/RestaurantPreview";
+import MenuPage from "@/pages/admin_studio/MenuPage";
+
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -75,7 +78,7 @@ const App = () => (
               path="/admin"
               element={
                 <ProtectedRoute>
-                  <AdminDashboard />
+                  <RestaurantPreview />
                 </ProtectedRoute>
               }
             />
@@ -88,14 +91,13 @@ const App = () => (
               }
             />
             <Route
-              path="/admin/dishes"
+              path="/admin/menu"
               element={
                 <ProtectedRoute>
-                  <DishesPage />
+                  <MenuPage />
                 </ProtectedRoute>
               }
             />
-
             {/* Superuser route */}
             <Route
               path="/super"
