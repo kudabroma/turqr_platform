@@ -77,7 +77,7 @@ const App = () => (
             <Route
               path="/admin"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute role ="business">
                   <RestaurantPreview />
                 </ProtectedRoute>
               }
@@ -85,7 +85,7 @@ const App = () => (
             <Route
               path="/admin/categories"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute role ="business">
                   <CategoriesPage />
                 </ProtectedRoute>
               }
@@ -93,7 +93,7 @@ const App = () => (
             <Route
               path="/admin/menu"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute role ="business">
                   <MenuPage />
                 </ProtectedRoute>
               }
@@ -102,7 +102,7 @@ const App = () => (
             <Route
               path="/super"
               element={
-                <ProtectedRoute>
+                <ProtectedRoute role ="superuser">
                   <SuperuserDashboard />
                 </ProtectedRoute>
               }

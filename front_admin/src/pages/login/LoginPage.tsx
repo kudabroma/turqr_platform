@@ -13,12 +13,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  
+
   const { login } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || "/admin";
+  // если тебя ProtectedRoute отправил на /login, он обычно кладёт сюда "from"
+  const from =
+    (location.state as { from?: { pathname: string } })?.from?.pathname || "/admin";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,10 +28,17 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
-      await login(username, password);
-      navigate(from, { replace: true });
+      // ✅ login теперь возвращает user
+      const user = await login(username, password);
+
+      // суперюзер всегда идёт на /super
+      // бизнес-админ: либо на "from" (если его туда хотели), либо на /admin
+      const target = user.restaurant === null ? "/super" : "/admin";
+
+      navigate(target, { replace: true });
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Login failed. Please try again.";
+
       // Parse error message if it's JSON
       try {
         const parsed = JSON.parse(errorMessage);
@@ -53,12 +62,12 @@ export default function LoginPage() {
       <div className="w-full max-w-md fade-in">
         {/* Logo and branding */}
         <div className="flex flex-col items-center mb-8">
-          <img 
-            src="/platform/Turlogo.png" 
-            alt="TurQR Logo" 
+          <img
+            src="/platform/Turlogo.png"
+            alt="TurQR Logo"
             className="h-16 w-16 object-contain mb-4"
             onError={(e) => {
-              e.currentTarget.style.display = 'none';
+              e.currentTarget.style.display = "none";
             }}
           />
           <h1 className="text-3xl font-bold text-primary">TurQR</h1>
@@ -109,11 +118,7 @@ export default function LoginPage() {
                 />
               </div>
 
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={isLoading || !username || !password}
-              >
+              <Button type="submit" className="w-full" disabled={isLoading || !username || !password}>
                 {isLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

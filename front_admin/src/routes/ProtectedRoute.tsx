@@ -2,12 +2,15 @@ import { Navigate, useLocation } from "react-router-dom";
 import { useAuth } from "@/auth/AuthContext";
 import { Loader2 } from "lucide-react";
 
+type Role = "business" | "superuser";
+
 interface ProtectedRouteProps {
   children: React.ReactNode;
+  role?: Role; // 👈 новый проп
 }
 
-export function ProtectedRoute({ children }: ProtectedRouteProps) {
-  const { isAuthenticated, isLoading } = useAuth();
+export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
+  const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -23,6 +26,18 @@ export function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  // ✅ role check (строго)
+  const isSuper = user?.restaurant === null;
+  const isBusiness = !!user && user.restaurant !== null;
+
+  if (role === "superuser" && !isSuper) {
+    return <Navigate to="/admin" replace />;
+  }
+
+  if (role === "business" && !isBusiness) {
+    return <Navigate to="/super" replace />;
   }
 
   return <>{children}</>;
