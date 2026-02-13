@@ -4,16 +4,20 @@ import { Loader2 } from "lucide-react";
 
 type Role = "business" | "superuser";
 
-interface ProtectedRouteProps {
+export function ProtectedRoute({
+  children,
+  role,
+}: {
   children: React.ReactNode;
-  role?: Role; // 👈 новый проп
-}
-
-export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
+  role?: Role;
+}) {
   const { isAuthenticated, isLoading, user } = useAuth();
   const location = useLocation();
 
-  if (isLoading) {
+  // ждём и /me тоже
+  const userReady = !!user;
+
+  if (isLoading || (isAuthenticated && !userReady)) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="flex flex-col items-center gap-4">
@@ -28,17 +32,11 @@ export function ProtectedRoute({ children, role }: ProtectedRouteProps) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
-  // ✅ role check (строго)
-  const isSuper = user?.restaurant === null;
-  const isBusiness = !!user && user.restaurant !== null;
+  const isSuper = user!.restaurant === null;
+  const isBusiness = user!.restaurant !== null;
 
-  if (role === "superuser" && !isSuper) {
-    return <Navigate to="/admin" replace />;
-  }
-
-  if (role === "business" && !isBusiness) {
-    return <Navigate to="/super" replace />;
-  }
+  if (role === "superuser" && !isSuper) return <Navigate to="/admin" replace />;
+  if (role === "business" && !isBusiness) return <Navigate to="/super" replace />;
 
   return <>{children}</>;
 }

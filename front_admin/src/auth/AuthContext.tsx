@@ -1,20 +1,13 @@
 import React, { createContext, useContext, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { authApi } from "@/api/endpoints";
+import { authApi, type User as AuthUser } from "@/api/endpoints";
 import { useSession } from "@/auth/useSession";
-
-export type AuthUser = {
-  id: number;
-  username: string;
-  restaurant: number | null;
-};
 
 type AuthContextValue = {
   isAuthenticated: boolean;
   isLoading: boolean;
   user: AuthUser | null;
   isSuperuser: boolean;
-  // ✅ login теперь возвращает user, чтобы делать role-redirect сразу
   login: (username: string, password: string) => Promise<AuthUser>;
   logout: () => Promise<void>;
 };
@@ -30,25 +23,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const isAuthenticated = session.isAuthed;
   const isLoading = session.isLoading || authBusy;
 
-  const user: AuthUser | null = session.user ?? null;
+  const user = session.user;
   const isSuperuser = !!user && user.restaurant === null;
 
-  async function login(username: string, password: string): Promise<AuthUser> {
+  async function login(username: string, password: string) {
     setAuthBusy(true);
     try {
-      // ❗ authApi.login может вернуть data или {data}
-      const res: any = await authApi.login(username, password);
-      const data: AuthUser = (res?.data ?? res) as AuthUser;
+      const data = await authApi.login(username, password);
 
-      // ✅ всегда обновляем user в кэше (важно при смене аккаунта)
-      queryClient.setQueryData(["session", "user"], {
-        id: data.id,
-        username: data.username,
-        restaurant: data.restaurant,
-      });
+      // ✅ сразу кладём user в кэш me, чтобы редирект по роли сработал мгновенно
+      queryClient.setQueryData(["session", "me"], data);
 
-      // ✅ обновляем probe, чтобы ProtectedRoute стал authed
-      await queryClient.invalidateQueries({ queryKey: ["session", "categories_probe"] });
+      // ✅ и просто рефетчим me (на случай если бек добавит поля позже)
+      await queryClient.invalidateQueries({ queryKey: ["session", "me"] });
 
       return data;
     } finally {
@@ -60,27 +47,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthBusy(true);
     try {
       await authApi.logout();
-
-      // ✅ чистим и probe, и user (иначе "залипает" роль)
-      queryClient.removeQueries({ queryKey: ["session", "user"] });
-      queryClient.removeQueries({ queryKey: ["session", "categories_probe"] });
-
-      // можно ещё и инвалидировать, но remove уже достаточно
-      await queryClient.invalidateQueries({ queryKey: ["session", "categories_probe"] });
+      queryClient.removeQueries({ queryKey: ["session", "me"] });
     } finally {
       setAuthBusy(false);
     }
   }
 
   const value = useMemo(
-    () => ({
-      isAuthenticated,
-      isLoading,
-      user,
-      isSuperuser,
-      login,
-      logout,
-    }),
+    () => ({ isAuthenticated, isLoading, user, isSuperuser, login, logout }),
     [isAuthenticated, isLoading, user, isSuperuser]
   );
 

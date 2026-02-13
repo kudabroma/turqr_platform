@@ -14,6 +14,7 @@ import NotFound from "@/pages/NotFound";
 import { Loader2 } from "lucide-react";
 import RestaurantPreview from "@/pages/admin_studio/RestaurantPreview";
 import MenuPage from "@/pages/admin_studio/MenuPage";
+import AccessDenied from "@/pages/AccessDenied";
 
 
 const queryClient = new QueryClient({
@@ -27,7 +28,7 @@ const queryClient = new QueryClient({
 
 // Root redirect component
 function RootRedirect() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -37,12 +38,16 @@ function RootRedirect() {
     );
   }
 
-  return <Navigate to={isAuthenticated ? "/admin" : "/login"} replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  const isSuper = user?.restaurant === null;
+  return <Navigate to={isSuper ? "/super" : "/admin"} replace />;
 }
+
 
 // Login page wrapper that redirects if already authenticated
 function LoginWrapper() {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -53,11 +58,13 @@ function LoginWrapper() {
   }
 
   if (isAuthenticated) {
-    return <Navigate to="/admin" replace />;
+    const isSuper = user?.restaurant === null;
+    return <Navigate to={isSuper ? "/super" : "/admin"} replace />;
   }
 
   return <LoginPage />;
 }
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -108,6 +115,8 @@ const App = () => (
               }
             />
 
+            {/* Access denied */}
+            <Route path="/access-denied" element={<AccessDenied />} />
             {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>

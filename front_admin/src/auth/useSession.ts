@@ -1,19 +1,10 @@
-import { categoriesApi } from "@/api/endpoints";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-
-// Должно совпадать с AuthUser в AuthContext
-export type SessionUser = {
-  id: number;
-  username: string;
-  restaurant: number | null;
-};
+import { useQuery } from "@tanstack/react-query";
+import { authApi, type User } from "@/api/endpoints";
 
 export function useSession() {
-  const queryClient = useQueryClient();
-
-  const q = useQuery({
-    queryKey: ["session", "categories_probe"],
-    queryFn: () => categoriesApi.list(),
+  const q = useQuery<User>({
+    queryKey: ["session", "me"],
+    queryFn: authApi.me,
     retry: false,
     refetchOnWindowFocus: false,
     staleTime: 30_000,
@@ -22,8 +13,10 @@ export function useSession() {
   const status = (q.error as any)?.status;
   const isLoggedOut = q.isError && (status === 401 || status === 403);
 
-  // ✅ user берём из кэша (его положим туда после login)
-  const user = queryClient.getQueryData<SessionUser>(["session", "user"]) ?? null;
-
-  return { ...q, isAuthed: q.isSuccess, isLoggedOut, user };
+  return {
+    ...q,
+    user: q.data ?? null,
+    isAuthed: q.isSuccess,
+    isLoggedOut,
+  };
 }

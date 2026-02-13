@@ -5,6 +5,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.permissions import IsAuthenticated  # ✅ добавил
 
 from .models import Restaurant, Category, Dish, Subscription, PaymentHistory
 from .serializers import (
@@ -102,6 +103,7 @@ class LoginView(APIView):
         )
 
 
+
 class LogoutView(APIView):
     """
     Выход пользователя, уничтожение сессии.
@@ -111,6 +113,22 @@ class LogoutView(APIView):
         logout(request)
         return Response(status=status.HTTP_204_NO_CONTENT)
 
+class MeView(APIView):
+    """
+    GET /api/auth/me/
+    Возвращает текущего пользователя по сессии.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        user = request.user
+        return Response(
+            {
+                "id": user.id,
+                "username": user.username,
+                "restaurant": user.restaurant_id,
+            }
+        )
 
 class CategoryViewSet(viewsets.ModelViewSet):
     """
@@ -136,13 +154,13 @@ class CategoryViewSet(viewsets.ModelViewSet):
             serializer.save(restaurant=restaurant)
         else:
             serializer.save(restaurant=user.restaurant)
+
     def perform_update(self, serializer):
         user = self.request.user
         if user.is_superuser:
             serializer.save()
         else:
             serializer.save(restaurant=user.restaurant)
-
 
 
 class DishViewSet(viewsets.ModelViewSet):
@@ -169,13 +187,13 @@ class DishViewSet(viewsets.ModelViewSet):
             serializer.save(restaurant=restaurant)
         else:
             serializer.save(restaurant=user.restaurant)
+
     def perform_update(self, serializer):
         user = self.request.user
         if user.is_superuser:
             serializer.save()
         else:
             serializer.save(restaurant=user.restaurant)
-
 
 
 class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):

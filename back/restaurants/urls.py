@@ -15,8 +15,8 @@ from .views import (
     PaymentHistoryViewSet,
     MenuView,
     SubscriptionView,
+    MeView,
 )
-
 router = DefaultRouter()
 router.register(r"categories", CategoryViewSet, basename="category")
 router.register(r"dishes", DishViewSet, basename="dish")
@@ -33,12 +33,14 @@ urlpatterns = [
     path("auth/register/", RegistrationView.as_view(), name="auth-register"),
     path("auth/login/", LoginView.as_view(), name="auth-login"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
+    path("auth/me/", MeView.as_view(), name="auth-me"),
 
     # Меню и подписка
     path("menu/", MenuView.as_view(), name="menu"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
 
     # Public API endpoints
+    path("api/auth/me/", MeView.as_view()),
 
 ]
 urlpatterns += router.urls

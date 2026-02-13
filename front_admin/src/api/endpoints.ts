@@ -1,6 +1,9 @@
 import apiClient from "./apiClient";
 
+// =====================
 // Types
+// =====================
+
 export interface User {
   id: number;
   username: string;
@@ -43,7 +46,10 @@ export interface UpdateDishData {
   category?: number;
 }
 
+// =====================
 // Auth endpoints
+// =====================
+
 export const authApi = {
   login: (username: string, password: string) =>
     apiClient<User>("/auth/login/", {
@@ -55,9 +61,18 @@ export const authApi = {
     apiClient<void>("/auth/logout/", {
       method: "POST",
     }),
+
+  // ✅ НОВЫЙ ENDPOINT
+  me: () =>
+    apiClient<User>("/auth/me/", {
+      method: "GET",
+    }),
 };
 
+// =====================
 // Categories endpoints
+// =====================
+
 export const categoriesApi = {
   list: () => apiClient<Category[]>("/categories/"),
 
@@ -79,7 +94,10 @@ export const categoriesApi = {
     }),
 };
 
+// =====================
 // Dishes endpoints
+// =====================
+
 export const dishesApi = {
   list: () => apiClient<Dish[]>("/dishes/"),
 
