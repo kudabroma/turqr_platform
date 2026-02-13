@@ -11,14 +11,9 @@ export default defineConfig(({ mode }) => ({
     hmr: {
       overlay: false,
     },
-    // Proxy API requests to Django backend in development
+    // Proxy ONLY API requests to Django backend in development
     proxy: {
       "/api": {
-        target: "http://localhost:8000",
-        changeOrigin: true,
-        secure: false,
-      },
-      "/platform": {
         target: "http://localhost:8000",
         changeOrigin: true,
         secure: false,

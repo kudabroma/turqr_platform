@@ -1,8 +1,6 @@
 /**
  * API Client for TurQR Admin
- * 
- * All requests use credentials: "include" for session-based authentication.
- * The Django backend uses SessionAuthentication (cookie-based).
+ * SessionAuthentication (cookies) + CSRF header for unsafe methods.
  */
 
 const API_BASE = "/api";
@@ -25,32 +23,48 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
+// --- CSRF helper ---
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp("(^|;\\s*)" + name + "=([^;]*)"));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function isUnsafe(method: string) {
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase());
+}
+
 async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options;
 
   const config: RequestInit = {
     method,
-    credentials: "include", // Critical for session auth
+    credentials: "include",
     headers: {
       "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
       ...headers,
     },
   };
 
-  if (body) {
+  // add CSRF header for unsafe requests
+  if (isUnsafe(method)) {
+    const csrf = getCookie("csrftoken");
+    if (csrf) {
+      (config.headers as Record<string, string>)["X-CSRFToken"] = csrf;
+    }
+  }
+
+  if (body !== undefined) {
     config.body = JSON.stringify(body);
   }
 
   const response = await fetch(`${API_BASE}${endpoint}`, config);
 
-  // Handle empty responses (204 No Content, etc.)
-  if (response.status === 204) {
-    return undefined as T;
-  }
+  if (response.status === 204) return undefined as T;
 
   let data: unknown;
   const contentType = response.headers.get("content-type");
-  
+
   if (contentType?.includes("application/json")) {
     try {
       data = await response.json();
@@ -62,11 +76,11 @@ async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Pro
   }
 
   if (!response.ok) {
-    const errorMessage = typeof data === "object" && data !== null
-      ? JSON.stringify(data)
-      : String(data) || `Request failed with status ${response.status}`;
-    
-    throw new ApiError(response.status, errorMessage, data);
+    const msg =
+      typeof data === "object" && data !== null
+        ? JSON.stringify(data)
+        : String(data) || `Request failed with status ${response.status}`;
+    throw new ApiError(response.status, msg, data);
   }
 
   return data as T;

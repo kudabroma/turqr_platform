@@ -148,3 +148,16 @@ REST_FRAMEWORK = {
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+CSRF_TRUSTED_ORIGINS = [
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+]
+
+# на всякий (для dev)
+CSRF_COOKIE_SECURE = False
+SESSION_COOKIE_SECURE = False
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8081",
+    "http://127.0.0.1:8081",
+]
+CORS_ALLOW_CREDENTIALS = True
