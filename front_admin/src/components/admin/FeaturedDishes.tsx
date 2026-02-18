@@ -6,6 +6,7 @@ export type FeaturedDish = {
   name: string;
   price?: string | number;
   image?: string;
+  description?: string;
 };
 
 type Props = {
@@ -16,6 +17,9 @@ type Props = {
 
 export function FeaturedDishes({ dishes, fullMenuPath = "/admin/menu" }: Props) {
   const navigate = useNavigate();
+
+  // show first 3 dishes by default
+  const shown = dishes.slice(0, 3);
 
   return (
     <div className="px-4 mt-8">
@@ -31,7 +35,7 @@ export function FeaturedDishes({ dishes, fullMenuPath = "/admin/menu" }: Props) 
       </div>
 
       <div className="space-y-3">
-        {dishes.map((dish) => (
+        {shown.map((dish) => (
           <div
             key={dish.id}
             className="flex items-center gap-4 bg-card rounded-xl p-3 shadow-sm border border-border"
