@@ -4,7 +4,13 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { categoriesApi, Category } from "@/api/endpoints";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 import {
   Dialog,
   DialogContent,
@@ -27,25 +33,34 @@ import { Label } from "@/components/ui/label";
 import { Plus, Pencil, Trash2, Loader2, FolderOpen, AlertCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { useAuth } from "@/auth/AuthContext";
 
 export default function CategoriesPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const restaurantId = user?.restaurant ?? null;
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editCategory, setEditCategory] = useState<Category | null>(null);
   const [deleteCategory, setDeleteCategory] = useState<Category | null>(null);
   const [formName, setFormName] = useState("");
 
-  // Fetch categories
+  // Fetch categories (scoped by restaurant)
+  const categoriesKey = ["categories", restaurantId] as const;
+  const dishesKey = ["dishes", restaurantId] as const;
+
   const { data: categories = [], isLoading, error } = useQuery({
-    queryKey: ["categories"],
+    queryKey: categoriesKey,
     queryFn: categoriesApi.list,
+    enabled: !!restaurantId, // business user must have restaurant
   });
 
   // Create mutation
   const createMutation = useMutation({
     mutationFn: (name: string) => categoriesApi.create({ name }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: categoriesKey });
       setIsCreateOpen(false);
       setFormName("");
       toast.success("Category created successfully");
@@ -60,7 +75,7 @@ export default function CategoriesPage() {
     mutationFn: ({ id, name }: { id: number; name: string }) =>
       categoriesApi.update(id, { name }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
+      queryClient.invalidateQueries({ queryKey: categoriesKey });
       setEditCategory(null);
       setFormName("");
       toast.success("Category updated successfully");
@@ -74,8 +89,8 @@ export default function CategoriesPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => categoriesApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["categories"] });
-      queryClient.invalidateQueries({ queryKey: ["dishes"] });
+      queryClient.invalidateQueries({ queryKey: categoriesKey });
+      queryClient.invalidateQueries({ queryKey: dishesKey });
       setDeleteCategory(null);
       toast.success("Category deleted successfully");
     },
@@ -85,9 +100,7 @@ export default function CategoriesPage() {
   });
 
   const handleCreate = () => {
-    if (formName.trim()) {
-      createMutation.mutate(formName.trim());
-    }
+    if (formName.trim()) createMutation.mutate(formName.trim());
   };
 
   const handleUpdate = () => {
@@ -97,15 +110,26 @@ export default function CategoriesPage() {
   };
 
   const handleDelete = () => {
-    if (deleteCategory) {
-      deleteMutation.mutate(deleteCategory.id);
-    }
+    if (deleteCategory) deleteMutation.mutate(deleteCategory.id);
   };
 
   const openEdit = (category: Category) => {
     setEditCategory(category);
     setFormName(category.name);
   };
+
+  if (!restaurantId) {
+    return (
+      <AdminLayout>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No restaurant assigned to this account. Please contact support.
+          </AlertDescription>
+        </Alert>
+      </AdminLayout>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -137,9 +161,7 @@ export default function CategoriesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your menu categories
-            </p>
+            <p className="text-muted-foreground mt-1">Manage your menu categories</p>
           </div>
           <Button onClick={() => setIsCreateOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
@@ -184,11 +206,7 @@ export default function CategoriesPage() {
                       <span className="font-medium">{category.name}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => openEdit(category)}
-                      >
+                      <Button variant="ghost" size="icon" onClick={() => openEdit(category)}>
                         <Pencil className="h-4 w-4" />
                       </Button>
                       <Button
@@ -233,10 +251,7 @@ export default function CategoriesPage() {
             <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleCreate}
-              disabled={!formName.trim() || createMutation.isPending}
-            >
+            <Button onClick={handleCreate} disabled={!formName.trim() || createMutation.isPending}>
               {createMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
@@ -255,9 +270,7 @@ export default function CategoriesPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Category</DialogTitle>
-            <DialogDescription>
-              Update the category name
-            </DialogDescription>
+            <DialogDescription>Update the category name</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
@@ -274,10 +287,7 @@ export default function CategoriesPage() {
             <Button variant="outline" onClick={() => setEditCategory(null)}>
               Cancel
             </Button>
-            <Button
-              onClick={handleUpdate}
-              disabled={!formName.trim() || updateMutation.isPending}
-            >
+            <Button onClick={handleUpdate} disabled={!formName.trim() || updateMutation.isPending}>
               {updateMutation.isPending ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />

@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { AdminLayout } from "@/components/layout/AdminLayout";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { dishesApi, categoriesApi, Dish, Category } from "@/api/endpoints";
+import { dishesApi, categoriesApi, Dish } from "@/api/endpoints";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -35,6 +35,7 @@ import { Label } from "@/components/ui/label";
 import { Plus, Pencil, Trash2, Loader2, UtensilsCrossed, AlertCircle, Filter } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
+import { useAuth } from "@/auth/AuthContext";
 
 interface DishForm {
   name: string;
@@ -52,26 +53,35 @@ const initialForm: DishForm = {
 
 export default function DishesPage() {
   const queryClient = useQueryClient();
+  const { user } = useAuth();
+
+  const restaurantId = user?.restaurant ?? null;
+
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [editDish, setEditDish] = useState<Dish | null>(null);
   const [deleteDish, setDeleteDish] = useState<Dish | null>(null);
   const [form, setForm] = useState<DishForm>(initialForm);
   const [filterCategory, setFilterCategory] = useState<string>("all");
 
-  // Fetch dishes and categories
+  const dishesKey = ["dishes", restaurantId] as const;
+  const categoriesKey = ["categories", restaurantId] as const;
+
+  // Fetch dishes
   const { data: dishes = [], isLoading: dishesLoading, error: dishesError } = useQuery({
-    queryKey: ["dishes"],
+    queryKey: dishesKey,
     queryFn: dishesApi.list,
+    enabled: !!restaurantId,
   });
 
+  // Fetch categories
   const { data: categories = [], isLoading: categoriesLoading } = useQuery({
-    queryKey: ["categories"],
+    queryKey: categoriesKey,
     queryFn: categoriesApi.list,
+    enabled: !!restaurantId,
   });
 
   const isLoading = dishesLoading || categoriesLoading;
 
-  // Create category map for display
   const categoryMap = useMemo(() => {
     return categories.reduce((acc, cat) => {
       acc[cat.id] = cat.name;
@@ -79,11 +89,25 @@ export default function DishesPage() {
     }, {} as Record<number, string>);
   }, [categories]);
 
-  // Filter dishes by category
   const filteredDishes = useMemo(() => {
     if (filterCategory === "all") return dishes;
     return dishes.filter((dish) => dish.category === parseInt(filterCategory));
   }, [dishes, filterCategory]);
+
+  const formatPrice = (price: string): string => {
+    const numPrice = parseFloat(price.replace(/[^0-9.]/g, ""));
+    if (isNaN(numPrice)) return "0.00";
+    return numPrice.toFixed(2);
+  };
+
+  const displayPrice = (price: string): string => {
+    const numPrice = parseFloat(price);
+    if (isNaN(numPrice)) return "0.00";
+    return numPrice.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+  };
 
   // Create mutation
   const createMutation = useMutation({
@@ -95,7 +119,7 @@ export default function DishesPage() {
         category: parseInt(data.category),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dishes"] });
+      queryClient.invalidateQueries({ queryKey: dishesKey });
       setIsCreateOpen(false);
       setForm(initialForm);
       toast.success("Dish created successfully");
@@ -115,7 +139,7 @@ export default function DishesPage() {
         category: parseInt(data.category),
       }),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dishes"] });
+      queryClient.invalidateQueries({ queryKey: dishesKey });
       setEditDish(null);
       setForm(initialForm);
       toast.success("Dish updated successfully");
@@ -129,7 +153,7 @@ export default function DishesPage() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => dishesApi.delete(id),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["dishes"] });
+      queryClient.invalidateQueries({ queryKey: dishesKey });
       setDeleteDish(null);
       toast.success("Dish deleted successfully");
     },
@@ -138,26 +162,8 @@ export default function DishesPage() {
     },
   });
 
-  const formatPrice = (price: string): string => {
-    // Ensure price is formatted as "1500.00"
-    const numPrice = parseFloat(price.replace(/[^0-9.]/g, ""));
-    if (isNaN(numPrice)) return "0.00";
-    return numPrice.toFixed(2);
-  };
-
-  const displayPrice = (price: string): string => {
-    const numPrice = parseFloat(price);
-    if (isNaN(numPrice)) return "0.00";
-    return numPrice.toLocaleString("en-US", {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    });
-  };
-
   const handleCreate = () => {
-    if (form.name.trim() && form.category) {
-      createMutation.mutate(form);
-    }
+    if (form.name.trim() && form.category) createMutation.mutate(form);
   };
 
   const handleUpdate = () => {
@@ -167,9 +173,7 @@ export default function DishesPage() {
   };
 
   const handleDelete = () => {
-    if (deleteDish) {
-      deleteMutation.mutate(deleteDish.id);
-    }
+    if (deleteDish) deleteMutation.mutate(deleteDish.id);
   };
 
   const openEdit = (dish: Dish) => {
@@ -186,6 +190,19 @@ export default function DishesPage() {
     setForm(initialForm);
     setIsCreateOpen(true);
   };
+
+  if (!restaurantId) {
+    return (
+      <AdminLayout>
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            No restaurant assigned to this account. Please contact support.
+          </AlertDescription>
+        </Alert>
+      </AdminLayout>
+    );
+  }
 
   if (isLoading) {
     return (
@@ -217,9 +234,7 @@ export default function DishesPage() {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Dishes</h1>
-            <p className="text-muted-foreground mt-1">
-              Manage your menu items
-            </p>
+            <p className="text-muted-foreground mt-1">Manage your menu items</p>
           </div>
           <Button onClick={openCreate} disabled={categories.length === 0}>
             <Plus className="h-4 w-4 mr-2" />
@@ -322,11 +337,7 @@ export default function DishesPage() {
                         <td className="font-medium">${displayPrice(dish.price)}</td>
                         <td>
                           <div className="flex items-center justify-end gap-2">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEdit(dish)}
-                            >
+                            <Button variant="ghost" size="icon" onClick={() => openEdit(dish)}>
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
@@ -365,6 +376,7 @@ export default function DishesPage() {
               {editDish ? "Update the dish details" : "Fill in the details for your new menu item"}
             </DialogDescription>
           </DialogHeader>
+
           <div className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="dish-name">Name *</Label>
@@ -403,10 +415,7 @@ export default function DishesPage() {
 
               <div className="space-y-2">
                 <Label htmlFor="dish-category">Category *</Label>
-                <Select
-                  value={form.category}
-                  onValueChange={(value) => setForm({ ...form, category: value })}
-                >
+                <Select value={form.category} onValueChange={(value) => setForm({ ...form, category: value })}>
                   <SelectTrigger id="dish-category">
                     <SelectValue placeholder="Select category" />
                   </SelectTrigger>
@@ -421,6 +430,7 @@ export default function DishesPage() {
               </div>
             </div>
           </div>
+
           <DialogFooter>
             <Button
               variant="outline"
