@@ -1,4 +1,4 @@
-import apiClient from "./apiClient";
+import apiClient, { apiFetch } from "./apiClient";
 
 // =====================
 // Types
@@ -13,6 +13,7 @@ export interface User {
 export interface Category {
   id: number;
   name: string;
+  restaurant?: number; // иногда приходит с бэка
 }
 
 export interface Dish {
@@ -21,7 +22,28 @@ export interface Dish {
   description: string;
   price: string;
   category: number;
+  restaurant?: number;
   category_name?: string;
+}
+export interface RestaurantMe {
+  id: number;
+  name: string;
+  slug: string;
+  contacts: string;
+  phone: string;
+  email: string;
+  address: string;
+  logo: string;
+  front_template: string;
+  active: boolean;
+  plan: string;
+  paid_until: string | null;
+}
+
+
+// Формат /api/menu/ у тебя: Category[] и внутри dishes[]
+export interface CategoryWithDishes extends Category {
+  dishes: Dish[];
 }
 
 export interface CreateCategoryData {
@@ -47,6 +69,14 @@ export interface UpdateDishData {
 }
 
 // =====================
+// Menu endpoint
+// =====================
+
+export const menuApi = {
+  get: () => apiClient<CategoryWithDishes[]>("/menu/"), // GET /api/menu/
+};
+
+// =====================
 // Auth endpoints
 // =====================
 
@@ -62,12 +92,20 @@ export const authApi = {
       method: "POST",
     }),
 
-  // ✅ НОВЫЙ ENDPOINT
   me: () =>
     apiClient<User>("/auth/me/", {
       method: "GET",
     }),
 };
+export const restaurantApi = {
+  me: () => apiFetch<RestaurantMe>("/restaurants/me/"),
+  update: (data: Partial<RestaurantMe>) =>
+    apiClient<RestaurantMe>("/restaurants/me/", {
+      method: "PATCH",
+      body: data,
+    }),
+};
+
 
 // =====================
 // Categories endpoints

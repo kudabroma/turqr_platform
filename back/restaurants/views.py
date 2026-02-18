@@ -5,7 +5,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import Restaurant, Category, Dish, Subscription, PaymentHistory
+from .models import Restaurant, Category, Dish, PaymentHistory
 from .serializers import (
     UserSerializer,
     CategorySerializer,
@@ -21,11 +21,83 @@ from .permissions import HasActiveSubscriptionOrReadOnly
 User = get_user_model()
 
 
+# =====================
+# Restaurant: /api/restaurants/me/ (GET + PATCH)
+# =====================
+class RestaurantMeSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Restaurant
+        fields = [
+            "id",
+            "name",
+            "slug",
+            "contacts",
+            "phone",
+            "email",
+            "address",
+            "logo",
+            "front_template",
+            "active",
+            "plan",
+            "paid_until",
+        ]
+
+
+class RestaurantMeView(APIView):
+    """
+    GET /api/restaurants/me/
+    PATCH /api/restaurants/me/
+
+    Возвращает/обновляет ресторан текущего бизнес-пользователя.
+    Superuser сюда не ходит (ему нужен другой экран/логика).
+    """
+
+    permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
+
+    def get(self, request):
+        user = request.user
+
+        if user.is_superuser:
+            return Response(
+                {"detail": "Superuser has no single restaurant."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        restaurant = getattr(user, "restaurant", None)
+        if restaurant is None:
+            return Response(
+                {"detail": "User has no associated restaurant."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return Response(RestaurantMeSerializer(restaurant).data)
+
+    def patch(self, request):
+        user = request.user
+
+        if user.is_superuser:
+            return Response(
+                {"detail": "Superuser cannot update restaurant here."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        restaurant = getattr(user, "restaurant", None)
+        if restaurant is None:
+            return Response(
+                {"detail": "User has no associated restaurant."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = RestaurantMeSerializer(restaurant, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)
+
+
 class RegistrationView(APIView):
     """
     Регистрация пользователя и ресторана.
 
-    Пример запроса:
     POST /api/auth/register/
     {
         "username": "admin",
@@ -69,15 +141,11 @@ class RegistrationView(APIView):
 
 class LoginView(APIView):
     """
-    Классический логин по логину и паролю.
-
     POST /api/auth/login/
     {
         "username": "admin",
         "password": "secret123"
     }
-
-    При успешном логине создаётся сессия (SessionAuthentication).
     """
 
     permission_classes = [permissions.AllowAny]
@@ -118,6 +186,7 @@ class MeView(APIView):
     GET /api/auth/me/
     Возвращает текущего пользователя по сессии.
     """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
@@ -138,7 +207,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = CategorySerializer
-    # ✅ READ можно без подписки, WRITE только active/trial
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
 
     def get_queryset(self):
@@ -146,7 +214,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             return Category.objects.all()
 
-        # на всякий случай, чтобы не падало если restaurant=None
         if not getattr(user, "restaurant", None):
             return Category.objects.none()
 
@@ -181,7 +248,6 @@ class DishViewSet(viewsets.ModelViewSet):
     """
 
     serializer_class = DishSerializer
-    # ✅ READ можно без подписки, WRITE только active/trial
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
 
     def get_queryset(self):
@@ -222,7 +288,6 @@ class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     """
 
     serializer_class = PaymentHistorySerializer
-    # ✅ READ можно без подписки (если хочешь наоборот — вернём строгий HasActiveSubscription)
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
 
     def get_queryset(self):
@@ -240,17 +305,14 @@ class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 class MenuView(APIView):
     """
     GET /api/menu/
-
     Возвращает все категории и блюда ресторана текущего пользователя.
     """
 
-    # ✅ READ можно без подписки, WRITE тут нет (только GET)
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
 
     def get(self, request):
         user = request.user
 
-        # Superuser can request menu for any restaurant via ?restaurant_id=
         if user.is_superuser and request.query_params.get("restaurant_id"):
             try:
                 restaurant = Restaurant.objects.get(pk=request.query_params.get("restaurant_id"))
@@ -272,28 +334,29 @@ class MenuView(APIView):
 class SubscriptionView(APIView):
     """
     GET /api/subscription/
-
     Возвращает информацию о подписке текущего ресторана.
-    Only available to business users with restaurants.
     """
 
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
+
         if user.is_superuser:
             return Response(
                 {"error": "Superusers cannot access subscription information."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        if not hasattr(user, "restaurant") or user.restaurant is None:
+        restaurant = getattr(user, "restaurant", None)
+        if restaurant is None:
             return Response(
                 {"error": "User has no associated restaurant."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        restaurant = user.restaurant
+        # ⚠️ ОСТАВИЛ как у тебя, но у тебя подписка в модели Restaurant (paid_until/plan)
+        # поэтому лучше будет обновить этот эндпоинт позже.
         subscription = getattr(restaurant, "subscription", None)
         if not subscription:
             return Response({"error": "Подписка не оформлена."}, status=status.HTTP_404_NOT_FOUND)

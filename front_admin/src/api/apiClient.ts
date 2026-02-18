@@ -85,5 +85,9 @@ async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Pro
 
   return data as T;
 }
+export function apiFetch<T>(path: string) {
+  return apiClient<T>(path, { method: "GET" });
+}
+
 
 export default apiClient;

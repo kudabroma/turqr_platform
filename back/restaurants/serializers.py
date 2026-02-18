@@ -7,16 +7,19 @@ from .models import Restaurant, Category, Dish, Subscription, PaymentHistory
 User = get_user_model()
 
 
-class RestaurantSerializer(serializers.ModelSerializer):
-    """
-    Базовый сериализатор ресторана.
-    Обычно не отдаём его наружу, но может быть полезен для внутренних API.
-    """
-
+class RestaurantMeSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
-        fields = ["id", "name", "contacts", "logo", "front_template"]
-
+        fields = [
+            "id",
+            "name",
+            "description",
+            "address",
+            "hours",
+            "phone",
+            "email",
+            "is_open",
+        ]
 
 class UserSerializer(serializers.ModelSerializer):
     """

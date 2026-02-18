@@ -1,59 +1,94 @@
-import { useState } from "react";
+import { useMemo, useState, useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Search, Pencil, Plus, Settings } from "lucide-react";
+
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { EditCategoriesModal } from "@/components/admin/modals/EditCategoriesModal";
 import { EditDishModal, type DishData } from "@/components/admin/modals/EditDishModal";
 
-const initialCategories = ["kebab", "salad", "deserts"];
-
-const initialDishes: DishData[] = [
-  { id: 1, name: "iskender kebab", description: "Traditional Turkish kebab", price: 1500, image: "", vegan: false, spicy: false, featured: true },
-  { id: 2, name: "adana kebab", description: "Spicy minced meat kebab", price: 1200, image: "", vegan: false, spicy: true, featured: false },
-  { id: 3, name: "greek salad", description: "Fresh vegetables with feta", price: 150, image: "", vegan: true, spicy: false, featured: true },
-  { id: 4, name: "baklava", description: "Sweet pastry with nuts", price: 150, image: "", vegan: false, spicy: false, featured: true },
-];
+import { menuApi, restaurantApi, type CategoryWithDishes } from "@/api/endpoints";
 
 export default function MenuPage() {
-  const [categories, setCategories] = useState(initialCategories);
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [dishes, setDishes] = useState(initialDishes);
   const [search, setSearch] = useState("");
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [editingDish, setEditingDish] = useState<DishData | null>(null);
   const [showDishModal, setShowDishModal] = useState(false);
 
-  // Simple category assignment: kebab dishes contain "kebab", etc.
-  const getCategoryForDish = (dish: DishData) => {
-    const name = dish.name.toLowerCase();
-    if (name.includes("kebab")) return "kebab";
-    if (name.includes("salad")) return "salad";
-    return "deserts";
-  };
-
-  const filteredDishes = dishes.filter((d) => {
-    const matchesSearch = d.name.toLowerCase().includes(search.toLowerCase());
-    const matchesCategory = !activeCategory || getCategoryForDish(d) === activeCategory;
-    return matchesSearch && matchesCategory;
+  // ✅ ресторан (для title)
+  const restaurantQuery = useQuery({
+    queryKey: ["restaurant", "me"],
+    queryFn: restaurantApi.me,
+    staleTime: 60_000,
   });
 
-  // Group by category when showing "All"
-  const groupedByCategory = !activeCategory
-    ? categories.map((cat) => ({
-        category: cat,
-        dishes: filteredDishes.filter((d) => getCategoryForDish(d) === cat),
-      }))
-    : [{ category: activeCategory, dishes: filteredDishes }];
+  const headerTitle =
+    restaurantQuery.data?.name ??
+    (restaurantQuery.data?.id ? `Restaurant #${restaurantQuery.data.id}` : "Restaurant");
 
-  const handleSaveDish = (dish: DishData) => {
-    setDishes((prev) => {
-      const exists = prev.find((d) => d.id === dish.id);
-      if (exists) return prev.map((d) => (d.id === dish.id ? dish : d));
-      return [...prev, dish];
+  // ✅ меню
+  const menuQuery = useQuery({
+    queryKey: ["menu"],
+    queryFn: menuApi.get,
+    staleTime: 10_000,
+  });
+
+  const categoriesRaw = (menuQuery.data ?? []) as CategoryWithDishes[];
+
+  // ✅ категории (для табов)
+  const categories = useMemo(() => categoriesRaw.map((c) => c.name), [categoriesRaw]);
+
+  // ✅ плоский список блюд
+  const dishes: DishData[] = useMemo(() => {
+    return categoriesRaw.flatMap((c) =>
+      (c.dishes ?? []).map((d) => ({
+        id: d.id,
+        name: d.name,
+        description: d.description ?? "",
+        price: typeof d.price === "string" ? Number(d.price) : (d.price ?? 0),
+        image: "",
+        vegan: false,
+        spicy: false,
+        featured: false,
+        _categoryName: c.name,
+        _categoryId: c.id,
+      }))
+    );
+  }, [categoriesRaw]);
+
+  // если активная категория исчезла — сбрасываем
+  useEffect(() => {
+    if (activeCategory && !categories.includes(activeCategory)) {
+      setActiveCategory(null);
+    }
+  }, [activeCategory, categories]);
+
+  const filteredDishes = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return dishes.filter((d: any) => {
+      const matchesSearch = !q || d.name.toLowerCase().includes(q);
+      const matchesCategory = !activeCategory || d._categoryName === activeCategory;
+      return matchesSearch && matchesCategory;
     });
+  }, [dishes, search, activeCategory]);
+
+  const groupedByCategory = useMemo(() => {
+    if (!activeCategory) {
+      return categories.map((cat) => ({
+        category: cat,
+        dishes: filteredDishes.filter((d: any) => d._categoryName === cat),
+      }));
+    }
+    return [{ category: activeCategory, dishes: filteredDishes }];
+  }, [activeCategory, categories, filteredDishes]);
+
+  // ---- модалки (пока без CRUD) ----
+  const handleSaveDish = (_dish: DishData) => {
+    setShowDishModal(false);
   };
 
-  const handleDeleteDish = (id: number) => {
-    setDishes((prev) => prev.filter((d) => d.id !== id));
+  const handleDeleteDish = (_id: number) => {
+    setShowDishModal(false);
   };
 
   const openNewDish = () => {
@@ -66,9 +101,31 @@ export default function MenuPage() {
     setShowDishModal(true);
   };
 
+  // ---- loading/error ----
+  if (menuQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AdminHeader title={headerTitle} showBack />
+        <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">Loading menu…</div>
+      </div>
+    );
+  }
+
+  if (menuQuery.isError) {
+    return (
+      <div className="min-h-screen bg-background">
+        <AdminHeader title={headerTitle} showBack />
+        <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">
+          <div className="font-medium">Failed to load menu</div>
+          <div className="text-sm opacity-70">Check Network: GET /api/menu/ (should be 200)</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader title="TurkoKebabHouse" showBack />
+      <AdminHeader title={headerTitle} showBack />
 
       <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">
         {/* Search */}
@@ -95,6 +152,7 @@ export default function MenuPage() {
           >
             All
           </button>
+
           {categories.map((cat) => (
             <button
               key={cat}
@@ -108,6 +166,7 @@ export default function MenuPage() {
               {cat}
             </button>
           ))}
+
           <button
             onClick={() => setShowCategoriesModal(true)}
             className="p-2 rounded-full text-muted-foreground hover:bg-muted transition-colors shrink-0"
@@ -121,8 +180,8 @@ export default function MenuPage() {
         {groupedByCategory.map(({ category, dishes: catDishes }) => (
           <div key={category} className="mt-6">
             <h3 className="text-lg font-bold text-foreground mb-3">{category}</h3>
+
             <div className="grid grid-cols-2 gap-3">
-              {/* Add new dish tile (first in each group when category is selected) */}
               {activeCategory && (
                 <button
                   onClick={openNewDish}
@@ -132,21 +191,23 @@ export default function MenuPage() {
                   <span className="text-sm font-medium">Add new dish</span>
                 </button>
               )}
+
               {catDishes.map((dish) => (
                 <div
                   key={dish.id}
                   className="rounded-xl bg-card border border-border shadow-sm overflow-hidden relative group"
                 >
                   <div className="aspect-[4/3] bg-[hsl(var(--warm-beige))]">
-                    {dish.image && (
+                    {dish.image ? (
                       <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
-                    )}
+                    ) : null}
                   </div>
+
                   <div className="p-3 flex items-center justify-between">
                     <span className="font-medium text-sm text-foreground">{dish.name}</span>
                     <span className="font-bold text-sm text-primary">{dish.price}₺</span>
                   </div>
-                  {/* Edit button */}
+
                   <button
                     onClick={() => openEditDish(dish)}
                     className="absolute top-2 right-2 bg-background/90 backdrop-blur rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
@@ -155,11 +216,16 @@ export default function MenuPage() {
                   </button>
                 </div>
               ))}
+
+              {catDishes.length === 0 && (
+                <div className="col-span-2 text-sm text-muted-foreground">
+                  No dishes in this category yet.
+                </div>
+              )}
             </div>
           </div>
         ))}
 
-        {/* Add new dish at top level when no category selected */}
         {!activeCategory && (
           <div className="mt-6">
             <button
@@ -177,7 +243,9 @@ export default function MenuPage() {
         open={showCategoriesModal}
         onOpenChange={setShowCategoriesModal}
         categories={categories}
-        onSave={setCategories}
+        onSave={() => {
+          setShowCategoriesModal(false);
+        }}
       />
 
       <EditDishModal
