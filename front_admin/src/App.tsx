@@ -5,17 +5,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/auth/AuthContext";
 import { ProtectedRoute } from "@/routes/ProtectedRoute";
+
 import LoginPage from "@/pages/login/LoginPage";
-import AdminDashboard from "@/pages/admin/AdminDashboard";
 import CategoriesPage from "@/pages/admin/CategoriesPage";
-import DishesPage from "@/pages/admin/DishesPage";
+import MenuPage from "@/pages/admin_studio/MenuPage";
+import RestaurantPreview from "@/pages/admin_studio/RestaurantPreview";
+
 import SuperuserDashboard from "@/pages/super/SuperuserDashboard";
 import NotFound from "@/pages/NotFound";
-import { Loader2 } from "lucide-react";
-import RestaurantPreview from "@/pages/admin_studio/RestaurantPreview";
-import MenuPage from "@/pages/admin_studio/MenuPage";
 import AccessDenied from "@/pages/AccessDenied";
-
+import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -26,7 +25,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Root redirect component
 function RootRedirect() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -44,8 +42,6 @@ function RootRedirect() {
   return <Navigate to={isSuper ? "/super" : "/admin"} replace />;
 }
 
-
-// Login page wrapper that redirects if already authenticated
 function LoginWrapper() {
   const { isAuthenticated, isLoading, user } = useAuth();
 
@@ -65,7 +61,6 @@ function LoginWrapper() {
   return <LoginPage />;
 }
 
-
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <TooltipProvider>
@@ -74,50 +69,58 @@ const App = () => (
       <BrowserRouter>
         <AuthProvider>
           <Routes>
-            {/* Root redirect */}
             <Route path="/" element={<RootRedirect />} />
-
-            {/* Login */}
             <Route path="/login" element={<LoginWrapper />} />
 
-            {/* Admin routes */}
+            {/* ===== BUSINESS ===== */}
             <Route
               path="/admin"
               element={
-                <ProtectedRoute role ="business">
+                <ProtectedRoute role="business">
+                  <Navigate to="/admin/preview" replace />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/admin/preview"
+              element={
+                <ProtectedRoute role="business">
                   <RestaurantPreview />
                 </ProtectedRoute>
               }
             />
-            <Route
-              path="/admin/categories"
-              element={
-                <ProtectedRoute role ="business">
-                  <CategoriesPage />
-                </ProtectedRoute>
-              }
-            />
+
+            {/* ✅ ЕДИНСТВЕННЫЙ путь для редактирования меню */}
             <Route
               path="/admin/menu"
               element={
-                <ProtectedRoute role ="business">
+                <ProtectedRoute role="business">
                   <MenuPage />
                 </ProtectedRoute>
               }
             />
-            {/* Superuser route */}
+
+            <Route
+              path="/admin/categories"
+              element={
+                <ProtectedRoute role="business">
+                  <CategoriesPage />
+                </ProtectedRoute>
+              }
+            />
+
+            {/* ===== SUPERUSER ===== */}
             <Route
               path="/super"
               element={
-                <ProtectedRoute role ="superuser">
+                <ProtectedRoute role="superuser">
                   <SuperuserDashboard />
                 </ProtectedRoute>
               }
             />
 
-            {/* Access denied */}
             <Route path="/access-denied" element={<AccessDenied />} />
-            {/* 404 */}
             <Route path="*" element={<NotFound />} />
           </Routes>
         </AuthProvider>

@@ -11,6 +11,7 @@ export default function RestaurantPreview() {
   return (
     <div className="min-h-screen bg-background">
       <AdminHeader title="TurQR" />
+
       <div className="max-w-2xl mx-auto pb-28">
         <PhotoCarousel />
         <RestaurantInfo />
@@ -18,14 +19,14 @@ export default function RestaurantPreview() {
         <FeaturedDishes />
       </div>
 
-      {/* Sticky CTA */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur border-t border-border">
         <div className="max-w-2xl mx-auto">
           <button
+            type="button"
             onClick={() => navigate("/admin/menu")}
             className="w-full py-4 rounded-2xl bg-primary text-primary-foreground text-lg font-semibold shadow-lg hover:opacity-90 transition-opacity"
           >
-            View Menu
+            Edit Menu
           </button>
         </div>
       </div>
