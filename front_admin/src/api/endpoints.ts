@@ -13,18 +13,19 @@ export interface User {
 export interface Category {
   id: number;
   name: string;
-  restaurant?: number; // иногда приходит с бэка
+  restaurant?: number;
 }
 
 export interface Dish {
   id: number;
   name: string;
   description: string;
-  price: string;
+  price: string; // DRF часто отдаёт как string
   category: number;
   restaurant?: number;
   category_name?: string;
 }
+
 export interface RestaurantMe {
   id: number;
   name: string;
@@ -40,8 +41,7 @@ export interface RestaurantMe {
   paid_until: string | null;
 }
 
-
-// Формат /api/menu/ у тебя: Category[] и внутри dishes[]
+// /api/menu/ -> список категорий с dishes
 export interface CategoryWithDishes extends Category {
   dishes: Dish[];
 }
@@ -49,7 +49,6 @@ export interface CategoryWithDishes extends Category {
 export interface CreateCategoryData {
   name: string;
 }
-
 export interface UpdateCategoryData {
   name: string;
 }
@@ -60,7 +59,6 @@ export interface CreateDishData {
   price: string;
   category: number;
 }
-
 export interface UpdateDishData {
   name?: string;
   description?: string;
@@ -73,7 +71,7 @@ export interface UpdateDishData {
 // =====================
 
 export const menuApi = {
-  get: () => apiClient<CategoryWithDishes[]>("/menu/"), // GET /api/menu/
+  get: () => apiClient<CategoryWithDishes[]>("/menu/"),
 };
 
 // =====================
@@ -97,6 +95,11 @@ export const authApi = {
       method: "GET",
     }),
 };
+
+// =====================
+// Restaurant endpoints
+// =====================
+
 export const restaurantApi = {
   me: () => apiFetch<RestaurantMe>("/restaurants/me/"),
   update: (data: Partial<RestaurantMe>) =>
@@ -105,7 +108,6 @@ export const restaurantApi = {
       body: data,
     }),
 };
-
 
 // =====================
 // Categories endpoints

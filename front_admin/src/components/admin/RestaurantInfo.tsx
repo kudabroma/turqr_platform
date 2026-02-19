@@ -53,7 +53,11 @@ export function RestaurantInfo({ restaurant }: Props) {
         ) : null}
       </div>
 
-      <EditRestaurantInfoModal open={showEditModal} onOpenChange={setShowEditModal} />
+      <EditRestaurantInfoModal
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        restaurant={restaurant}
+      />
     </div>
   );
 }
