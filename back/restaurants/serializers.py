@@ -6,10 +6,13 @@ from .models import Restaurant, Category, Dish, Subscription, PaymentHistory
 User = get_user_model()
 
 
+# =========================
+# Restaurant: /api/restaurants/me/
+# =========================
 class RestaurantMeSerializer(serializers.ModelSerializer):
     """
     Ответ для /api/restaurants/me/
-    Держим backward compatibility для фронта:
+    Backward compatibility для фронта:
     active/plan/paid_until возвращаем, но они вычисляются из Subscription.
     """
 
@@ -19,7 +22,12 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
 
     def get_active(self, obj: Restaurant) -> bool:
         sub = getattr(obj, "subscription", None)
-        return bool(sub and sub.is_active())
+        if not sub:
+            return False
+        # на всякий случай: если метода is_active нет, проверяем status
+        if hasattr(sub, "is_active") and callable(getattr(sub, "is_active")):
+            return bool(sub.is_active())
+        return getattr(sub, "status", "") in ("active", "trial")
 
     def get_plan(self, obj: Restaurant) -> str:
         sub = getattr(obj, "subscription", None)
@@ -27,9 +35,9 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
 
     def get_paid_until(self, obj: Restaurant):
         sub = getattr(obj, "subscription", None)
-        if not sub or not sub.expires_at:
+        if not sub or not getattr(sub, "expires_at", None):
             return None
-        # раньше было DateField, возвращаем YYYY-MM-DD
+        # возвращаем YYYY-MM-DD
         return sub.expires_at.date().isoformat()
 
     class Meta:
@@ -71,6 +79,9 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
         ]
 
 
+# =========================
+# Auth / Users
+# =========================
 class UserSerializer(serializers.ModelSerializer):
     """
     Сериализатор пользователя.
@@ -92,17 +103,55 @@ class UserSerializer(serializers.ModelSerializer):
         return user
 
 
-class DishSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Dish
-        fields = ["id", "name", "description", "price", "category", "restaurant"]
-        read_only_fields = ["id"]
-
-
+# =========================
+# Categories
+# =========================
 class CategorySerializer(serializers.ModelSerializer):
+    """
+    Для business user: restaurant read-only, бек сам подставляет в perform_create.
+    """
+    restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
+
     class Meta:
         model = Category
         fields = ["id", "name", "restaurant"]
+        read_only_fields = ["id", "restaurant"]
+
+
+class CategorySuperuserSerializer(serializers.ModelSerializer):
+    """
+    Для superuser: restaurant обязателен (он может создавать категории для любого ресторана).
+    """
+    restaurant = serializers.PrimaryKeyRelatedField(queryset=Restaurant.objects.all(), required=True)
+
+    class Meta:
+        model = Category
+        fields = ["id", "name", "restaurant"]
+        read_only_fields = ["id"]
+
+
+# =========================
+# Dishes
+# =========================
+class DishSerializer(serializers.ModelSerializer):
+    """
+    Для business user: restaurant read-only (бек подставит).
+    Superuser-сериализатор сделаем отдельно, чтобы не было 'restaurant required' как с категориями.
+    """
+    restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    class Meta:
+        model = Dish
+        fields = ["id", "name", "description", "price", "category", "restaurant"]
+        read_only_fields = ["id", "restaurant"]
+
+
+class DishSuperuserSerializer(serializers.ModelSerializer):
+    restaurant = serializers.PrimaryKeyRelatedField(queryset=Restaurant.objects.all(), required=True)
+
+    class Meta:
+        model = Dish
+        fields = ["id", "name", "description", "price", "category", "restaurant"]
         read_only_fields = ["id"]
 
 
@@ -129,6 +178,9 @@ class CategoryWithDishesSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "dishes"]
 
 
+# =========================
+# Subscription / Payments
+# =========================
 class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscription

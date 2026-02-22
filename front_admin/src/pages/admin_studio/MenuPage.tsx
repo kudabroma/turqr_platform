@@ -1,14 +1,21 @@
 import { useMemo, useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Search, Pencil, Plus, Settings } from "lucide-react";
 
 import { AdminHeader } from "@/components/admin/AdminHeader";
 import { EditCategoriesModal } from "@/components/admin/modals/EditCategoriesModal";
 import { EditDishModal, type DishData } from "@/components/admin/modals/EditDishModal";
 
-import { menuApi, restaurantApi, type CategoryWithDishes } from "@/api/endpoints";
+import {
+  menuApi,
+  restaurantApi,
+  categoriesApi,
+  type CategoryWithDishes,
+} from "@/api/endpoints";
 
 export default function MenuPage() {
+  const qc = useQueryClient();
+
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
@@ -24,7 +31,9 @@ export default function MenuPage() {
 
   const headerTitle =
     restaurantQuery.data?.name ??
-    (restaurantQuery.data?.id ? `Restaurant #${restaurantQuery.data.id}` : "Restaurant");
+    (restaurantQuery.data?.id
+      ? `Restaurant #${restaurantQuery.data.id}`
+      : "Restaurant");
 
   // ✅ меню
   const menuQuery = useQuery({
@@ -35,8 +44,17 @@ export default function MenuPage() {
 
   const categoriesRaw = (menuQuery.data ?? []) as CategoryWithDishes[];
 
-  // ✅ категории (для табов)
-  const categories = useMemo(() => categoriesRaw.map((c) => c.name), [categoriesRaw]);
+  // ✅ категории (для табов): string[]
+  const categories = useMemo(
+    () => categoriesRaw.map((c) => c.name),
+    [categoriesRaw]
+  );
+
+  // ✅ категории для модалки: {id, name}[]
+  const categoriesForModal = useMemo(
+    () => categoriesRaw.map((c) => ({ id: c.id, name: c.name })),
+    [categoriesRaw]
+  );
 
   // ✅ плоский список блюд
   const dishes: DishData[] = useMemo(() => {
@@ -45,7 +63,7 @@ export default function MenuPage() {
         id: d.id,
         name: d.name,
         description: d.description ?? "",
-        price: typeof d.price === "string" ? Number(d.price) : (d.price ?? 0),
+        price: typeof d.price === "string" ? Number(d.price) : d.price ?? 0,
         image: "",
         vegan: false,
         spicy: false,
@@ -82,7 +100,7 @@ export default function MenuPage() {
     return [{ category: activeCategory, dishes: filteredDishes }];
   }, [activeCategory, categories, filteredDishes]);
 
-  // ---- модалки (пока без CRUD) ----
+  // ---- блюда (пока без CRUD) ----
   const handleSaveDish = (_dish: DishData) => {
     setShowDishModal(false);
   };
@@ -101,6 +119,33 @@ export default function MenuPage() {
     setShowDishModal(true);
   };
 
+  // ✅ onSave для модалки категорий
+  const handleSaveCategories = async (payload: {
+    create: { name: string }[];
+    rename: { id: number; name: string }[];
+    delete: { id: number }[];
+  }) => {
+    // 1) create
+    if (payload.create.length) {
+      await Promise.all(payload.create.map((c) => categoriesApi.create({ name: c.name })));
+    }
+
+    // 2) rename (PATCH)
+    if (payload.rename.length) {
+      await Promise.all(
+        payload.rename.map((c) => categoriesApi.update(c.id, { name: c.name }))
+      );
+    }
+
+    // 3) delete
+    if (payload.delete.length) {
+      await Promise.all(payload.delete.map((c) => categoriesApi.delete(c.id)));
+    }
+
+    // 4) refresh menu
+    await qc.invalidateQueries({ queryKey: ["menu"] });
+  };
+
   // ---- loading/error ----
   if (menuQuery.isLoading) {
     return (
@@ -117,7 +162,9 @@ export default function MenuPage() {
         <AdminHeader title={headerTitle} showBack />
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">
           <div className="font-medium">Failed to load menu</div>
-          <div className="text-sm opacity-70">Check Network: GET /api/menu/ (should be 200)</div>
+          <div className="text-sm opacity-70">
+            Check Network: GET /api/menu/ (should be 200)
+          </div>
         </div>
       </div>
     );
@@ -199,13 +246,21 @@ export default function MenuPage() {
                 >
                   <div className="aspect-[4/3] bg-[hsl(var(--warm-beige))]">
                     {dish.image ? (
-                      <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
+                      <img
+                        src={dish.image}
+                        alt={dish.name}
+                        className="w-full h-full object-cover"
+                      />
                     ) : null}
                   </div>
 
                   <div className="p-3 flex items-center justify-between">
-                    <span className="font-medium text-sm text-foreground">{dish.name}</span>
-                    <span className="font-bold text-sm text-primary">{dish.price}₺</span>
+                    <span className="font-medium text-sm text-foreground">
+                      {dish.name}
+                    </span>
+                    <span className="font-bold text-sm text-primary">
+                      {dish.price}₺
+                    </span>
                   </div>
 
                   <button
@@ -239,13 +294,12 @@ export default function MenuPage() {
         )}
       </div>
 
+      {/* ✅ Categories CRUD modal */}
       <EditCategoriesModal
         open={showCategoriesModal}
         onOpenChange={setShowCategoriesModal}
-        categories={categories}
-        onSave={() => {
-          setShowCategoriesModal(false);
-        }}
+        categories={categoriesForModal}
+        onSave={handleSaveCategories}
       />
 
       <EditDishModal

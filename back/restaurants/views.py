@@ -1,7 +1,6 @@
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.db import transaction
 from rest_framework import permissions, serializers, status, viewsets
-from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -9,6 +8,7 @@ from .models import Restaurant, Category, Dish, PaymentHistory
 from .serializers import (
     UserSerializer,
     CategorySerializer,
+    CategorySuperuserSerializer,
     DishSerializer,
     CategoryWithDishesSerializer,
     SubscriptionSerializer,
@@ -17,16 +17,21 @@ from .serializers import (
     RestaurantUpdateSerializer,
 )
 
-# ✅ ВАЖНО: используем новый permission
 from .permissions import HasActiveSubscriptionOrReadOnly
 
 User = get_user_model()
 
 
 # =====================
+# Helpers
+# =====================
+def _get_user_restaurant(user):
+    return getattr(user, "restaurant", None)
+
+
+# =====================
 # Restaurant: /api/restaurants/me/ (GET + PATCH)
 # =====================
-
 class RestaurantMeView(APIView):
     """
     GET /api/restaurants/me/
@@ -44,7 +49,7 @@ class RestaurantMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        restaurant = getattr(user, "restaurant", None)
+        restaurant = _get_user_restaurant(user)
         if restaurant is None:
             return Response(
                 {"detail": "User has no associated restaurant."},
@@ -62,7 +67,7 @@ class RestaurantMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        restaurant = getattr(user, "restaurant", None)
+        restaurant = _get_user_restaurant(user)
         if restaurant is None:
             return Response(
                 {"detail": "User has no associated restaurant."},
@@ -73,14 +78,15 @@ class RestaurantMeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # Возвращаем формат как GET (чтобы фронт получил compat поля)
+        # Возвращаем формат как GET
         return Response(RestaurantMeSerializer(restaurant).data)
 
 
+# =====================
+# Auth
+# =====================
 class RegistrationView(APIView):
     """
-    Регистрация пользователя и ресторана.
-
     POST /api/auth/register/
     {
         "username": "admin",
@@ -113,11 +119,7 @@ class RegistrationView(APIView):
             user.save()
 
         return Response(
-            {
-                "id": user.id,
-                "username": user.username,
-                "restaurant": restaurant.id,
-            },
+            {"id": user.id, "username": user.username, "restaurant": restaurant.id},
             status=status.HTTP_201_CREATED,
         )
 
@@ -125,10 +127,7 @@ class RegistrationView(APIView):
 class LoginView(APIView):
     """
     POST /api/auth/login/
-    {
-        "username": "admin",
-        "password": "secret123"
-    }
+    {"username": "...", "password": "..."}
     """
 
     permission_classes = [permissions.AllowAny]
@@ -145,19 +144,11 @@ class LoginView(APIView):
             )
 
         login(request, user)
-        return Response(
-            {
-                "id": user.id,
-                "username": user.username,
-                "restaurant": user.restaurant_id,
-            }
-        )
+        return Response({"id": user.id, "username": user.username, "restaurant": user.restaurant_id})
 
 
 class LogoutView(APIView):
-    """
-    Выход пользователя, уничтожение сессии.
-    """
+    """POST /api/auth/logout/"""
 
     def post(self, request):
         logout(request)
@@ -165,32 +156,31 @@ class LogoutView(APIView):
 
 
 class MeView(APIView):
-    """
-    GET /api/auth/me/
-    Возвращает текущего пользователя по сессии.
-    """
+    """GET /api/auth/me/"""
 
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         user = request.user
-        return Response(
-            {
-                "id": user.id,
-                "username": user.username,
-                "restaurant": user.restaurant_id,
-            }
-        )
+        return Response({"id": user.id, "username": user.username, "restaurant": user.restaurant_id})
 
 
+# =====================
+# Categories CRUD
+# =====================
 class CategoryViewSet(viewsets.ModelViewSet):
     """
     CRUD для категорий меню.
-    Пользователь может работать только со своим рестораном.
+    Business user работает только со своим рестораном.
+    Superuser может указывать restaurant вручную.
     """
 
-    serializer_class = CategorySerializer
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
+
+    def get_serializer_class(self):
+        if self.request.user.is_superuser:
+            return CategorySuperuserSerializer
+        return CategorySerializer
 
     def get_queryset(self):
         user = self.request.user
@@ -205,29 +195,36 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         if user.is_superuser:
-            restaurant = serializer.validated_data.get("restaurant")
-            if restaurant is None:
-                raise ValidationError({"restaurant": "This field is required."})
-            serializer.save(restaurant=restaurant)
-        else:
-            if not getattr(user, "restaurant", None):
-                raise ValidationError({"restaurant": "User has no associated restaurant."})
-            serializer.save(restaurant=user.restaurant)
+            # restaurant придёт из запроса и провалидируется CategorySuperuserSerializer
+            serializer.save()
+            return
+
+        if not getattr(user, "restaurant", None):
+            raise ValidationError({"restaurant": "User has no associated restaurant."})
+
+        serializer.save(restaurant=user.restaurant)
 
     def perform_update(self, serializer):
         user = self.request.user
         if user.is_superuser:
             serializer.save()
-        else:
-            if not getattr(user, "restaurant", None):
-                raise ValidationError({"restaurant": "User has no associated restaurant."})
-            serializer.save(restaurant=user.restaurant)
+            return
+
+        if not getattr(user, "restaurant", None):
+            raise ValidationError({"restaurant": "User has no associated restaurant."})
+
+        # бизнесу запрещаем менять ресторан категории
+        serializer.save(restaurant=user.restaurant)
 
 
+# =====================
+# Dishes CRUD
+# =====================
 class DishViewSet(viewsets.ModelViewSet):
     """
     CRUD для блюд меню.
-    Пользователь может работать только со своим рестораном.
+    Business user работает только со своим рестораном.
+    Superuser может со всеми, но restaurant обязателен при создании.
     """
 
     serializer_class = DishSerializer
@@ -238,37 +235,76 @@ class DishViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             return Dish.objects.all()
 
-        if not getattr(user, "restaurant", None):
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
             return Dish.objects.none()
 
-        return Dish.objects.filter(restaurant=user.restaurant)
+        return Dish.objects.filter(restaurant=restaurant)
 
     def perform_create(self, serializer):
         user = self.request.user
+
         if user.is_superuser:
             restaurant = serializer.validated_data.get("restaurant")
             if restaurant is None:
-                raise ValidationError({"restaurant": "This field is required."})
+                raise serializers.ValidationError({"restaurant": "This field is required."})
             serializer.save(restaurant=restaurant)
-        else:
-            if not getattr(user, "restaurant", None):
-                raise ValidationError({"restaurant": "User has no associated restaurant."})
-            serializer.save(restaurant=user.restaurant)
+            return
+
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
+            raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
+
+        # ВАЖНО: категория должна принадлежать этому же ресторану
+        category = serializer.validated_data.get("category")
+        if category and category.restaurant_id != restaurant.id:
+            raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
+
+        serializer.save(restaurant=restaurant)
 
     def perform_update(self, serializer):
         user = self.request.user
+
         if user.is_superuser:
             serializer.save()
-        else:
-            if not getattr(user, "restaurant", None):
-                raise ValidationError({"restaurant": "User has no associated restaurant."})
-            serializer.save(restaurant=user.restaurant)
+            return
+
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
+            raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
+
+        instance = self.get_object()
+        if instance.restaurant_id != restaurant.id:
+            raise serializers.ValidationError({"detail": "You cannot modify this dish."})
+
+        category = serializer.validated_data.get("category")
+        if category and category.restaurant_id != restaurant.id:
+            raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
+
+        serializer.save(restaurant=restaurant)
+
+    def perform_destroy(self, instance):
+        user = self.request.user
+
+        if user.is_superuser:
+            instance.delete()
+            return
+
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
+            raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
+
+        if instance.restaurant_id != restaurant.id:
+            raise serializers.ValidationError({"detail": "You cannot delete this dish."})
+
+        instance.delete()
 
 
+# =====================
+# Payment History (read-only)
+# =====================
 class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """
-    История платежей только для текущего ресторана.
-    """
+    """История платежей только для текущего ресторана."""
 
     serializer_class = PaymentHistorySerializer
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
@@ -276,19 +312,24 @@ class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = PaymentHistory.objects.all().order_by("-paid_at")
+
         if user.is_superuser:
             return qs
 
-        if not getattr(user, "restaurant", None):
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
             return PaymentHistory.objects.none()
 
-        return qs.filter(restaurant=user.restaurant)
+        return qs.filter(restaurant=restaurant)
 
 
+# =====================
+# Menu
+# =====================
 class MenuView(APIView):
     """
     GET /api/menu/
-    Возвращает все категории и блюда ресторана текущего пользователя.
+    Возвращает категории и блюда ресторана текущего пользователя.
     """
 
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
@@ -302,7 +343,7 @@ class MenuView(APIView):
             except Restaurant.DoesNotExist:
                 return Response({"detail": "Restaurant not found."}, status=status.HTTP_404_NOT_FOUND)
         else:
-            restaurant = getattr(user, "restaurant", None)
+            restaurant = _get_user_restaurant(user)
             if restaurant is None:
                 return Response(
                     {"detail": "User has no associated restaurant."},
@@ -314,10 +355,12 @@ class MenuView(APIView):
         return Response(serializer.data)
 
 
+# =====================
+# Subscription
+# =====================
 class SubscriptionView(APIView):
     """
     GET /api/subscription/
-    Возвращает информацию о подписке текущего ресторана.
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -331,15 +374,13 @@ class SubscriptionView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        restaurant = getattr(user, "restaurant", None)
+        restaurant = _get_user_restaurant(user)
         if restaurant is None:
             return Response(
                 {"error": "User has no associated restaurant."},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # ⚠️ ОСТАВИЛ как у тебя, но у тебя подписка в модели Restaurant (paid_until/plan)
-        # поэтому лучше будет обновить этот эндпоинт позже.
         subscription = getattr(restaurant, "subscription", None)
         if not subscription:
             return Response({"error": "Подписка не оформлена."}, status=status.HTTP_404_NOT_FOUND)
