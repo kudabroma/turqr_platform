@@ -1,6 +1,9 @@
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.db import transaction
+from django.utils import timezone
+
 from rest_framework import permissions, serializers, status, viewsets
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
@@ -16,8 +19,8 @@ from .serializers import (
     RestaurantMeSerializer,
     RestaurantUpdateSerializer,
 )
-
 from .permissions import HasActiveSubscriptionOrReadOnly
+from .services.unsorted import get_unsorted_category  # ✅ NEW
 
 User = get_user_model()
 
@@ -195,7 +198,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         user = self.request.user
         if user.is_superuser:
-            # restaurant придёт из запроса и провалидируется CategorySuperuserSerializer
             serializer.save()
             return
 
@@ -205,6 +207,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
         serializer.save(restaurant=user.restaurant)
 
     def perform_update(self, serializer):
+        # ✅ запрет редактировать системные категории (Unsorted)
+        category = self.get_object()
+        if category.is_system:
+            raise ValidationError({"detail": "System category cannot be modified."})
+
         user = self.request.user
         if user.is_superuser:
             serializer.save()
@@ -213,8 +220,31 @@ class CategoryViewSet(viewsets.ModelViewSet):
         if not getattr(user, "restaurant", None):
             raise ValidationError({"restaurant": "User has no associated restaurant."})
 
-        # бизнесу запрещаем менять ресторан категории
         serializer.save(restaurant=user.restaurant)
+
+    def destroy(self, request, *args, **kwargs):
+        """
+        DELETE category:
+        - system category нельзя удалять
+        - блюда переносим в Unsorted + ставим moved_to_unsorted_at
+        - категорию удаляем
+        """
+        category = self.get_object()
+
+        if category.is_system:
+            raise ValidationError({"detail": "System category cannot be deleted."})
+
+        restaurant = category.restaurant
+        unsorted = get_unsorted_category(restaurant)
+        now = timezone.now()
+
+        Dish.objects.filter(category=category).update(
+            category=unsorted,
+            moved_to_unsorted_at=now,
+        )
+
+        category.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # =====================
@@ -255,7 +285,6 @@ class DishViewSet(viewsets.ModelViewSet):
         if not restaurant:
             raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
 
-        # ВАЖНО: категория должна принадлежать этому же ресторану
         category = serializer.validated_data.get("category")
         if category and category.restaurant_id != restaurant.id:
             raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
@@ -324,7 +353,7 @@ class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # =====================
-# Menu
+# Menu (Admin)
 # =====================
 class MenuView(APIView):
     """

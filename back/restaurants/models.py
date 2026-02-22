@@ -73,16 +73,11 @@ class Category(models.Model):
         verbose_name="Ресторан",
     )
 
+    # ✅ NEW: system flag (Unsorted etc.)
+    is_system = models.BooleanField(default=False, verbose_name="Системная категория")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self) -> str:
-        return f"{self.name} ({self.restaurant})"
-
-    class Meta:
-        verbose_name = "Категория меню"
-        verbose_name_plural = "Категории меню"
-        unique_together = ("name", "restaurant")
 
 
 class Dish(models.Model):
@@ -92,7 +87,7 @@ class Dish(models.Model):
 
     category = models.ForeignKey(
         Category,
-        on_delete=models.CASCADE,
+        on_delete=models.PROTECT,
         related_name="dishes",
         verbose_name="Категория",
     )
@@ -103,15 +98,12 @@ class Dish(models.Model):
         verbose_name="Ресторан",
     )
 
+    # ✅ NEW: lifecycle fields
+    moved_to_unsorted_at = models.DateTimeField(null=True, blank=True, verbose_name="Перемещено в Unsorted")
+    archived_at = models.DateTimeField(null=True, blank=True, verbose_name="В архиве с")
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-
-    def __str__(self) -> str:
-        return f"{self.name} ({self.restaurant})"
-
-    class Meta:
-        verbose_name = "Блюдо"
-        verbose_name_plural = "Блюда"
 
 
 class Subscription(models.Model):

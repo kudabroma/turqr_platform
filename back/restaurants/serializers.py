@@ -24,7 +24,6 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
         sub = getattr(obj, "subscription", None)
         if not sub:
             return False
-        # на всякий случай: если метода is_active нет, проверяем status
         if hasattr(sub, "is_active") and callable(getattr(sub, "is_active")):
             return bool(sub.is_active())
         return getattr(sub, "status", "") in ("active", "trial")
@@ -37,7 +36,6 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
         sub = getattr(obj, "subscription", None)
         if not sub or not getattr(sub, "expires_at", None):
             return None
-        # возвращаем YYYY-MM-DD
         return sub.expires_at.date().isoformat()
 
     class Meta:
@@ -104,7 +102,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 # =========================
-# Categories
+# Categories (Admin)
 # =========================
 class CategorySerializer(serializers.ModelSerializer):
     """
@@ -114,8 +112,8 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "restaurant"]
-        read_only_fields = ["id", "restaurant"]
+        fields = ["id", "name", "restaurant", "is_system"]
+        read_only_fields = ["id", "restaurant", "is_system"]
 
 
 class CategorySuperuserSerializer(serializers.ModelSerializer):
@@ -126,24 +124,35 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "restaurant"]
-        read_only_fields = ["id"]
+        fields = ["id", "name", "restaurant", "is_system"]
+        # is_system делаем read-only: системные категории создаём/контролим сервером
+        read_only_fields = ["id", "is_system"]
 
 
 # =========================
-# Dishes
+# Dishes (Admin)
 # =========================
 class DishSerializer(serializers.ModelSerializer):
     """
     Для business user: restaurant read-only (бек подставит).
-    Superuser-сериализатор сделаем отдельно, чтобы не было 'restaurant required' как с категориями.
+    Также отдаём lifecycle поля read-only (для UI/фильтрации), но не даём менять напрямую.
     """
     restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Dish
-        fields = ["id", "name", "description", "price", "category", "restaurant"]
-        read_only_fields = ["id", "restaurant"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "price",
+            "category",
+            "restaurant",
+            # lifecycle:
+            "moved_to_unsorted_at",
+            "archived_at",
+        ]
+        read_only_fields = ["id", "restaurant", "moved_to_unsorted_at", "archived_at"]
 
 
 class DishSuperuserSerializer(serializers.ModelSerializer):
@@ -151,14 +160,27 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dish
-        fields = ["id", "name", "description", "price", "category", "restaurant"]
-        read_only_fields = ["id"]
+        fields = [
+            "id",
+            "name",
+            "description",
+            "price",
+            "category",
+            "restaurant",
+            # lifecycle:
+            "moved_to_unsorted_at",
+            "archived_at",
+        ]
+        read_only_fields = ["id", "moved_to_unsorted_at", "archived_at"]
 
 
+# =========================
+# Public Menu (Tourists)
+# =========================
 class DishReadSerializer(serializers.ModelSerializer):
     """
     Read-only вариант блюда без лишних технических полей.
-    Используется в выдаче меню.
+    Используется в выдаче меню (туристы).
     """
 
     class Meta:

@@ -149,4 +149,4 @@ class PublicMenuBySubdomainView(APIView):
                 "restaurant": PublicRestaurantSerializer(restaurant).data,
                 "categories": PublicCategorySerializer(categories, many=True).data,
             }
-        )
+        )   
