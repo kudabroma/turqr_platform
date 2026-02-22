@@ -20,7 +20,7 @@ from .serializers import (
     RestaurantUpdateSerializer,
 )
 from .permissions import HasActiveSubscriptionOrReadOnly
-from .services.unsorted import get_unsorted_category  # ✅ NEW
+from .services.unsorted import get_unsorted_category
 
 User = get_user_model()
 
@@ -81,7 +81,6 @@ class RestaurantMeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        # Возвращаем формат как GET
         return Response(RestaurantMeSerializer(restaurant).data)
 
 
@@ -114,6 +113,10 @@ class RegistrationView(APIView):
             restaurant = Restaurant.objects.create(
                 name=serializer.validated_data["restaurant_name"]
             )
+
+            # ✅ ensure Unsorted exists for the new restaurant
+            get_unsorted_category(restaurant)
+
             user = User(
                 username=serializer.validated_data["username"],
                 restaurant=restaurant,
@@ -207,8 +210,9 @@ class CategoryViewSet(viewsets.ModelViewSet):
         serializer.save(restaurant=user.restaurant)
 
     def perform_update(self, serializer):
-        # ✅ запрет редактировать системные категории (Unsorted)
         category = self.get_object()
+
+        # 🚫 system category нельзя менять (чтобы Unsorted не переименовали)
         if category.is_system:
             raise ValidationError({"detail": "System category cannot be modified."})
 
@@ -217,10 +221,12 @@ class CategoryViewSet(viewsets.ModelViewSet):
             serializer.save()
             return
 
-        if not getattr(user, "restaurant", None):
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
             raise ValidationError({"restaurant": "User has no associated restaurant."})
 
-        serializer.save(restaurant=user.restaurant)
+        # бизнесу запрещаем менять ресторан категории
+        serializer.save(restaurant=restaurant)
 
     def destroy(self, request, *args, **kwargs):
         """
@@ -234,8 +240,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         if category.is_system:
             raise ValidationError({"detail": "System category cannot be deleted."})
 
-        restaurant = category.restaurant
-        unsorted = get_unsorted_category(restaurant)
+        unsorted = get_unsorted_category(category.restaurant)
         now = timezone.now()
 
         Dish.objects.filter(category=category).update(
@@ -293,24 +298,42 @@ class DishViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         user = self.request.user
+        instance = self.get_object()
 
+        # --- superuser ---
         if user.is_superuser:
-            serializer.save()
+            saved = serializer.save()
+
+            new_category = serializer.validated_data.get("category")
+            if new_category:
+                if new_category.is_system:
+                    if saved.moved_to_unsorted_at is None:
+                        Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
+                else:
+                    Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
             return
 
+        # --- business user ---
         restaurant = _get_user_restaurant(user)
         if not restaurant:
             raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
 
-        instance = self.get_object()
         if instance.restaurant_id != restaurant.id:
             raise serializers.ValidationError({"detail": "You cannot modify this dish."})
 
-        category = serializer.validated_data.get("category")
-        if category and category.restaurant_id != restaurant.id:
+        new_category = serializer.validated_data.get("category")
+        if new_category and new_category.restaurant_id != restaurant.id:
             raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
 
-        serializer.save(restaurant=restaurant)
+        saved = serializer.save(restaurant=restaurant)
+
+        # ✅ lifecycle after save
+        if new_category:
+            if new_category.is_system:
+                if saved.moved_to_unsorted_at is None:
+                    Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
+            else:
+                Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
 
     def perform_destroy(self, instance):
         user = self.request.user

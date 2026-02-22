@@ -1,13 +1,14 @@
 from __future__ import annotations
 
 from django.conf import settings
+from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
 
-from .models import Restaurant, Category
+from .models import Restaurant, Category, Dish
 from .serializers_public import PublicRestaurantSerializer, PublicCategorySerializer
 
 
@@ -36,7 +37,6 @@ def restaurant_is_active(restaurant: Restaurant) -> tuple[bool, str | None]:
     try:
         active = bool(sub.is_active())
     except Exception:
-        # на всякий случай, если is_active() вдруг отсутствует/ломается
         active = False
 
     if active:
@@ -67,10 +67,28 @@ def get_public_restaurant_or_404(request, slug_from_url: str | None):
 
     ok, _reason = restaurant_is_active(restaurant)
     if not ok:
-        # Для туриста не показываем причину — просто "не существует"
         raise Http404("Restaurant not found")
 
     return restaurant
+
+
+def get_public_categories_queryset(restaurant: Restaurant):
+    """
+    Публичная выдача категорий:
+    - скрываем системные категории (Unsorted)
+    - скрываем архивные блюда
+    """
+    visible_dishes_qs = Dish.objects.filter(
+        restaurant=restaurant,
+        archived_at__isnull=True,
+        category__is_system=False,
+    ).order_by("id")
+
+    return (
+        Category.objects.filter(restaurant=restaurant, is_system=False)
+        .order_by("id")
+        .prefetch_related(Prefetch("dishes", queryset=visible_dishes_qs))
+    )
 
 
 class PublicRestaurantView(APIView):
@@ -78,7 +96,7 @@ class PublicRestaurantView(APIView):
 
     def get(self, request, slug: str):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
-        categories = Category.objects.filter(restaurant=restaurant).order_by("id")
+        categories = get_public_categories_queryset(restaurant)
 
         return Response(
             {
@@ -94,7 +112,7 @@ class PublicMenuView(APIView):
 
     def get(self, request, slug: str):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
-        categories = Category.objects.filter(restaurant=restaurant).order_by("id")
+        categories = get_public_categories_queryset(restaurant)
 
         return Response(
             {
@@ -116,7 +134,7 @@ class PublicRestaurantStatusView(APIView):
         restaurant = (
             Restaurant.objects.select_related("subscription")
             .filter(slug=slug_effective)
-            .only("id", "slug")  # поля подписки подтянутся через select_related
+            .only("id", "slug")
             .first()
         )
 
@@ -141,7 +159,7 @@ class PublicMenuBySubdomainView(APIView):
 
     def get(self, request):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
-        categories = Category.objects.filter(restaurant=restaurant).order_by("id")
+        categories = get_public_categories_queryset(restaurant)
 
         return Response(
             {
@@ -149,4 +167,4 @@ class PublicMenuBySubdomainView(APIView):
                 "restaurant": PublicRestaurantSerializer(restaurant).data,
                 "categories": PublicCategorySerializer(categories, many=True).data,
             }
-        )   
+        )
