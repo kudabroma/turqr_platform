@@ -1,37 +1,76 @@
-from rest_framework.views import APIView
-from rest_framework.response import Response
-from rest_framework import status, permissions
+from __future__ import annotations
+
+from django.conf import settings
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import permissions
 
 from .models import Restaurant, Category
 from .serializers_public import PublicRestaurantSerializer, PublicCategorySerializer
 
-def get_public_restaurant_or_404(request, slug_from_url: str | None):
-     """
-     Возвращает ресторан для публичного доступа:
-     1) сначала пытаемся взять slug из subdomain middleware: request.restaurant_slug
-     2) если его нет — используем slug из URL (fallback)
-     3) restaurant.active=False -> 404 (для туриста "не существует")
-     """
-     slug = getattr(request, "restaurant_slug", None) or slug_from_url
 
+# ✅ В DEV можно разрешать публичный доступ даже без активной подписки
+# (чтобы ты мог тестить меню локально).
+ALLOW_PUBLIC_IN_DEBUG = True
 
-     if not slug:
-         # Нет slug ни в субдомене, ни в URL — публичный запрос невалиден
-         raise Http404("Restaurant not found")
-
-     # Важно: active=True прямо в запросе, чтобы inactive выглядел как "не существует"
-     return get_object_or_404(Restaurant, slug=slug, active=True)
 
 def restaurant_is_active(restaurant: Restaurant) -> tuple[bool, str | None]:
     """
-    Сейчас: активность берём из поля restaurant.active.
-    Потом сюда же добавишь проверку подписки.
-    """
-    active = bool(getattr(restaurant, "active", True))
-    return active, (None if active else "inactive")
+    Единая точка правды: активность ресторана через подписку.
 
+    Возвращает:
+      (True, None) если ресторан можно показывать публично
+      (False, reason) если нельзя (например: "inactive")
+    """
+    sub = getattr(restaurant, "subscription", None)
+
+    # Нет подписки
+    if not sub:
+        if settings.DEBUG and ALLOW_PUBLIC_IN_DEBUG:
+            return True, None
+        return False, "no_subscription"
+
+    # Есть подписка, проверяем активность
+    try:
+        active = bool(sub.is_active())
+    except Exception:
+        # на всякий случай, если is_active() вдруг отсутствует/ломается
+        active = False
+
+    if active:
+        return True, None
+
+    if settings.DEBUG and ALLOW_PUBLIC_IN_DEBUG:
+        return True, None
+
+    return False, "inactive"
+
+
+def get_public_restaurant_or_404(request, slug_from_url: str | None):
+    """
+    Возвращает ресторан для публичного доступа:
+    1) сначала пытаемся взять slug из subdomain middleware: request.restaurant_slug
+    2) если его нет — используем slug из URL (fallback)
+    3) если ресторан не активен по подписке -> 404 (для туриста "не существует")
+    """
+    slug = getattr(request, "restaurant_slug", None) or slug_from_url
+
+    if not slug:
+        raise Http404("Restaurant not found")
+
+    restaurant = get_object_or_404(
+        Restaurant.objects.select_related("subscription"),
+        slug=slug,
+    )
+
+    ok, _reason = restaurant_is_active(restaurant)
+    if not ok:
+        # Для туриста не показываем причину — просто "не существует"
+        raise Http404("Restaurant not found")
+
+    return restaurant
 
 
 class PublicRestaurantView(APIView):
@@ -41,11 +80,14 @@ class PublicRestaurantView(APIView):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = Category.objects.filter(restaurant=restaurant).order_by("id")
 
-        return Response({
-            "active": True,
-            "restaurant": PublicRestaurantSerializer(restaurant).data,
-            "categories": PublicCategorySerializer(categories, many=True).data,
-        })
+        return Response(
+            {
+                "active": True,
+                "restaurant": PublicRestaurantSerializer(restaurant).data,
+                "categories": PublicCategorySerializer(categories, many=True).data,
+            }
+        )
+
 
 class PublicMenuView(APIView):
     permission_classes = [permissions.AllowAny]
@@ -54,26 +96,37 @@ class PublicMenuView(APIView):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = Category.objects.filter(restaurant=restaurant).order_by("id")
 
-        return Response({
-            "active": True,
-            "restaurant": PublicRestaurantSerializer(restaurant).data,
-            "categories": PublicCategorySerializer(categories, many=True).data,
-        })
+        return Response(
+            {
+                "active": True,
+                "restaurant": PublicRestaurantSerializer(restaurant).data,
+                "categories": PublicCategorySerializer(categories, many=True).data,
+            }
+        )
 
 
-# views_public.py
 class PublicRestaurantStatusView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, slug: str):
         slug_effective = getattr(request, "restaurant_slug", None) or slug
+        if not slug_effective:
+            return Response({"exists": False, "active": False}, status=200)
 
-        restaurant = Restaurant.objects.filter(slug=slug_effective, active=True).only("active").first()
+        restaurant = (
+            Restaurant.objects.select_related("subscription")
+            .filter(slug=slug_effective)
+            .only("id", "slug")  # поля подписки подтянутся через select_related
+            .first()
+        )
+
         if not restaurant:
             return Response({"exists": False, "active": False}, status=200)
 
-        return Response({"exists": True, "active": True}, status=200)
-        
+        ok, _reason = restaurant_is_active(restaurant)
+        return Response({"exists": True, "active": bool(ok)}, status=200)
+
+
 class PublicRestaurantBySubdomainView(APIView):
     permission_classes = [permissions.AllowAny]
 
@@ -90,10 +143,10 @@ class PublicMenuBySubdomainView(APIView):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
         categories = Category.objects.filter(restaurant=restaurant).order_by("id")
 
-        return Response({
-            "active": True,
-            "restaurant": PublicRestaurantSerializer(restaurant).data,
-            "categories": PublicCategorySerializer(categories, many=True).data,
-        })
-
-
+        return Response(
+            {
+                "active": True,
+                "restaurant": PublicRestaurantSerializer(restaurant).data,
+                "categories": PublicCategorySerializer(categories, many=True).data,
+            }
+        )
