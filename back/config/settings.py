@@ -51,8 +51,8 @@ INSTALLED_APPS = [
     'rest_framework',
 
     # Local apps
-    'restaurants',
-]
+    'restaurants.apps.RestaurantsConfig',
+    ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',

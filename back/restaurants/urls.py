@@ -20,6 +20,16 @@ from .views import (
     MeView,
     RestaurantMeView,   # ✅ ВАЖНО: импорт отсюда
 )
+from .serializers import (
+    UserSerializer,
+    CategorySerializer,
+    DishSerializer,
+    CategoryWithDishesSerializer,
+    SubscriptionSerializer,
+    PaymentHistorySerializer,
+    RestaurantMeSerializer,
+    RestaurantUpdateSerializer,
+)
 
 router = DefaultRouter()
 router.register(r"categories", CategoryViewSet, basename="category")

@@ -1,6 +1,6 @@
-from django.conf import settings
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.utils import timezone
 
 
 class Restaurant(models.Model):
@@ -8,22 +8,13 @@ class Restaurant(models.Model):
     Ресторан, для которого создаётся QR-меню.
     """
 
-    PLAN_CHOICES = (
-        ("basic", "Базовый"),
-        ("menu", "Меню"),
-        ("full", "Полный"),
-    )
-
     name = models.CharField(max_length=255, verbose_name="Название ресторана")
     slug = models.SlugField(
         max_length=255,
         unique=True,
-        help_text="Используется в URL и поддомене ресторана"
+        help_text="Используется в URL и поддомене ресторана",
     )
-    contacts = models.TextField(
-        blank=True,
-        verbose_name="Контакты (телефон, email, адрес и т.д.)",
-    )
+    contacts = models.TextField(blank=True, verbose_name="Контакты")
     phone = models.CharField(max_length=50, blank=True, default="", verbose_name="Телефон")
     email = models.EmailField(blank=True, default="", verbose_name="Email")
     address = models.TextField(blank=True, default="", verbose_name="Адрес")
@@ -37,21 +28,7 @@ class Restaurant(models.Model):
     front_template = models.CharField(
         max_length=255,
         blank=True,
-        verbose_name="Шаблон фронтенда (тема для QR-меню)",
-    )
-
-    # Subscription fields moved directly to Restaurant
-    active = models.BooleanField(default=True, verbose_name="Активен")
-    plan = models.CharField(
-        max_length=32,
-        choices=PLAN_CHOICES,
-        default="basic",
-        verbose_name="Тарифный план"
-    )
-    paid_until = models.DateField(
-        null=True,
-        blank=True,
-        verbose_name="Оплачено до"
+        verbose_name="Шаблон фронтенда",
     )
 
     created_at = models.DateTimeField(auto_now_add=True)
@@ -67,20 +44,16 @@ class Restaurant(models.Model):
 
 class User(AbstractUser):
     """
-    Классический пользователь с логином и паролем.
-
-    Используем стандартную модель AbstractUser, где:
-    - username = логин
-    - password хранится в хэшированном виде (Django сам хэширует пароль)
+    Пользователь системы.
     """
 
     restaurant = models.ForeignKey(
         Restaurant,
         on_delete=models.CASCADE,
         related_name="users",
-        verbose_name="Ресторан",
         null=True,
         blank=True,
+        verbose_name="Ресторан",
     )
 
     def __str__(self) -> str:
@@ -92,10 +65,6 @@ class User(AbstractUser):
 
 
 class Category(models.Model):
-    """
-    Категория меню (Напитки, Десерты и т.п.).
-    """
-
     name = models.CharField(max_length=255, verbose_name="Название категории")
     restaurant = models.ForeignKey(
         Restaurant,
@@ -117,17 +86,10 @@ class Category(models.Model):
 
 
 class Dish(models.Model):
-    """
-    Блюдо в меню ресторана.
-    """
-
     name = models.CharField(max_length=255, verbose_name="Название блюда")
     description = models.TextField(blank=True, verbose_name="Описание")
-    price = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        verbose_name="Цена",
-    )
+    price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+
     category = models.ForeignKey(
         Category,
         on_delete=models.CASCADE,
@@ -154,19 +116,15 @@ class Dish(models.Model):
 
 class Subscription(models.Model):
     """
-    Подписка ресторана на SaaS-сервис.
-
-    Requirements:
-    - One-to-one with Restaurant
-    - status: active / inactive / trial
-    - started_at (datetime)
-    - expires_at (datetime, nullable)
+    Подписка ресторана.
     """
 
     STATUS_CHOICES = (
-        ("active", "Активна"),
         ("inactive", "Неактивна"),
         ("trial", "Триал"),
+        ("active", "Активна"),
+        ("past_due", "Просрочена"),
+        ("canceled", "Отменена"),
     )
 
     restaurant = models.OneToOneField(
@@ -175,22 +133,38 @@ class Subscription(models.Model):
         related_name="subscription",
         verbose_name="Ресторан",
     )
-    # Keep tariff free-form (no strict choices) to remain backwards-compatible with existing fixtures/tests
+
     tariff = models.CharField(max_length=64, blank=True, default="", verbose_name="Тариф")
+
     status = models.CharField(
         max_length=32,
         choices=STATUS_CHOICES,
         default="inactive",
         verbose_name="Статус",
     )
-    started_at = models.DateTimeField(auto_now_add=True, verbose_name="Дата и время начала")
-    expires_at = models.DateTimeField(null=True, blank=True, verbose_name="Дата и время истечения")
+
+    started_at = models.DateTimeField(auto_now_add=True, verbose_name="Начало подписки")
+    expires_at = models.DateTimeField(null=True, blank=True, verbose_name="Истекает")
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def is_active(self):
+        now = timezone.now()
+
+        if self.status == "active":
+            if self.expires_at and self.expires_at < now:
+                return False
+            return True
+
+        if self.status == "trial":
+            if self.expires_at and self.expires_at > now:
+                return True
+
+        return False
+
     def __str__(self) -> str:
-        return f"Подписка {self.restaurant} ({self.tariff}, {self.status})"
+        return f"{self.restaurant} ({self.status})"
 
     class Meta:
         verbose_name = "Подписка"
@@ -198,10 +172,6 @@ class Subscription(models.Model):
 
 
 class PaymentHistory(models.Model):
-    """
-    История платежей ресторана.
-    """
-
     STATUS_CHOICES = (
         ("pending", "В ожидании"),
         ("success", "Успешно"),
@@ -222,19 +192,17 @@ class PaymentHistory(models.Model):
         related_name="payments",
         verbose_name="Ресторан",
     )
-    amount = models.DecimalField(
-        max_digits=10,
-        decimal_places=2,
-        verbose_name="Сумма",
-    )
-    paid_at = models.DateTimeField(
-        verbose_name="Дата и время платежа",
-    )
+
+    amount = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Сумма")
+
+    paid_at = models.DateTimeField(verbose_name="Дата платежа")
+
     payment_method = models.CharField(
         max_length=32,
         choices=PAYMENT_METHOD_CHOICES,
         verbose_name="Способ оплаты",
     )
+
     status = models.CharField(
         max_length=32,
         choices=STATUS_CHOICES,

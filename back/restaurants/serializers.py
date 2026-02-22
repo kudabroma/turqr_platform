@@ -3,23 +3,73 @@ from rest_framework import serializers
 
 from .models import Restaurant, Category, Dish, Subscription, PaymentHistory
 
-
 User = get_user_model()
 
 
 class RestaurantMeSerializer(serializers.ModelSerializer):
+    """
+    Ответ для /api/restaurants/me/
+    Держим backward compatibility для фронта:
+    active/plan/paid_until возвращаем, но они вычисляются из Subscription.
+    """
+
+    active = serializers.SerializerMethodField()
+    plan = serializers.SerializerMethodField()
+    paid_until = serializers.SerializerMethodField()
+
+    def get_active(self, obj: Restaurant) -> bool:
+        sub = getattr(obj, "subscription", None)
+        return bool(sub and sub.is_active())
+
+    def get_plan(self, obj: Restaurant) -> str:
+        sub = getattr(obj, "subscription", None)
+        return (getattr(sub, "tariff", "") or "basic") if sub else "basic"
+
+    def get_paid_until(self, obj: Restaurant):
+        sub = getattr(obj, "subscription", None)
+        if not sub or not sub.expires_at:
+            return None
+        # раньше было DateField, возвращаем YYYY-MM-DD
+        return sub.expires_at.date().isoformat()
+
     class Meta:
         model = Restaurant
         fields = [
             "id",
             "name",
-            "description",
-            "address",
-            "hours",
+            "slug",
+            "contacts",
             "phone",
             "email",
-            "is_open",
+            "address",
+            "logo",
+            "front_template",
+            # compat:
+            "active",
+            "plan",
+            "paid_until",
         ]
+
+
+class RestaurantUpdateSerializer(serializers.ModelSerializer):
+    """
+    PATCH /api/restaurants/me/
+    Только реальные поля Restaurant (без computed полей).
+    """
+
+    class Meta:
+        model = Restaurant
+        fields = [
+            "name",
+            "slug",
+            "contacts",
+            "phone",
+            "email",
+            "address",
+            "logo",
+            "front_template",
+        ]
+
 
 class UserSerializer(serializers.ModelSerializer):
     """
@@ -47,7 +97,6 @@ class DishSerializer(serializers.ModelSerializer):
         model = Dish
         fields = ["id", "name", "description", "price", "category", "restaurant"]
         read_only_fields = ["id"]
-        # restaurant is writable for superusers, read-only enforced in view logic
 
 
 class CategorySerializer(serializers.ModelSerializer):
@@ -55,7 +104,6 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ["id", "name", "restaurant"]
         read_only_fields = ["id"]
-        # restaurant is writable for superusers, read-only enforced in view logic
 
 
 class DishReadSerializer(serializers.ModelSerializer):

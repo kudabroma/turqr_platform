@@ -1,41 +1,32 @@
 # permissions.py
 from rest_framework import permissions
+from rest_framework.permissions import BasePermission, SAFE_METHODS
 
 
-class HasActiveSubscriptionOrReadOnly(permissions.BasePermission):
-    """
-    READ (SAFE METHODS) allowed for authenticated business users (with restaurant),
-    even if subscription is missing/inactive — useful for onboarding/dev.
-
-    WRITE (POST/PUT/PATCH/DELETE) allowed only if subscription status is active or trial.
-    Superusers bypass all checks.
-    """
-
+class HasActiveSubscriptionOrReadOnly(BasePermission):
     message = "Subscription is required for this action."
 
     def has_permission(self, request, view):
         user = request.user
 
-        if not getattr(user, "is_authenticated", False):
+        if not user or not user.is_authenticated:
             return False
 
-        if getattr(user, "is_superuser", False):
+        if user.is_superuser:
+            return True
+
+        if request.method in SAFE_METHODS:
             return True
 
         restaurant = getattr(user, "restaurant", None)
         if not restaurant:
-            return False  # нет ресторана — значит это не business user
+            return False
 
-        # ✅ чтение разрешаем, даже без подписки
-        if request.method in permissions.SAFE_METHODS:
-            return True
-
-        # ❗️запись — только при активной/триал подписке
         subscription = getattr(restaurant, "subscription", None)
         if not subscription:
             return False
 
-        return getattr(subscription, "status", None) in ("active", "trial")
+        return subscription.is_active()
 
 
 # Если хочешь оставить старую строгую проверку (вдруг используется где-то ещё)

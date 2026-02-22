@@ -13,6 +13,8 @@ from .serializers import (
     CategoryWithDishesSerializer,
     SubscriptionSerializer,
     PaymentHistorySerializer,
+    RestaurantMeSerializer,
+    RestaurantUpdateSerializer,
 )
 
 # ✅ ВАЖНО: используем новый permission
@@ -24,32 +26,11 @@ User = get_user_model()
 # =====================
 # Restaurant: /api/restaurants/me/ (GET + PATCH)
 # =====================
-class RestaurantMeSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Restaurant
-        fields = [
-            "id",
-            "name",
-            "slug",
-            "contacts",
-            "phone",
-            "email",
-            "address",
-            "logo",
-            "front_template",
-            "active",
-            "plan",
-            "paid_until",
-        ]
-
 
 class RestaurantMeView(APIView):
     """
     GET /api/restaurants/me/
     PATCH /api/restaurants/me/
-
-    Возвращает/обновляет ресторан текущего бизнес-пользователя.
-    Superuser сюда не ходит (ему нужен другой экран/логика).
     """
 
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
@@ -88,10 +69,12 @@ class RestaurantMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        serializer = RestaurantMeSerializer(restaurant, data=request.data, partial=True)
+        serializer = RestaurantUpdateSerializer(restaurant, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
-        return Response(serializer.data)
+
+        # Возвращаем формат как GET (чтобы фронт получил compat поля)
+        return Response(RestaurantMeSerializer(restaurant).data)
 
 
 class RegistrationView(APIView):

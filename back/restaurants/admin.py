@@ -28,11 +28,11 @@ class RestaurantAdmin(admin.ModelAdmin):
     Visible only to superusers (platform owners).
     """
 
-    list_display = ("id", "name", "active", "plan", "paid_until", "contacts", "front_template", "created_at")
-    list_editable = ("active", "plan", "paid_until")
+    list_display = ("id", "name", "slug", "contacts", "front_template", "created_at")
     list_display_links = ("id", "name")
-    search_fields = ("name",)
-    list_filter = ("active", "plan", "created_at")
+    search_fields = ("name", "slug")
+    list_filter = ("created_at",)
+    readonly_fields = ("created_at", "updated_at")
 
     def has_module_permission(self, request):
         return request.user.is_superuser
@@ -53,7 +53,8 @@ class RestaurantAdmin(admin.ModelAdmin):
 @admin.register(User)
 class UserAdmin(DjangoUserAdmin):
     """
-    Users management visible only to superusers. Business owners should not manage users in admin.
+    Users management visible only to superusers.
+    Business owners should not manage users in admin.
     """
 
     fieldsets = DjangoUserAdmin.fieldsets + ((_("Restaurant"), {"fields": ("restaurant",)}),)
@@ -68,6 +69,7 @@ class UserAdmin(DjangoUserAdmin):
         # Ensure restaurant is saved when creating user via admin
         if not change:
             obj.is_staff = True
+
             # If admin add form provided a password field, ensure it's hashed
             pwd = None
             try:
@@ -76,6 +78,7 @@ class UserAdmin(DjangoUserAdmin):
                 pwd = None
             if pwd:
                 obj.set_password(pwd)
+
             # Assign restaurant for business users just in case
             if _is_business_user(request):
                 obj.restaurant = request.user.restaurant
@@ -193,36 +196,40 @@ class DishAdmin(admin.ModelAdmin):
         return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
 
-# @admin.register(Subscription)  # Removed for simplified MVP subscription management
-# class SubscriptionAdmin(admin.ModelAdmin):
-#     """
-#     Subscriptions visible only to superusers (platform owners).
-#     """
-#
-#     list_display = (
-#         "id",
-#         "restaurant",
-#         "tariff",
-#         "status",
-#         "started_at",
-#         "expires_at",
-#     )
-#     list_filter = ("status", "tariff")
-#
-#     def has_module_permission(self, request):
-#         return request.user.is_superuser
-#
-#     def has_view_permission(self, request, obj=None):
-#         return request.user.is_superuser
-#
-#     def has_add_permission(self, request):
-#         return request.user.is_superuser
-#
-#     def has_change_permission(self, request, obj=None):
-#         return request.user.is_superuser
-#
-#     def has_delete_permission(self, request, obj=None):
-#         return request.user.is_superuser
+@admin.register(Subscription)
+class SubscriptionAdmin(admin.ModelAdmin):
+    """
+    Subscriptions visible only to superusers (platform owners).
+    Управление подпиской ресторана делаем здесь (status/tariff/expires_at).
+    """
+
+    list_display = (
+        "id",
+        "restaurant",
+        "tariff",
+        "status",
+        "started_at",
+        "expires_at",
+        "updated_at",
+    )
+    list_filter = ("status", "tariff")
+    search_fields = ("restaurant__name", "restaurant__slug")
+    autocomplete_fields = ("restaurant",)
+
+    def has_module_permission(self, request):
+        return request.user.is_superuser
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 
 @admin.register(PaymentHistory)
