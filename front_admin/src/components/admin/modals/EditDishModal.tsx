@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Upload } from "lucide-react";
 import {
   Dialog,
@@ -13,7 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export interface DishData {
-  id: number;
+  id?: number; // теперь id может быть undefined для нового блюда
   name: string;
   description: string;
   price: number;
@@ -21,6 +21,9 @@ export interface DishData {
   vegan: boolean;
   spicy: boolean;
   featured: boolean;
+    // ✅ UI-only
+  _categoryId?: number;
+  _categoryName?: string;
 }
 
 interface EditDishModalProps {
@@ -32,7 +35,6 @@ interface EditDishModalProps {
 }
 
 const emptyDish: DishData = {
-  id: 0,
   name: "",
   description: "",
   price: 0,
@@ -42,16 +44,42 @@ const emptyDish: DishData = {
   featured: false,
 };
 
-export function EditDishModal({ open, onOpenChange, dish, onSave, onDelete }: EditDishModalProps) {
-  const [form, setForm] = useState<DishData>(dish ?? emptyDish);
+export function EditDishModal({
+  open,
+  onOpenChange,
+  dish,
+  onSave,
+  onDelete,
+}: EditDishModalProps) {
+  const [form, setForm] = useState<DishData>(emptyDish);
 
   const isNew = !dish;
 
+  // ✅ СИНХРОНИЗАЦИЯ ФОРМЫ ПРИ ОТКРЫТИИ
+  useEffect(() => {
+    if (open) {
+      if (dish) {
+        setForm(dish);
+      } else {
+        setForm(emptyDish);
+      }
+    }
+  }, [open, dish]);
+
   const update = <K extends keyof DishData>(key: K, value: DishData[K]) =>
-    setForm((f) => ({ ...f, [key]: value }));
+    setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleSave = () => {
-    onSave({ ...form, id: form.id || Date.now() });
+    if (!form.name.trim()) return;
+
+    onSave(form);
+    onOpenChange(false);
+  };
+
+  const handleDelete = () => {
+    if (!form.id || !onDelete) return;
+
+    onDelete(form.id);
     onOpenChange(false);
   };
 
@@ -61,6 +89,7 @@ export function EditDishModal({ open, onOpenChange, dish, onSave, onDelete }: Ed
         <DialogHeader>
           <DialogTitle>{isNew ? "Add New Dish" : "Edit Dish"}</DialogTitle>
         </DialogHeader>
+
         <div className="space-y-4 mt-2">
           {/* Photo */}
           <div className="flex items-center gap-4">
@@ -72,9 +101,12 @@ export function EditDishModal({ open, onOpenChange, dish, onSave, onDelete }: Ed
               )}
             </div>
             <Button
+              type="button"
               variant="outline"
               size="sm"
-              onClick={() => update("image", `https://picsum.photos/200?random=${Date.now()}`)}
+              onClick={() =>
+                update("image", `https://picsum.photos/200?random=${Date.now()}`)
+              }
             >
               Upload Photo
             </Button>
@@ -82,8 +114,13 @@ export function EditDishModal({ open, onOpenChange, dish, onSave, onDelete }: Ed
 
           <div>
             <Label htmlFor="dish-name">Name</Label>
-            <Input id="dish-name" value={form.name} onChange={(e) => update("name", e.target.value)} />
+            <Input
+              id="dish-name"
+              value={form.name}
+              onChange={(e) => update("name", e.target.value)}
+            />
           </div>
+
           <div>
             <Label htmlFor="dish-desc">Description</Label>
             <Textarea
@@ -93,6 +130,7 @@ export function EditDishModal({ open, onOpenChange, dish, onSave, onDelete }: Ed
               rows={2}
             />
           </div>
+
           <div>
             <Label htmlFor="dish-price">Price (₺)</Label>
             <Input
@@ -103,38 +141,35 @@ export function EditDishModal({ open, onOpenChange, dish, onSave, onDelete }: Ed
             />
           </div>
 
-          {/* Checkboxes */}
-          <div className="flex flex-wrap gap-6">
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.vegan} onCheckedChange={(v) => update("vegan", !!v)} />
-              Vegan
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.spicy} onCheckedChange={(v) => update("spicy", !!v)} />
-              Spicy
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <Checkbox checked={form.featured} onCheckedChange={(v) => update("featured", !!v)} />
-              Featured
-            </label>
-          </div>
+          
+          {/* Checkboxes (disabled for now — backend fields not implemented yet) */}
+            {false && (
+              <div className="flex flex-wrap gap-6">
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={form.vegan} onCheckedChange={(v) => update("vegan", !!v)} />
+                  Vegan
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={form.spicy} onCheckedChange={(v) => update("spicy", !!v)} />
+                  Spicy
+                </label>
+                <label className="flex items-center gap-2 text-sm">
+                  <Checkbox checked={form.featured} onCheckedChange={(v) => update("featured", !!v)} />
+                  Featured
+                </label>
+              </div>
+            )}
         </div>
 
         <div className="flex items-center justify-between mt-4">
           <div>
             {!isNew && onDelete && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={() => {
-                  onDelete(form.id);
-                  onOpenChange(false);
-                }}
-              >
+              <Button variant="destructive" size="sm" onClick={handleDelete}>
                 Delete
               </Button>
             )}
           </div>
+
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => onOpenChange(false)}>
               Cancel

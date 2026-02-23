@@ -9,7 +9,7 @@ import { adaptPublicMenuToUi } from "@/api/adapters/menuAdapter";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SearchBar } from "@/components/SearchBar";
 import { CategoryTabs } from "@/components/CategoryTabs";
-import { FilterButtons } from "@/components/FilterButtons";
+// ❌ убрали FilterButtons
 import { DishCard } from "@/components/DishCard";
 import { useLanguage } from "@/context/LanguageContext";
 
@@ -21,6 +21,7 @@ type Lang = "en" | "ru" | "tr";
 type UiDish = {
   id: string;
   category: string;
+  // ✅ оставляем поля в типе (не мешают), но UI их не использует
   isVegan: boolean;
   isSpicy: boolean;
   image: string;
@@ -48,6 +49,7 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
       ? input.imageUrl
       : "";
 
+  // ✅ поля остаются на будущее, но сейчас не используются в UI
   const isVegan = Boolean(input?.isVegan ?? input?.is_vegan ?? false);
   const isSpicy = Boolean(input?.isSpicy ?? input?.is_spicy ?? false);
 
@@ -123,8 +125,7 @@ export default function MenuPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
-  const [veganFilter, setVeganFilter] = useState(false);
-  const [spicyFilter, setSpicyFilter] = useState(false);
+  // ❌ убрали veganFilter/spicyFilter state
 
   // ✅ ВСЕ useMemo идут ДО любых return
   const enhancedMenuItems: UiDish[] = useMemo(() => {
@@ -166,12 +167,10 @@ export default function MenuPage() {
         if (!name.includes(query) && !desc.includes(query)) return false;
       }
 
-      if (veganFilter && !dish.isVegan) return false;
-      if (spicyFilter && !dish.isSpicy) return false;
-
+      // ❌ убрали vegan/spicy фильтры (пока не поддерживаются)
       return true;
     });
-  }, [enhancedMenuItems, lang, activeCategory, searchQuery, veganFilter, spicyFilter]);
+  }, [enhancedMenuItems, lang, activeCategory, searchQuery]);
 
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: UiDish[] } = {};
@@ -233,14 +232,7 @@ export default function MenuPage() {
             />
           </div>
 
-          <div className="mt-3">
-            <FilterButtons
-              veganActive={veganFilter}
-              spicyActive={spicyFilter}
-              onVeganToggle={() => setVeganFilter(!veganFilter)}
-              onSpicyToggle={() => setSpicyFilter(!spicyFilter)}
-            />
-          </div>
+          {/* ❌ FilterButtons убрали */}
         </div>
       </header>
 

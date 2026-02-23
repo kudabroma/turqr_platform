@@ -11,6 +11,7 @@ import {
   restaurantApi,
   categoriesApi,
   type CategoryWithDishes,
+  dishesApi,
 } from "@/api/endpoints";
 
 export default function MenuPage() {
@@ -100,24 +101,88 @@ export default function MenuPage() {
     return [{ category: activeCategory, dishes: filteredDishes }];
   }, [activeCategory, categories, filteredDishes]);
 
-  // ---- блюда (пока без CRUD) ----
-  const handleSaveDish = (_dish: DishData) => {
-    setShowDishModal(false);
+// ---- блюда (CRUD) ----
+const handleSaveDish = async (dish: DishData) => {
+  // ✅ category обязательна на backend
+  const categoryId =
+    dish._categoryId ??
+    editingDish?._categoryId ??
+    (activeCategory
+      ? categoriesRaw.find((c) => c.name === activeCategory)?.id
+      : undefined);
+
+  if (!categoryId) {
+    alert("Choose a category first (open a category tab), then add a dish.");
+    return;
+  }
+
+  const payload = {
+    name: dish.name,
+    description: dish.description ?? "",
+    price: String(dish.price),
+    category: categoryId,
   };
 
-  const handleDeleteDish = (_id: number) => {
-    setShowDishModal(false);
-  };
+  try {
+    if (dish.id && dish.id > 0) {
+      // update
+      await dishesApi.update(dish.id, payload);
+    } else {
+      // create
+      await dishesApi.create(payload);
+    }
 
-  const openNewDish = () => {
+    await qc.invalidateQueries({ queryKey: ["menu"] });
+    setShowDishModal(false);
     setEditingDish(null);
-    setShowDishModal(true);
-  };
+  } catch (e) {
+    console.error(e);
+    alert("Failed to save dish. Check console/network.");
+  }
+};
 
-  const openEditDish = (dish: DishData) => {
-    setEditingDish(dish);
-    setShowDishModal(true);
-  };
+const handleDeleteDish = async (id: number) => {
+  try {
+    await dishesApi.delete(id);
+    await qc.invalidateQueries({ queryKey: ["menu"] });
+    setShowDishModal(false);
+    setEditingDish(null);
+  } catch (e) {
+    console.error(e);
+    alert("Failed to delete dish. Check console/network.");
+  }
+};
+
+const openNewDish = () => {
+  // ✅ чтобы "Add new dish" создавалось именно в выбранной категории
+  const categoryId = activeCategory
+    ? categoriesRaw.find((c) => c.name === activeCategory)?.id
+    : undefined;
+
+  setEditingDish(
+    categoryId
+      ? ({
+          id: undefined,
+          name: "",
+          description: "",
+          price: 0,
+          image: "",
+          vegan: false,
+          spicy: false,
+          featured: false,
+          _categoryId: categoryId,
+          _categoryName: activeCategory ?? "",
+        } as any)
+      : null
+  );
+
+  setShowDishModal(true);
+};
+
+const openEditDish = (dish: DishData) => {
+  setEditingDish(dish);
+  setShowDishModal(true);
+};
 
   // ✅ onSave для модалки категорий
   const handleSaveCategories = async (payload: {
