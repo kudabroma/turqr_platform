@@ -32,9 +32,7 @@ export default function MenuPage() {
 
   const headerTitle =
     restaurantQuery.data?.name ??
-    (restaurantQuery.data?.id
-      ? `Restaurant #${restaurantQuery.data.id}`
-      : "Restaurant");
+    (restaurantQuery.data?.id ? `Restaurant #${restaurantQuery.data.id}` : "Restaurant");
 
   // ✅ меню
   const menuQuery = useQuery({
@@ -46,16 +44,20 @@ export default function MenuPage() {
   const categoriesRaw = (menuQuery.data ?? []) as CategoryWithDishes[];
 
   // ✅ категории (для табов): string[]
-  const categories = useMemo(
-    () => categoriesRaw.map((c) => c.name),
-    [categoriesRaw]
-  );
+  const categories = useMemo(() => categoriesRaw.map((c) => c.name), [categoriesRaw]);
 
-  // ✅ категории для модалки: {id, name}[]
+  // ✅ категории для модалки категорий: {id, name}[]
   const categoriesForModal = useMemo(
     () => categoriesRaw.map((c) => ({ id: c.id, name: c.name })),
     [categoriesRaw]
   );
+
+  // ✅ категории для выбора в модалке блюда (исключаем system, например Unsorted)
+  const dishCategoryOptions = useMemo(() => {
+    return categoriesRaw
+      .filter((c: any) => !c.is_system) // требует is_system из API
+      .map((c) => ({ id: c.id, name: c.name }));
+  }, [categoriesRaw]);
 
   // ✅ плоский список блюд
   const dishes: DishData[] = useMemo(() => {
@@ -101,88 +103,80 @@ export default function MenuPage() {
     return [{ category: activeCategory, dishes: filteredDishes }];
   }, [activeCategory, categories, filteredDishes]);
 
-// ---- блюда (CRUD) ----
-const handleSaveDish = async (dish: DishData) => {
-  // ✅ category обязательна на backend
-  const categoryId =
-    dish._categoryId ??
-    editingDish?._categoryId ??
-    (activeCategory
-      ? categoriesRaw.find((c) => c.name === activeCategory)?.id
-      : undefined);
+  // ---- блюда (CRUD) ----
+  const handleSaveDish = async (dish: DishData) => {
+    // ✅ категория берётся из модалки (select), иначе из текущей вкладки, иначе из editingDish
+    const categoryId =
+      (dish as any)._categoryId ??
+      (editingDish as any)?._categoryId ??
+      (activeCategory ? categoriesRaw.find((c) => c.name === activeCategory)?.id : undefined);
 
-  if (!categoryId) {
-    alert("Choose a category first (open a category tab), then add a dish.");
-    return;
-  }
-
-  const payload = {
-    name: dish.name,
-    description: dish.description ?? "",
-    price: String(dish.price),
-    category: categoryId,
-  };
-
-  try {
-    if (dish.id && dish.id > 0) {
-      // update
-      await dishesApi.update(dish.id, payload);
-    } else {
-      // create
-      await dishesApi.create(payload);
+    if (!categoryId) {
+      alert("Select a category for this dish.");
+      return;
     }
 
-    await qc.invalidateQueries({ queryKey: ["menu"] });
-    setShowDishModal(false);
-    setEditingDish(null);
-  } catch (e) {
-    console.error(e);
-    alert("Failed to save dish. Check console/network.");
-  }
-};
+    const payload = {
+      name: dish.name,
+      description: dish.description ?? "",
+      price: String(dish.price),
+      category: Number(categoryId),
+    };
 
-const handleDeleteDish = async (id: number) => {
-  try {
-    await dishesApi.delete(id);
-    await qc.invalidateQueries({ queryKey: ["menu"] });
-    setShowDishModal(false);
-    setEditingDish(null);
-  } catch (e) {
-    console.error(e);
-    alert("Failed to delete dish. Check console/network.");
-  }
-};
+    try {
+      if (dish.id && dish.id > 0) {
+        await dishesApi.update(dish.id, payload);
+      } else {
+        await dishesApi.create(payload);
+      }
 
-const openNewDish = () => {
-  // ✅ чтобы "Add new dish" создавалось именно в выбранной категории
-  const categoryId = activeCategory
-    ? categoriesRaw.find((c) => c.name === activeCategory)?.id
-    : undefined;
+      await qc.invalidateQueries({ queryKey: ["menu"] });
+      setShowDishModal(false);
+      setEditingDish(null);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to save dish. Check console/network.");
+    }
+  };
 
-  setEditingDish(
-    categoryId
-      ? ({
-          id: undefined,
-          name: "",
-          description: "",
-          price: 0,
-          image: "",
-          vegan: false,
-          spicy: false,
-          featured: false,
-          _categoryId: categoryId,
-          _categoryName: activeCategory ?? "",
-        } as any)
-      : null
-  );
+  const handleDeleteDish = async (id: number) => {
+    try {
+      await dishesApi.delete(id);
+      await qc.invalidateQueries({ queryKey: ["menu"] });
+      setShowDishModal(false);
+      setEditingDish(null);
+    } catch (e) {
+      console.error(e);
+      alert("Failed to delete dish. Check console/network.");
+    }
+  };
 
-  setShowDishModal(true);
-};
+  const openNewDish = () => {
+    // default category = activeCategory если выбрана и это НЕ system
+    const active = activeCategory ? categoriesRaw.find((c) => c.name === activeCategory) : undefined;
+    const defaultCategoryId = active && !(active as any).is_system ? active.id : undefined;
 
-const openEditDish = (dish: DishData) => {
-  setEditingDish(dish);
-  setShowDishModal(true);
-};
+    setEditingDish({
+      id: 0,
+      name: "",
+      description: "",
+      price: 0,
+      image: "",
+      vegan: false,
+      spicy: false,
+      featured: false,
+      // важно: чтобы селект в модалке сразу стоял на активной категории (если есть)
+      ...(defaultCategoryId ? ({ _categoryId: defaultCategoryId } as any) : {}),
+      ...(activeCategory ? ({ _categoryName: activeCategory } as any) : {}),
+    } as any);
+
+    setShowDishModal(true);
+  };
+
+  const openEditDish = (dish: DishData) => {
+    setEditingDish(dish);
+    setShowDishModal(true);
+  };
 
   // ✅ onSave для модалки категорий
   const handleSaveCategories = async (payload: {
@@ -190,24 +184,18 @@ const openEditDish = (dish: DishData) => {
     rename: { id: number; name: string }[];
     delete: { id: number }[];
   }) => {
-    // 1) create
     if (payload.create.length) {
       await Promise.all(payload.create.map((c) => categoriesApi.create({ name: c.name })));
     }
 
-    // 2) rename (PATCH)
     if (payload.rename.length) {
-      await Promise.all(
-        payload.rename.map((c) => categoriesApi.update(c.id, { name: c.name }))
-      );
+      await Promise.all(payload.rename.map((c) => categoriesApi.update(c.id, { name: c.name })));
     }
 
-    // 3) delete
     if (payload.delete.length) {
       await Promise.all(payload.delete.map((c) => categoriesApi.delete(c.id)));
     }
 
-    // 4) refresh menu
     await qc.invalidateQueries({ queryKey: ["menu"] });
   };
 
@@ -227,9 +215,7 @@ const openEditDish = (dish: DishData) => {
         <AdminHeader title={headerTitle} showBack />
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">
           <div className="font-medium">Failed to load menu</div>
-          <div className="text-sm opacity-70">
-            Check Network: GET /api/menu/ (should be 200)
-          </div>
+          <div className="text-sm opacity-70">Check Network: GET /api/menu/ (should be 200)</div>
         </div>
       </div>
     );
@@ -311,21 +297,13 @@ const openEditDish = (dish: DishData) => {
                 >
                   <div className="aspect-[4/3] bg-[hsl(var(--warm-beige))]">
                     {dish.image ? (
-                      <img
-                        src={dish.image}
-                        alt={dish.name}
-                        className="w-full h-full object-cover"
-                      />
+                      <img src={dish.image} alt={dish.name} className="w-full h-full object-cover" />
                     ) : null}
                   </div>
 
                   <div className="p-3 flex items-center justify-between">
-                    <span className="font-medium text-sm text-foreground">
-                      {dish.name}
-                    </span>
-                    <span className="font-bold text-sm text-primary">
-                      {dish.price}₺
-                    </span>
+                    <span className="font-medium text-sm text-foreground">{dish.name}</span>
+                    <span className="font-bold text-sm text-primary">{dish.price}₺</span>
                   </div>
 
                   <button
@@ -367,12 +345,14 @@ const openEditDish = (dish: DishData) => {
         onSave={handleSaveCategories}
       />
 
+      {/* ✅ Dish modal (now needs categories for select) */}
       <EditDishModal
         open={showDishModal}
         onOpenChange={setShowDishModal}
         dish={editingDish}
         onSave={handleSaveDish}
         onDelete={handleDeleteDish}
+        categories={dishCategoryOptions} // ✅ NEW PROP
       />
     </div>
   );

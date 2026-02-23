@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Upload } from "lucide-react";
 import {
   Dialog,
@@ -13,15 +13,18 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 
 export interface DishData {
-  id?: number; // теперь id может быть undefined для нового блюда
+  id?: number; // undefined для нового блюда
   name: string;
   description: string;
   price: number;
   image: string;
+
+  // (пока не используем, скрыты)
   vegan: boolean;
   spicy: boolean;
   featured: boolean;
-    // ✅ UI-only
+
+  // ✅ UI-only
   _categoryId?: number;
   _categoryName?: string;
 }
@@ -32,6 +35,9 @@ interface EditDishModalProps {
   dish: DishData | null;
   onSave: (dish: DishData) => void;
   onDelete?: (id: number) => void;
+
+  // ✅ список категорий для "Move to category" внутри модалки
+  categories?: { id: number; name: string }[];
 }
 
 const emptyDish: DishData = {
@@ -50,21 +56,28 @@ export function EditDishModal({
   dish,
   onSave,
   onDelete,
+  categories,
 }: EditDishModalProps) {
   const [form, setForm] = useState<DishData>(emptyDish);
 
   const isNew = !dish;
 
-  // ✅ СИНХРОНИЗАЦИЯ ФОРМЫ ПРИ ОТКРЫТИИ
+  // ✅ синхронизируем форму при открытии/смене dish
   useEffect(() => {
-    if (open) {
-      if (dish) {
-        setForm(dish);
-      } else {
-        setForm(emptyDish);
-      }
+    if (!open) return;
+
+    if (dish) {
+      setForm(dish);
+    } else {
+      setForm(emptyDish);
     }
   }, [open, dish]);
+
+  // ✅ для селекта: категории без Unsorted, если ты уже исключаешь is_system в MenuPage — ок,
+  // но тут ещё раз подстрахуемся (если вдруг прилетит)
+  const categoryOptions = useMemo(() => {
+    return (categories ?? []).filter((c: any) => !c?.is_system);
+  }, [categories]);
 
   const update = <K extends keyof DishData>(key: K, value: DishData[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
@@ -72,13 +85,18 @@ export function EditDishModal({
   const handleSave = () => {
     if (!form.name.trim()) return;
 
+    // ✅ category обязателен для сохранения (в MenuPage ты ещё раз проверяешь)
+    if (!form._categoryId) {
+      alert("Select a category for this dish.");
+      return;
+    }
+
     onSave(form);
     onOpenChange(false);
   };
 
   const handleDelete = () => {
     if (!form.id || !onDelete) return;
-
     onDelete(form.id);
     onOpenChange(false);
   };
@@ -95,7 +113,11 @@ export function EditDishModal({
           <div className="flex items-center gap-4">
             <div className="w-20 h-20 rounded-xl bg-muted border-2 border-dashed border-border flex items-center justify-center overflow-hidden">
               {form.image ? (
-                <img src={form.image} alt="" className="w-full h-full object-cover" />
+                <img
+                  src={form.image}
+                  alt=""
+                  className="w-full h-full object-cover"
+                />
               ) : (
                 <Upload className="h-6 w-6 text-muted-foreground" />
               )}
@@ -131,6 +153,36 @@ export function EditDishModal({
             />
           </div>
 
+          {/* ✅ Move to category (внутри модалки, под описанием) */}
+          {categoryOptions.length > 0 ? (
+            <div>
+              <Label htmlFor="dish-category">Category</Label>
+              <select
+                id="dish-category"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                value={form._categoryId ?? ""}
+                onChange={(e) =>
+                  update(
+                    "_categoryId",
+                    e.target.value ? Number(e.target.value) : undefined
+                  )
+                }
+              >
+                <option value="" disabled>
+                  Select category…
+                </option>
+                {categoryOptions.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+              <div className="text-xs text-muted-foreground mt-1">
+                This moves the dish into the selected category.
+              </div>
+            </div>
+          ) : null}
+
           <div>
             <Label htmlFor="dish-price">Price (₺)</Label>
             <Input
@@ -141,24 +193,32 @@ export function EditDishModal({
             />
           </div>
 
-          
           {/* Checkboxes (disabled for now — backend fields not implemented yet) */}
-            {false && (
-              <div className="flex flex-wrap gap-6">
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={form.vegan} onCheckedChange={(v) => update("vegan", !!v)} />
-                  Vegan
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={form.spicy} onCheckedChange={(v) => update("spicy", !!v)} />
-                  Spicy
-                </label>
-                <label className="flex items-center gap-2 text-sm">
-                  <Checkbox checked={form.featured} onCheckedChange={(v) => update("featured", !!v)} />
-                  Featured
-                </label>
-              </div>
-            )}
+          {false && (
+            <div className="flex flex-wrap gap-6">
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.vegan}
+                  onCheckedChange={(v) => update("vegan", !!v)}
+                />
+                Vegan
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.spicy}
+                  onCheckedChange={(v) => update("spicy", !!v)}
+                />
+                Spicy
+              </label>
+              <label className="flex items-center gap-2 text-sm">
+                <Checkbox
+                  checked={form.featured}
+                  onCheckedChange={(v) => update("featured", !!v)}
+                />
+                Featured
+              </label>
+            </div>
+          )}
         </div>
 
         <div className="flex items-center justify-between mt-4">

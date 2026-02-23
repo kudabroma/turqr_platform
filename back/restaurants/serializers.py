@@ -189,15 +189,11 @@ class DishReadSerializer(serializers.ModelSerializer):
 
 
 class CategoryWithDishesSerializer(serializers.ModelSerializer):
-    """
-    Категория с вложенными блюдами для эндпоинта /menu.
-    """
-
     dishes = DishReadSerializer(many=True, read_only=True)
 
     class Meta:
         model = Category
-        fields = ["id", "name", "dishes"]
+        fields = ["id", "name", "is_system", "dishes"]
 
 
 # =========================

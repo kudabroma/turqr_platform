@@ -13,6 +13,7 @@ export interface User {
 export interface Category {
   id: number;
   name: string;
+  is_system?: boolean;
   restaurant?: number;
 }
 
