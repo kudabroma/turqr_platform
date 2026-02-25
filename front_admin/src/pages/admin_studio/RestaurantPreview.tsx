@@ -13,16 +13,41 @@ export default function RestaurantPreview() {
   const restaurantQuery = useQuery({
     queryKey: ["restaurant", "me"],
     queryFn: restaurantApi.me,
+    refetchOnWindowFocus: false,
   });
 
   const menuQuery = useQuery({
     queryKey: ["menu"],
     queryFn: menuApi.get,
+    refetchOnWindowFocus: false,
   });
 
   const restaurantTitle =
     restaurantQuery.data?.name ??
     (restaurantQuery.data?.id ? `Restaurant #${restaurantQuery.data.id}` : "Restaurant");
+
+  // ✅ реальные фотки ресторана из API
+  const photos: string[] = (() => {
+    const r: any = restaurantQuery.data;
+    if (!r) return [];
+
+    const arr = [
+      r.photo1_url,
+      r.photo2_url,
+      r.photo3_url,
+      r.photo4_url,
+      r.photo5_url,
+      r.photo6_url,
+    ].filter(Boolean);
+
+    // fallback: иногда у тебя может быть заполнено photo1 (не *_url) или logo_url
+    if (arr.length === 0) {
+      const fallback = [r.photo1, r.logo_url, r.logo].filter(Boolean);
+      return fallback as string[];
+    }
+
+    return arr as string[];
+  })();
 
   // flatten dishes from /api/menu/ response
   const dishes =
@@ -33,7 +58,9 @@ export default function RestaurantPreview() {
       <AdminHeader title={restaurantTitle} />
 
       <div className="max-w-2xl mx-auto pb-28">
+        {/* ✅ теперь карусель получает реальные фото */}
         <PhotoCarousel />
+
 
         {restaurantQuery.isLoading ? (
           <div className="px-4 mt-4 text-sm text-muted-foreground">Loading restaurant...</div>

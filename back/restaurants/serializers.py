@@ -20,8 +20,15 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
     plan = serializers.SerializerMethodField()
     paid_until = serializers.SerializerMethodField()
 
-    # ✅ URL для лого (удобно фронту)
     logo_url = serializers.SerializerMethodField()
+    photo1_url = serializers.SerializerMethodField()
+    photo2_url = serializers.SerializerMethodField()
+    photo3_url = serializers.SerializerMethodField()
+    photo4_url = serializers.SerializerMethodField()
+    photo5_url = serializers.SerializerMethodField()
+    photo6_url = serializers.SerializerMethodField()
+
+    # -------- compat subscription fields --------
 
     def get_active(self, obj: Restaurant) -> bool:
         sub = getattr(obj, "subscription", None)
@@ -41,16 +48,34 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             return None
         return sub.expires_at.date().isoformat()
 
-    def get_logo_url(self, obj: Restaurant):
+    # -------- url helpers --------
+
+    def _build_file_url(self, obj: Restaurant, field_name: str):
+        """
+        Возвращает абсолютный URL для ImageField/FileField.
+        Если request нет — возвращает относительный.
+        Если файла нет — None.
+        """
         request = self.context.get("request")
-        logo = getattr(obj, "logo", None)
-        if not logo:
+        f = getattr(obj, field_name, None)
+        if not f:
             return None
         try:
-            url = logo.url
+            url = f.url  # работает только для FileField/ImageField
         except Exception:
             return None
         return request.build_absolute_uri(url) if request else url
+
+    def get_logo_url(self, obj: Restaurant):
+        # ⚠️ будет работать только если logo = ImageField/FileField
+        return self._build_file_url(obj, "logo")
+
+    def get_photo1_url(self, obj: Restaurant): return self._build_file_url(obj, "photo1")
+    def get_photo2_url(self, obj: Restaurant): return self._build_file_url(obj, "photo2")
+    def get_photo3_url(self, obj: Restaurant): return self._build_file_url(obj, "photo3")
+    def get_photo4_url(self, obj: Restaurant): return self._build_file_url(obj, "photo4")
+    def get_photo5_url(self, obj: Restaurant): return self._build_file_url(obj, "photo5")
+    def get_photo6_url(self, obj: Restaurant): return self._build_file_url(obj, "photo6")
 
     class Meta:
         model = Restaurant
@@ -63,12 +88,25 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "email",
             "address",
             "logo",
-            "logo_url",  # ✅ добавили
+            "logo_url",
             "front_template",
             # compat:
             "active",
             "plan",
             "paid_until",
+            # photos:
+            "photo1",
+            "photo2",
+            "photo3",
+            "photo4",
+            "photo5",
+            "photo6",
+            "photo1_url",
+            "photo2_url",
+            "photo3_url",
+            "photo4_url",
+            "photo5_url",
+            "photo6_url",
         ]
 
 
@@ -82,13 +120,18 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
         model = Restaurant
         fields = [
             "name",
-            "slug",
             "contacts",
             "phone",
             "email",
             "address",
-            "logo",          # ✅ можно загружать/обновлять
             "front_template",
+            "logo",
+            "photo1",
+            "photo2",
+            "photo3",
+            "photo4",
+            "photo5",
+            "photo6",
         ]
 
 

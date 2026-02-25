@@ -18,13 +18,18 @@ class Restaurant(models.Model):
     phone = models.CharField(max_length=50, blank=True, default="", verbose_name="Телефон")
     email = models.EmailField(blank=True, default="", verbose_name="Email")
     address = models.TextField(blank=True, default="", verbose_name="Адрес")
-    photo = models.ImageField(upload_to="restaurants/photos/", blank=True, null=True)
-    logo = models.CharField(
-        max_length=500,
-        blank=True,
-        default="",
-        verbose_name="Логотип (URL или путь)",
-    )
+
+    # ✅ Фото ресторана
+    photo1 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
+    photo2 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
+    photo3 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
+    photo4 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
+    photo5 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
+    photo6 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
+
+    # ✅ Лого — тоже файл, чтобы работал logo.url и upload
+    logo = models.ImageField(upload_to="restaurants/logos/", null=True, blank=True)
+
     front_template = models.CharField(
         max_length=255,
         blank=True,

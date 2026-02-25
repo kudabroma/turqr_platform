@@ -40,6 +40,14 @@ export interface RestaurantMe {
   active: boolean;
   plan: string;
   paid_until: string | null;
+
+  // если у тебя уже добавлены поля фото ресторана на бэке — можно типизировать тут (не обязательно)
+  // photo1_url?: string | null;
+  // photo2_url?: string | null;
+  // photo3_url?: string | null;
+  // photo4_url?: string | null;
+  // photo5_url?: string | null;
+  // photo6_url?: string | null;
 }
 
 // /api/menu/ -> список категорий с dishes
@@ -103,10 +111,18 @@ export const authApi = {
 
 export const restaurantApi = {
   me: () => apiFetch<RestaurantMe>("/restaurants/me/"),
+
   update: (data: Partial<RestaurantMe>) =>
     apiClient<RestaurantMe>("/restaurants/me/", {
       method: "PATCH",
       body: data,
+    }),
+
+  // ✅ multipart (logo/photo1..photo6)
+  updateForm: (fd: FormData) =>
+    apiClient<RestaurantMe>("/restaurants/me/", {
+      method: "PATCH",
+      body: fd,
     }),
 };
 
@@ -158,9 +174,17 @@ export const dishesApi = {
     apiClient<void>(`/dishes/${id}/`, {
       method: "DELETE",
     }),
-    createForm: (fd: FormData) =>
-      apiClient("/dishes/", { method: "POST", body: fd }),
 
-    updateForm: (id: number, fd: FormData) =>
-      apiClient(`/dishes/${id}/`, { method: "PATCH", body: fd }),
+  // ✅ multipart (image)
+  createForm: (fd: FormData) =>
+    apiClient<Dish>("/dishes/", {
+      method: "POST",
+      body: fd,
+    }),
+
+  updateForm: (id: number, fd: FormData) =>
+    apiClient<Dish>(`/dishes/${id}/`, {
+      method: "PATCH",
+      body: fd,
+    }),
 };

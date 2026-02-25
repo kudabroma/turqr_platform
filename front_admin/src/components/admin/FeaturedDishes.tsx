@@ -5,20 +5,26 @@ export type FeaturedDish = {
   id: number;
   name: string;
   price?: string | number;
-  image?: string;
+  image?: string | null;
+  image_url?: string | null; // ✅ добавили поддержку
   description?: string;
 };
 
 type Props = {
   dishes: FeaturedDish[];
-  // если хочешь другой маршрут для полного меню в админке — поменяй здесь
   fullMenuPath?: string;
 };
+
+function formatPrice(price?: string | number) {
+  if (price === undefined || price === null) return "";
+  const num = typeof price === "string" ? Number(price) : price;
+  if (!Number.isNaN(num)) return `${num.toFixed(2)}₺`;
+  return `${price}₺`;
+}
 
 export function FeaturedDishes({ dishes, fullMenuPath = "/admin/menu" }: Props) {
   const navigate = useNavigate();
 
-  // show first 3 dishes by default
   const shown = dishes.slice(0, 3);
 
   return (
@@ -35,30 +41,42 @@ export function FeaturedDishes({ dishes, fullMenuPath = "/admin/menu" }: Props) 
       </div>
 
       <div className="space-y-3">
-        {shown.map((dish) => (
-          <div
-            key={dish.id}
-            className="flex items-center gap-4 bg-card rounded-xl p-3 shadow-sm border border-border"
-          >
-            <div className="w-16 h-16 rounded-lg bg-[hsl(var(--warm-beige))] shrink-0 overflow-hidden">
-              {dish.image ? (
-                <img
-                  src={dish.image}
-                  alt={dish.name}
-                  className="w-full h-full object-cover"
-                />
-              ) : null}
-            </div>
+        {shown.map((dish) => {
+          const img = dish.image_url ?? dish.image ?? null;
 
-            <div className="flex-1">
-              <span className="font-medium text-foreground">{dish.name}</span>
-            </div>
+          return (
+            <div
+              key={dish.id}
+              className="flex items-center gap-4 bg-card rounded-xl p-3 shadow-sm border border-border"
+            >
+              {/* мини фото */}
+              <div className="w-16 h-16 rounded-lg bg-[hsl(var(--warm-beige))] shrink-0 overflow-hidden flex items-center justify-center">
+                {img ? (
+                  <img
+                    src={img}
+                    alt={dish.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-muted" />
+                )}
+              </div>
 
-            <span className="font-bold text-primary">
-              {dish.price ?? ""}₺
-            </span>
-          </div>
-        ))}
+              {/* название */}
+              <div className="flex-1 min-w-0">
+                <span className="font-medium text-foreground truncate block">
+                  {dish.name}
+                </span>
+              </div>
+
+              {/* цена */}
+              <span className="font-bold text-primary whitespace-nowrap">
+                {formatPrice(dish.price)}
+              </span>
+            </div>
+          );
+        })}
 
         {dishes.length === 0 && (
           <div className="text-sm text-muted-foreground">

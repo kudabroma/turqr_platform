@@ -1,65 +1,134 @@
-import { useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Pencil } from "lucide-react";
-import { EditPhotosModal } from "./modals/EditPhotosModal";
-
-const placeholderPhotos = [
-  "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?w=800&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1552566626-52f8b828add9?w=800&h=400&fit=crop",
-  "https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=800&h=400&fit=crop",
-];
-
+import { Button } from "@/components/ui/button";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { restaurantApi } from "@/api/endpoints";
+import { EditPhotosModal } from "@/components/admin/modals/EditPhotosModal";
 export function PhotoCarousel() {
-  const [current, setCurrent] = useState(0);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const photos = placeholderPhotos;
+  const queryClient = useQueryClient();
+  const [open, setOpen] = useState(false);
 
-  const prev = () => setCurrent((c) => (c === 0 ? photos.length - 1 : c - 1));
-  const next = () => setCurrent((c) => (c === photos.length - 1 ? 0 : c + 1));
+  const restaurantQuery = useQuery({
+    queryKey: ["restaurant", "me"],
+    queryFn: restaurantApi.me,
+    refetchOnWindowFocus: false,
+  });
+
+  const photos = useMemo(() => {
+    const r: any = restaurantQuery.data;
+    if (!r) return [];
+
+    const arr = [
+      r.photo1_url,
+      r.photo2_url,
+      r.photo3_url,
+      r.photo4_url,
+      r.photo5_url,
+      r.photo6_url,
+    ].filter(Boolean);
+
+    // fallback (на случай если *_url нет, но есть что-то другое)
+    if (arr.length === 0) {
+      return [r.photo1, r.logo_url, r.logo].filter(Boolean) as string[];
+    }
+
+    return arr as string[];
+  }, [restaurantQuery.data]);
+
+  const title = restaurantQuery.data?.name ?? "Restaurant";
+
+  const images = useMemo(() => photos.filter(Boolean), [photos]);
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    setIndex(0);
+  }, [images.length]);
+
+  const hasImages = images.length > 0;
+
+  const prev = () => {
+    if (!hasImages) return;
+    setIndex((i) => (i - 1 + images.length) % images.length);
+  };
+
+  const next = () => {
+    if (!hasImages) return;
+    setIndex((i) => (i + 1) % images.length);
+  };
+
+  const handleModalChange = (v: boolean) => {
+    setOpen(v);
+    // когда модалка закрылась — обновим ресторан (чтобы новые фото сразу появились)
+    if (!v) {
+      queryClient.invalidateQueries({ queryKey: ["restaurant", "me"] });
+    }
+  };
 
   return (
-    <div className="relative">
-      <div className="relative overflow-hidden rounded-2xl mx-4 mt-4 aspect-[5/3]">
-        <img
-          src={photos[current]}
-          alt={`Restaurant photo ${current + 1}`}
-          className="w-full h-full object-cover"
-        />
-        {/* Nav arrows */}
+    <div className="relative mt-4 px-4">
+      <div className="relative overflow-hidden rounded-3xl bg-muted aspect-[16/10]">
+        {restaurantQuery.isLoading ? (
+          <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+            Loading photos...
+          </div>
+        ) : hasImages ? (
+          <img
+            src={images[index]}
+            alt={`${title} photo ${index + 1}`}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
+            No photos yet
+          </div>
+        )}
+
+        {/* ✅ кнопка редактирования фото (возвращаем как было по смыслу) */}
         <button
-          onClick={prev}
-          className="absolute left-3 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur rounded-full p-2 shadow-md hover:bg-background transition-colors"
-        >
-          <ChevronLeft className="h-5 w-5 text-foreground" />
-        </button>
-        <button
-          onClick={next}
-          className="absolute right-3 top-1/2 -translate-y-1/2 bg-background/80 backdrop-blur rounded-full p-2 shadow-md hover:bg-background transition-colors"
-        >
-          <ChevronRight className="h-5 w-5 text-foreground" />
-        </button>
-        {/* Edit button */}
-        <button
-          onClick={() => setShowEditModal(true)}
-          className="absolute bottom-3 right-3 bg-background/90 backdrop-blur text-foreground rounded-full p-2 shadow-md hover:bg-background transition-colors"
-          title="Edit Photos"
+          type="button"
+          onClick={() => setOpen(true)}
+          className="absolute right-4 bottom-4 h-10 w-10 rounded-full bg-background/90 hover:bg-background shadow flex items-center justify-center"
+          aria-label="Edit photos"
         >
           <Pencil className="h-4 w-4" />
         </button>
-      </div>
-      {/* Dots */}
-      <div className="flex justify-center gap-2 mt-3">
-        {photos.map((_, i) => (
-          <button
-            key={i}
-            onClick={() => setCurrent(i)}
-            className={`h-2 rounded-full transition-all ${
-              i === current ? "w-6 bg-primary" : "w-2 bg-border"
-            }`}
-          />
-        ))}
+
+        {/* arrows */}
+        {hasImages && images.length > 1 && (
+          <>
+            <div className="absolute left-3 top-1/2 -translate-y-1/2">
+              <Button type="button" variant="secondary" size="icon" className="rounded-full" onClick={prev}>
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            </div>
+            <div className="absolute right-3 top-1/2 -translate-y-1/2">
+              <Button type="button" variant="secondary" size="icon" className="rounded-full" onClick={next}>
+                <ChevronRight className="h-5 w-5" />
+              </Button>
+            </div>
+          </>
+        )}
+
+        {/* dots */}
+        {hasImages && images.length > 1 && (
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-2">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setIndex(i)}
+                className={`h-2 w-2 rounded-full transition-opacity ${
+                  i === index ? "bg-white/90" : "bg-white/40"
+                }`}
+                aria-label={`Go to photo ${i + 1}`}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      <EditPhotosModal open={showEditModal} onOpenChange={setShowEditModal} />
+      {/* ✅ твоя модалка */}
+      <EditPhotosModal open={open} onOpenChange={handleModalChange} />
     </div>
   );
 }
