@@ -7,27 +7,14 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
-    hmr: {
-      overlay: false,
-    },
+    hmr: { overlay: false },
+
     proxy: {
+      // ✅ API всегда через /api
       "/api": {
         target: "http://localhost:8000",
-        changeOrigin: false, // ✅ сохраняем оригинальный Host
+        changeOrigin: false, // сохраняем Host (turko.localhost:8080)
         secure: false,
-        configure: (proxy) => {
-          proxy.on("proxyReq", (proxyReq, req) => {
-            // ✅ самое важное: пробрасываем host (turko.localhost:8080)
-            if (req.headers.host) proxyReq.setHeader("host", req.headers.host);
-          });
-        },
-      },
-
-      "/restaurant": {
-        target: "http://localhost:8000",
-        changeOrigin: false, // ✅ важно
-        secure: false,
-        rewrite: () => "/api/public/restaurant/",
         configure: (proxy) => {
           proxy.on("proxyReq", (proxyReq, req) => {
             if (req.headers.host) proxyReq.setHeader("host", req.headers.host);
@@ -35,11 +22,23 @@ export default defineConfig(({ mode }) => ({
         },
       },
 
-      "/menu": {
+      // ✅ MEDIA: чтобы <img src=".../media/..."> реально отдавал картинку из Django
+      "/media": {
         target: "http://localhost:8000",
-        changeOrigin: false, // ✅ важно
+        changeOrigin: false,
         secure: false,
-        rewrite: () => "/api/public/menu/",
+        configure: (proxy) => {
+          proxy.on("proxyReq", (proxyReq, req) => {
+            if (req.headers.host) proxyReq.setHeader("host", req.headers.host);
+          });
+        },
+      },
+
+      // (опционально) если Django отдаёт статику
+      "/static": {
+        target: "http://localhost:8000",
+        changeOrigin: false,
+        secure: false,
         configure: (proxy) => {
           proxy.on("proxyReq", (proxyReq, req) => {
             if (req.headers.host) proxyReq.setHeader("host", req.headers.host);
@@ -48,7 +47,9 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
+
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),

@@ -14,8 +14,6 @@ import { adaptPublicMenuToUi } from "@/api/adapters/menuAdapter";
 
 import { uiTranslations, reviews } from "@/data/menuData";
 import { restaurantPhotos, dishImages } from "@/data/images";
-import { resolveLogoUrl } from "@/utils/resolveLogoUrl";
-
 
 type Lang = "en" | "ru" | "tr";
 
@@ -37,14 +35,14 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   const description = String(input?.translations?.en?.description ?? input?.description ?? "");
 
   const image =
-    typeof input?.image === "string"
-      ? input.image
-      : typeof input?.image_url === "string"
+    typeof input?.image_url === "string"
       ? input.image_url
-      : typeof input?.photo === "string"
-      ? input.photo
+      : typeof input?.image === "string"
+      ? input.image
       : typeof input?.photo_url === "string"
       ? input.photo_url
+      : typeof input?.photo === "string"
+      ? input.photo
       : typeof input?.imageUrl === "string"
       ? input.imageUrl
       : "";
@@ -61,7 +59,11 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
     input?.price_amount;
 
   const priceNumber =
-    typeof rawPrice === "number" ? rawPrice : typeof rawPrice === "string" ? Number(rawPrice.replace(",", ".")) : 0;
+    typeof rawPrice === "number"
+      ? rawPrice
+      : typeof rawPrice === "string"
+      ? Number(rawPrice.replace(",", "."))
+      : 0;
 
   const price = Number.isFinite(priceNumber) ? priceNumber : 0;
 
@@ -92,6 +94,22 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   return { id, category, isVegan, isSpicy, image, translations, price };
 }
 
+function normalizePublicImageUrl(raw: unknown): string {
+  if (typeof raw !== "string") return "";
+  const s = raw.trim();
+  if (!s) return "";
+
+  // уже абсолютный
+  if (s.startsWith("http://") || s.startsWith("https://")) return s;
+
+  // относительный -> делаем абсолютным на текущий origin (turko.localhost:8080)
+  // важно для /media/...
+  if (s.startsWith("/")) return `${window.location.origin}${s}`;
+
+  // "media/xxx" или "platform/xxx"
+  return `${window.location.origin}/${s}`;
+}
+
 export default function PreviewPage() {
   const { language } = useLanguage();
   const lang = (language as Lang) ?? "en";
@@ -113,6 +131,24 @@ export default function PreviewPage() {
     retry: 1,
   });
 
+  const restaurantFromApi = restaurantQuery.data as any;
+
+  // ✅ Реальные фото ресторана с API: photo1_url..photo6_url (fallback: photo1..photo6)
+  const galleryPhotos: string[] = useMemo(() => {
+    const r: any = restaurantFromApi;
+    if (!r) return restaurantPhotos;
+
+    const arr = [1, 2, 3, 4, 5, 6]
+      .map((i) => {
+        const url = normalizePublicImageUrl(r?.[`photo${i}_url`]);
+        const raw = normalizePublicImageUrl(r?.[`photo${i}`]);
+        return url || raw || "";
+      })
+      .filter(Boolean) as string[];
+
+    return arr.length ? arr : restaurantPhotos;
+  }, [restaurantFromApi]);
+
   const featuredDishes: UiDish[] = useMemo(() => {
     const adaptedCategories = adaptPublicMenuToUi(menuQuery.data);
 
@@ -128,7 +164,8 @@ export default function PreviewPage() {
       .map((d) => ensureDishShape(d, String(d?.category ?? "Other")))
       .map((dish) => ({
         ...dish,
-        image: dishImages[dish.id] || dish.image || "",
+        // ✅ приоритет: API image -> демо-картинка
+        image: dish.image || dishImages[dish.id] || "",
       }))
       .filter((dish) => dish.id);
 
@@ -151,49 +188,16 @@ export default function PreviewPage() {
     );
   }
 
-  const restaurantFromApi = restaurantQuery.data as any;
-
   const restaurantName = String(restaurantFromApi?.name ?? "Restaurant");
   const restaurantDescription = String(restaurantFromApi?.description ?? "");
   const restaurantAddress = String(restaurantFromApi?.address ?? "");
   const restaurantHours = String(restaurantFromApi?.hours ?? "");
 
-  // --- Restaurant logo (только в инфоблоке ресторана) ---
-  const restaurantLogoRaw = String(restaurantFromApi?.logo ?? "");
-
-  let restaurantLogoUrl = "";
-  if (restaurantLogoRaw) {
-    // Абсолютный URL
-    if (
-      restaurantLogoRaw.startsWith("http://") ||
-      restaurantLogoRaw.startsWith("https://")
-    ) {
-      restaurantLogoUrl = restaurantLogoRaw;
-    } else {
-      // Приводим к виду с /
-      const path = restaurantLogoRaw.startsWith("/")
-        ? restaurantLogoRaw
-        : `/${restaurantLogoRaw}`;
-  
-      // Media с бэка (Django)
-      if (path.startsWith("/media/")) {
-        restaurantLogoUrl = `http://localhost:8000${path}`;
-      } else {
-        // Статика фронта (/platform/...)
-        restaurantLogoUrl = path;
-      }
-    }
-  }
-  const FALLBACK_LOGO = "/platform/Turlogo.png"; // 👈 ВОТ СЮДА
-
-
   // --- Contacts: backward compatible ---
-  // 1) сначала берём новые поля (которые мы добавим на бэке)
   const phoneFromApi = String(restaurantFromApi?.phone ?? "").trim();
   const emailFromApi = String(restaurantFromApi?.email ?? "").trim();
-  const addressFromApi = String(restaurantFromApi?.address ?? "").trim(); // у тебя уже есть, оставим
+  const addressFromApi = String(restaurantFromApi?.address ?? "").trim();
 
-  // 2) если новых нет — парсим legacy contacts
   const contactsRaw = String(restaurantFromApi?.contacts ?? "");
   const contactsLines = contactsRaw
     .split(/\r?\n/)
@@ -206,11 +210,11 @@ export default function PreviewPage() {
 
   const phone = phoneFromApi || phoneParsed;
   const email = emailFromApi || emailParsed;
-  const address = addressFromApi || restaurantAddress; // если позже разделим address отдельно — будет работать
+  const address = addressFromApi || restaurantAddress;
 
-  // --- Platform header (фиксировано, без turqr) ---
-  const platformName = "TurQR"; // поменяй на Turka/что хочешь
-  const platformLogo = "/platform/Turlogo.png"; // public/platform/Turlogo.png
+  // --- Platform header ---
+  const platformName = "TurQR";
+  const platformLogo = "/platform/Turlogo.png";
 
   return (
     <div className="min-h-screen bg-background">
@@ -235,7 +239,8 @@ export default function PreviewPage() {
 
       <main className="container max-w-lg mx-auto px-4 pb-24">
         <section className="mt-4">
-          <PhotoGallery photos={restaurantPhotos} />
+          {/* ✅ реальные фото из API */}
+          <PhotoGallery photos={galleryPhotos} />
         </section>
 
         {/* Restaurant Info */}

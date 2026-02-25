@@ -24,9 +24,7 @@ export function PhotoGallery({ photos }: PhotoGalleryProps) {
             src={photos[currentIndex]}
             alt={`Restaurant photo ${currentIndex + 1}`}
             className="w-full h-full object-cover transition-opacity duration-300"
-          />
-          <div className="absolute inset-0 gradient-hero pointer-events-none" />
-          
+          />  
           {photos.length > 1 && (
             <>
               <button

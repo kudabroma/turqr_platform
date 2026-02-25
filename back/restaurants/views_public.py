@@ -180,4 +180,4 @@ class PublicMenuBySubdomainView(APIView):
                     categories, many=True, context={"request": request}
                 ).data,
             }
-        )
+        )       
