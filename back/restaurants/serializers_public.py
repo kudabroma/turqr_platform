@@ -2,12 +2,9 @@ from rest_framework import serializers
 from .models import Restaurant, Category, Dish
 
 
-from rest_framework import serializers
-from .models import Restaurant
-
-
 class PublicRestaurantSerializer(serializers.ModelSerializer):
     contacts = serializers.SerializerMethodField()
+    logo_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Restaurant
@@ -15,11 +12,23 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
             "slug",
             "name",
             "logo",
+            "logo_url",   # ✅ добавили
             "phone",
             "email",
             "address",
             "contacts",
         ]
+
+    def get_logo_url(self, obj: Restaurant):
+        request = self.context.get("request")
+        logo = getattr(obj, "logo", None)
+        if not logo:
+            return None
+        try:
+            url = logo.url
+        except Exception:
+            return None
+        return request.build_absolute_uri(url) if request else url
 
     def get_contacts(self, obj):
         """
@@ -46,10 +55,11 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
 
 class PublicDishSerializer(serializers.ModelSerializer):
     price = serializers.SerializerMethodField()
+    image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Dish
-        fields = ["id", "name", "price"]  # ← ВАЖНО: price здесь есть!
+        fields = ["id", "name", "price", "image_url"]  # ✅ добавили image_url
 
     def get_price(self, obj):
         for attr in ("price", "cost", "amount", "price_value", "price_try", "price_amount"):
@@ -57,6 +67,17 @@ class PublicDishSerializer(serializers.ModelSerializer):
             if val is not None and val != "":
                 return str(val)
         return "0"
+
+    def get_image_url(self, obj: Dish):
+        request = self.context.get("request")
+        image = getattr(obj, "image", None)
+        if not image:
+            return None
+        try:
+            url = image.url
+        except Exception:
+            return None
+        return request.build_absolute_uri(url) if request else url
 
 
 class PublicCategorySerializer(serializers.ModelSerializer):
@@ -68,4 +89,5 @@ class PublicCategorySerializer(serializers.ModelSerializer):
 
     def get_dishes(self, obj):
         qs = Dish.objects.filter(category=obj).order_by("id")
-        return PublicDishSerializer(qs, many=True).data
+        # ✅ важно: передадим context, чтобы build_absolute_uri работал
+        return PublicDishSerializer(qs, many=True, context=self.context).data

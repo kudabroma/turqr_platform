@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import { Upload } from "lucide-react";
 import {
   Dialog,
@@ -17,7 +17,10 @@ export interface DishData {
   name: string;
   description: string;
   price: number;
+  //✅ URL картинки, которую вернёт backend ("/media/...") или пусто
   image: string;
+  // ✅ UI-only: выбранный файл (для загрузки на сервер)
+  imageFile?: File | null;
 
   // (пока не используем, скрыты)
   vegan: boolean;
@@ -61,17 +64,26 @@ export function EditDishModal({
   const [form, setForm] = useState<DishData>(emptyDish);
 
   const isNew = !dish;
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+
+  function acceptFile(file: File) {
+    setImageFile(file);
+    const url = URL.createObjectURL(file);
+    setImagePreview(url);
+  }
 
   // ✅ синхронизируем форму при открытии/смене dish
   useEffect(() => {
-    if (!open) return;
+  if (!open) return;
 
-    if (dish) {
-      setForm(dish);
-    } else {
-      setForm(emptyDish);
-    }
-  }, [open, dish]);
+  if (dish) setForm(dish);
+  else setForm(emptyDish);
+
+  setImageFile(null);
+  setImagePreview(null);
+}, [open, dish]);
 
   // ✅ для селекта: категории без Unsorted, если ты уже исключаешь is_system в MenuPage — ок,
   // но тут ещё раз подстрахуемся (если вдруг прилетит)
@@ -91,7 +103,7 @@ export function EditDishModal({
       return;
     }
 
-    onSave(form);
+    onSave({ ...form, imageFile }); // ✅ передаём файл внутри объекта
     onOpenChange(false);
   };
 
@@ -111,10 +123,36 @@ export function EditDishModal({
         <div className="space-y-4 mt-2">
           {/* Photo */}
           <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-xl bg-muted border-2 border-dashed border-border flex items-center justify-center overflow-hidden">
-              {form.image ? (
+            {/* ✅ ВОТ ЭТОГО У ТЕБЯ НЕ ХВАТАЛО: реальный input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) acceptFile(file);
+              }}
+            />
+
+            <div
+              className="w-20 h-20 rounded-xl bg-muted border-2 border-dashed border-border flex items-center justify-center overflow-hidden cursor-pointer"
+              title="Click to upload"
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+              }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const file = e.dataTransfer.files?.[0];
+                if (file) acceptFile(file);
+              }}
+            >
+              {(imagePreview || form.image) ? (
                 <img
-                  src={form.image}
+                  src={imagePreview || form.image}
                   alt=""
                   className="w-full h-full object-cover"
                 />
@@ -122,13 +160,12 @@ export function EditDishModal({
                 <Upload className="h-6 w-6 text-muted-foreground" />
               )}
             </div>
+
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() =>
-                update("image", `https://picsum.photos/200?random=${Date.now()}`)
-              }
+              onClick={() => fileInputRef.current?.click()}
             >
               Upload Photo
             </Button>
@@ -153,7 +190,7 @@ export function EditDishModal({
             />
           </div>
 
-          {/* ✅ Move to category (внутри модалки, под описанием) */}
+          {/* ✅ Move to category */}
           {categoryOptions.length > 0 ? (
             <div>
               <Label htmlFor="dish-category">Category</Label>
@@ -193,7 +230,7 @@ export function EditDishModal({
             />
           </div>
 
-          {/* Checkboxes (disabled for now — backend fields not implemented yet) */}
+          {/* Checkboxes (disabled) */}
           {false && (
             <div className="flex flex-wrap gap-6">
               <label className="flex items-center gap-2 text-sm">

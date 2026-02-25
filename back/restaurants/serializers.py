@@ -20,6 +20,9 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
     plan = serializers.SerializerMethodField()
     paid_until = serializers.SerializerMethodField()
 
+    # ✅ URL для лого (удобно фронту)
+    logo_url = serializers.SerializerMethodField()
+
     def get_active(self, obj: Restaurant) -> bool:
         sub = getattr(obj, "subscription", None)
         if not sub:
@@ -38,6 +41,17 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             return None
         return sub.expires_at.date().isoformat()
 
+    def get_logo_url(self, obj: Restaurant):
+        request = self.context.get("request")
+        logo = getattr(obj, "logo", None)
+        if not logo:
+            return None
+        try:
+            url = logo.url
+        except Exception:
+            return None
+        return request.build_absolute_uri(url) if request else url
+
     class Meta:
         model = Restaurant
         fields = [
@@ -49,6 +63,7 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "email",
             "address",
             "logo",
+            "logo_url",  # ✅ добавили
             "front_template",
             # compat:
             "active",
@@ -72,7 +87,7 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "address",
-            "logo",
+            "logo",          # ✅ можно загружать/обновлять
             "front_template",
         ]
 
@@ -137,7 +152,22 @@ class DishSerializer(serializers.ModelSerializer):
     Для business user: restaurant read-only (бек подставит).
     Также отдаём lifecycle поля read-only (для UI/фильтрации), но не даём менять напрямую.
     """
+
     restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
+
+    # ✅ URL для картинки блюда
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj: Dish):
+        request = self.context.get("request")
+        image = getattr(obj, "image", None)
+        if not image:
+            return None
+        try:
+            url = image.url
+        except Exception:
+            return None
+        return request.build_absolute_uri(url) if request else url
 
     class Meta:
         model = Dish
@@ -148,16 +178,32 @@ class DishSerializer(serializers.ModelSerializer):
             "price",
             "category",
             "restaurant",
+            # ✅ image upload + url
+            "image",
+            "image_url",
             # lifecycle:
             "moved_to_unsorted_at",
             "archived_at",
         ]
-        read_only_fields = ["id", "restaurant", "moved_to_unsorted_at", "archived_at"]
+        read_only_fields = ["id", "restaurant", "image_url", "moved_to_unsorted_at", "archived_at"]
 
 
 class DishSuperuserSerializer(serializers.ModelSerializer):
     restaurant = serializers.PrimaryKeyRelatedField(queryset=Restaurant.objects.all(), required=True)
 
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj: Dish):
+        request = self.context.get("request")
+        image = getattr(obj, "image", None)
+        if not image:
+            return None
+        try:
+            url = image.url
+        except Exception:
+            return None
+        return request.build_absolute_uri(url) if request else url
+
     class Meta:
         model = Dish
         fields = [
@@ -167,15 +213,18 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
             "price",
             "category",
             "restaurant",
+            # ✅ image upload + url
+            "image",
+            "image_url",
             # lifecycle:
             "moved_to_unsorted_at",
             "archived_at",
         ]
-        read_only_fields = ["id", "moved_to_unsorted_at", "archived_at"]
+        read_only_fields = ["id", "image_url", "moved_to_unsorted_at", "archived_at"]
 
 
 # =========================
-# Public Menu (Tourists)
+# Public Menu (Tourists)  (используется в admin MenuView тоже, если ты так подключаешь)
 # =========================
 class DishReadSerializer(serializers.ModelSerializer):
     """
@@ -183,9 +232,22 @@ class DishReadSerializer(serializers.ModelSerializer):
     Используется в выдаче меню (туристы).
     """
 
+    image_url = serializers.SerializerMethodField()
+
+    def get_image_url(self, obj: Dish):
+        request = self.context.get("request")
+        image = getattr(obj, "image", None)
+        if not image:
+            return None
+        try:
+            url = image.url
+        except Exception:
+            return None
+        return request.build_absolute_uri(url) if request else url
+
     class Meta:
         model = Dish
-        fields = ["id", "name", "description", "price", "category"]
+        fields = ["id", "name", "description", "price", "category", "image_url"]
 
 
 class CategoryWithDishesSerializer(serializers.ModelSerializer):

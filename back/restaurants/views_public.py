@@ -4,6 +4,7 @@ from django.conf import settings
 from django.db.models import Prefetch
 from django.http import Http404
 from django.shortcuts import get_object_or_404
+
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import permissions
@@ -101,8 +102,12 @@ class PublicRestaurantView(APIView):
         return Response(
             {
                 "active": True,
-                "restaurant": PublicRestaurantSerializer(restaurant).data,
-                "categories": PublicCategorySerializer(categories, many=True).data,
+                "restaurant": PublicRestaurantSerializer(
+                    restaurant, context={"request": request}
+                ).data,
+                "categories": PublicCategorySerializer(
+                    categories, many=True, context={"request": request}
+                ).data,
             }
         )
 
@@ -117,8 +122,12 @@ class PublicMenuView(APIView):
         return Response(
             {
                 "active": True,
-                "restaurant": PublicRestaurantSerializer(restaurant).data,
-                "categories": PublicCategorySerializer(categories, many=True).data,
+                "restaurant": PublicRestaurantSerializer(
+                    restaurant, context={"request": request}
+                ).data,
+                "categories": PublicCategorySerializer(
+                    categories, many=True, context={"request": request}
+                ).data,
             }
         )
 
@@ -150,7 +159,7 @@ class PublicRestaurantBySubdomainView(APIView):
 
     def get(self, request):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
-        data = PublicRestaurantSerializer(restaurant).data
+        data = PublicRestaurantSerializer(restaurant, context={"request": request}).data
         return Response(data)
 
 
@@ -164,7 +173,11 @@ class PublicMenuBySubdomainView(APIView):
         return Response(
             {
                 "active": True,
-                "restaurant": PublicRestaurantSerializer(restaurant).data,
-                "categories": PublicCategorySerializer(categories, many=True).data,
+                "restaurant": PublicRestaurantSerializer(
+                    restaurant, context={"request": request}
+                ).data,
+                "categories": PublicCategorySerializer(
+                    categories, many=True, context={"request": request}
+                ).data,
             }
         )

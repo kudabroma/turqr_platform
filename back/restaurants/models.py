@@ -18,7 +18,7 @@ class Restaurant(models.Model):
     phone = models.CharField(max_length=50, blank=True, default="", verbose_name="Телефон")
     email = models.EmailField(blank=True, default="", verbose_name="Email")
     address = models.TextField(blank=True, default="", verbose_name="Адрес")
-
+    photo = models.ImageField(upload_to="restaurants/photos/", blank=True, null=True)
     logo = models.CharField(
         max_length=500,
         blank=True,
@@ -84,6 +84,7 @@ class Dish(models.Model):
     name = models.CharField(max_length=255, verbose_name="Название блюда")
     description = models.TextField(blank=True, verbose_name="Описание")
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
+    image = models.ImageField(upload_to="dishes/images/", blank=True, null=True)
 
     category = models.ForeignKey(
         Category,

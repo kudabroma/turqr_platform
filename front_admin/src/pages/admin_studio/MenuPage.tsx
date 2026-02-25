@@ -32,7 +32,9 @@ export default function MenuPage() {
 
   const headerTitle =
     restaurantQuery.data?.name ??
-    (restaurantQuery.data?.id ? `Restaurant #${restaurantQuery.data.id}` : "Restaurant");
+    (restaurantQuery.data?.id
+      ? `Restaurant #${restaurantQuery.data.id}`
+      : "Restaurant");
 
   // ✅ меню
   const menuQuery = useQuery({
@@ -55,22 +57,26 @@ export default function MenuPage() {
   // ✅ категории для выбора в модалке блюда (исключаем system, например Unsorted)
   const dishCategoryOptions = useMemo(() => {
     return categoriesRaw
-      .filter((c: any) => !c.is_system) // требует is_system из API
+      .filter((c: any) => !c.is_system)
       .map((c) => ({ id: c.id, name: c.name }));
   }, [categoriesRaw]);
 
   // ✅ плоский список блюд
   const dishes: DishData[] = useMemo(() => {
     return categoriesRaw.flatMap((c) =>
-      (c.dishes ?? []).map((d) => ({
+      (c.dishes ?? []).map((d: any) => ({
         id: d.id,
         name: d.name,
         description: d.description ?? "",
         price: typeof d.price === "string" ? Number(d.price) : d.price ?? 0,
-        image: "",
+
+        // ✅ важное: теперь берём image из API (а не пустую строку)
+        image: d.image_url ?? d.image ?? "",  
+
         vegan: false,
         spicy: false,
         featured: false,
+
         _categoryName: c.name,
         _categoryId: c.id,
       }))
@@ -105,25 +111,49 @@ export default function MenuPage() {
 
   // ---- блюда (CRUD) ----
   const handleSaveDish = async (dish: DishData) => {
-    // ✅ категория берётся из модалки (select), иначе из текущей вкладки, иначе из editingDish
+    // ✅ категория берётся из модалки (select), иначе из editingDish, иначе из текущей вкладки
     const categoryId =
       (dish as any)._categoryId ??
       (editingDish as any)?._categoryId ??
-      (activeCategory ? categoriesRaw.find((c) => c.name === activeCategory)?.id : undefined);
+      (activeCategory
+        ? categoriesRaw.find((c) => c.name === activeCategory)?.id
+        : undefined);
 
     if (!categoryId) {
       alert("Select a category for this dish.");
       return;
     }
 
-    const payload = {
-      name: dish.name,
-      description: dish.description ?? "",
-      price: String(dish.price),
-      category: Number(categoryId),
-    };
-
     try {
+      // ✅ если выбран файл — отправляем multipart/form-data
+      if (dish.imageFile) {
+        const fd = new FormData();
+        fd.append("name", dish.name);
+        fd.append("description", dish.description ?? "");
+        fd.append("price", String(dish.price ?? 0));
+        fd.append("category", String(Number(categoryId)));
+        fd.append("image", dish.imageFile);
+
+        if (dish.id && dish.id > 0) {
+          await (dishesApi as any).updateForm(dish.id, fd);
+        } else {
+          await (dishesApi as any).createForm(fd);
+        }
+
+        await qc.invalidateQueries({ queryKey: ["menu"] });
+        setShowDishModal(false);
+        setEditingDish(null);
+        return;
+      }
+
+      // ✅ обычный JSON путь (если файл не выбран)
+      const payload = {
+        name: dish.name,
+        description: dish.description ?? "",
+        price: String(dish.price ?? 0),
+        category: Number(categoryId),
+      };
+
       if (dish.id && dish.id > 0) {
         await dishesApi.update(dish.id, payload);
       } else {
@@ -161,11 +191,10 @@ export default function MenuPage() {
       name: "",
       description: "",
       price: 0,
-      image: "",
+      image: "",          // ✅ тут просто пусто (это NEW dish)
       vegan: false,
       spicy: false,
       featured: false,
-      // важно: чтобы селект в модалке сразу стоял на активной категории (если есть)
       ...(defaultCategoryId ? ({ _categoryId: defaultCategoryId } as any) : {}),
       ...(activeCategory ? ({ _categoryName: activeCategory } as any) : {}),
     } as any);
@@ -345,14 +374,14 @@ export default function MenuPage() {
         onSave={handleSaveCategories}
       />
 
-      {/* ✅ Dish modal (now needs categories for select) */}
+      {/* ✅ Dish modal */}
       <EditDishModal
         open={showDishModal}
         onOpenChange={setShowDishModal}
         dish={editingDish}
         onSave={handleSaveDish}
         onDelete={handleDeleteDish}
-        categories={dishCategoryOptions} // ✅ NEW PROP
+        categories={dishCategoryOptions}
       />
     </div>
   );

@@ -158,4 +158,9 @@ export const dishesApi = {
     apiClient<void>(`/dishes/${id}/`, {
       method: "DELETE",
     }),
+    createForm: (fd: FormData) =>
+      apiClient("/dishes/", { method: "POST", body: fd }),
+
+    updateForm: (id: number, fd: FormData) =>
+      apiClient(`/dishes/${id}/`, { method: "PATCH", body: fd }),
 };

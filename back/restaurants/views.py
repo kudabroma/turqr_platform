@@ -6,6 +6,7 @@ from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 
 from .models import Restaurant, Category, Dish, PaymentHistory
 from .serializers import (
@@ -13,6 +14,7 @@ from .serializers import (
     CategorySerializer,
     CategorySuperuserSerializer,
     DishSerializer,
+    DishSuperuserSerializer,
     CategoryWithDishesSerializer,
     SubscriptionSerializer,
     PaymentHistorySerializer,
@@ -42,6 +44,8 @@ class RestaurantMeView(APIView):
     """
 
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
+    # ✅ для загрузки logo (ImageField) через multipart/form-data
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get(self, request):
         user = request.user
@@ -59,7 +63,7 @@ class RestaurantMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        return Response(RestaurantMeSerializer(restaurant).data)
+        return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
 
     def patch(self, request):
         user = request.user
@@ -81,7 +85,9 @@ class RestaurantMeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
 
-        return Response(RestaurantMeSerializer(restaurant).data)
+        # ✅ возвращаем свежие данные с правильным context
+        restaurant.refresh_from_db()
+        return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
 
 
 # =====================
@@ -150,7 +156,9 @@ class LoginView(APIView):
             )
 
         login(request, user)
-        return Response({"id": user.id, "username": user.username, "restaurant": user.restaurant_id})
+        return Response(
+            {"id": user.id, "username": user.username, "restaurant": getattr(user, "restaurant_id", None)}
+        )
 
 
 class LogoutView(APIView):
@@ -168,7 +176,7 @@ class MeView(APIView):
 
     def get(self, request):
         user = request.user
-        return Response({"id": user.id, "username": user.username, "restaurant": user.restaurant_id})
+        return Response({"id": user.id, "username": user.username, "restaurant": getattr(user, "restaurant_id", None)})
 
 
 # =====================
@@ -193,10 +201,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
         if user.is_superuser:
             return Category.objects.all()
 
-        if not getattr(user, "restaurant", None):
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
             return Category.objects.none()
 
-        return Category.objects.filter(restaurant=user.restaurant)
+        return Category.objects.filter(restaurant=restaurant)
 
     def perform_create(self, serializer):
         user = self.request.user
@@ -204,10 +213,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
             serializer.save()
             return
 
-        if not getattr(user, "restaurant", None):
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
             raise ValidationError({"restaurant": "User has no associated restaurant."})
 
-        serializer.save(restaurant=user.restaurant)
+        serializer.save(restaurant=restaurant)
 
     def perform_update(self, serializer):
         category = self.get_object()
@@ -225,7 +235,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
         if not restaurant:
             raise ValidationError({"restaurant": "User has no associated restaurant."})
 
-        # бизнесу запрещаем менять ресторан категории
+        # бизнесу запрещаем менять restaurant категории
         serializer.save(restaurant=restaurant)
 
     def destroy(self, request, *args, **kwargs):
@@ -262,8 +272,14 @@ class DishViewSet(viewsets.ModelViewSet):
     Superuser может со всеми, но restaurant обязателен при создании.
     """
 
-    serializer_class = DishSerializer
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
+    # ✅ для загрузки image через multipart/form-data
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def get_serializer_class(self):
+        if self.request.user.is_superuser:
+            return DishSuperuserSerializer
+        return DishSerializer
 
     def get_queryset(self):
         user = self.request.user
@@ -302,15 +318,18 @@ class DishViewSet(viewsets.ModelViewSet):
 
         # --- superuser ---
         if user.is_superuser:
+            old_category = instance.category
             saved = serializer.save()
+            new_category = saved.category
 
-            new_category = serializer.validated_data.get("category")
-            if new_category:
-                if new_category.is_system:
-                    if saved.moved_to_unsorted_at is None:
-                        Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
-                else:
-                    Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
+            # ✅ lifecycle: если из системной -> в обычную, сбросить
+            if old_category and old_category.is_system and new_category and not new_category.is_system:
+                Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
+
+            # если в системную — поставить moved_to_unsorted_at (если не было)
+            if new_category and new_category.is_system and saved.moved_to_unsorted_at is None:
+                Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
+
             return
 
         # --- business user ---
@@ -325,15 +344,16 @@ class DishViewSet(viewsets.ModelViewSet):
         if new_category and new_category.restaurant_id != restaurant.id:
             raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
 
+        old_category = instance.category
         saved = serializer.save(restaurant=restaurant)
+        new_category_final = saved.category
 
         # ✅ lifecycle after save
-        if new_category:
-            if new_category.is_system:
-                if saved.moved_to_unsorted_at is None:
-                    Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
-            else:
-                Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
+        if old_category and old_category.is_system and new_category_final and not new_category_final.is_system:
+            Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
+
+        if new_category_final and new_category_final.is_system and saved.moved_to_unsorted_at is None:
+            Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
 
     def perform_destroy(self, instance):
         user = self.request.user
@@ -402,9 +422,17 @@ class MenuView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        categories = Category.objects.filter(restaurant=restaurant).prefetch_related("dishes")
-        serializer = CategoryWithDishesSerializer(categories, many=True)
-        return Response(serializer.data)
+        categories = (
+            Category.objects
+            .filter(restaurant=restaurant)
+            .prefetch_related("dishes")
+            .order_by("id")
+        )
+
+        serializer = CategoryWithDishesSerializer(categories, many=True, context={"request": request})
+
+        # ✅ чаще удобнее фронту
+        return Response(serializer.data)    
 
 
 # =====================
