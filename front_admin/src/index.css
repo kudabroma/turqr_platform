@@ -6,7 +6,7 @@
 
 @layer base {
   :root {
-    /* TurQR Admin Theme - Professional Teal */
+    /* TurQR Admin Theme - Orange Brand */
     --background: 210 20% 98%;
     --foreground: 222 47% 11%;
 
@@ -16,8 +16,8 @@
     --popover: 0 0% 100%;
     --popover-foreground: 222 47% 11%;
 
-    /* Teal brand color */
-    --primary: 173 58% 39%;
+    /* ✅ Orange brand color (close to your UI / logo vibe) */
+    --primary: 18 78% 52%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96%;
@@ -26,27 +26,30 @@
     --muted: 210 40% 96%;
     --muted-foreground: 215 16% 47%;
 
-    --accent: 173 58% 94%;
-    --accent-foreground: 173 58% 30%;
+    /* ✅ Accent should also be orange-tinted (no green leftovers) */
+    --accent: 18 85% 94%;
+    --accent-foreground: 18 80% 32%;
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 0 0% 100%;
 
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 173 58% 39%;
+
+    /* ✅ focus ring */
+    --ring: 18 78% 52%;
 
     --radius: 0.5rem;
 
-    /* Sidebar - darker teal */
-    --sidebar-background: 173 50% 15%;
-    --sidebar-foreground: 173 20% 85%;
-    --sidebar-primary: 173 58% 50%;
+    /* ✅ Sidebar (warm dark orange / brownish) */
+    --sidebar-background: 18 55% 14%;
+    --sidebar-foreground: 18 25% 88%;
+    --sidebar-primary: 18 85% 55%;
     --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 173 40% 20%;
-    --sidebar-accent-foreground: 173 20% 95%;
-    --sidebar-border: 173 40% 22%;
-    --sidebar-ring: 173 58% 50%;
+    --sidebar-accent: 18 45% 20%;
+    --sidebar-accent-foreground: 18 25% 96%;
+    --sidebar-border: 18 35% 22%;
+    --sidebar-ring: 18 85% 55%;
 
     /* Custom admin colors */
     --success: 142 76% 36%;
@@ -67,7 +70,8 @@
     --popover: 222 47% 13%;
     --popover-foreground: 210 40% 98%;
 
-    --primary: 173 58% 50%;
+    /* ✅ Orange in dark mode (a bit brighter for contrast) */
+    --primary: 18 90% 60%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 217 33% 17%;
@@ -76,24 +80,24 @@
     --muted: 217 33% 17%;
     --muted-foreground: 215 20% 65%;
 
-    --accent: 173 40% 20%;
-    --accent-foreground: 173 50% 80%;
+    --accent: 18 40% 22%;
+    --accent-foreground: 18 70% 86%;
 
     --destructive: 0 63% 31%;
     --destructive-foreground: 210 40% 98%;
 
     --border: 217 33% 17%;
     --input: 217 33% 17%;
-    --ring: 173 58% 50%;
+    --ring: 18 90% 60%;
 
     --sidebar-background: 222 47% 8%;
     --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 173 58% 50%;
+    --sidebar-primary: 18 90% 60%;
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-accent: 222 47% 15%;
     --sidebar-accent-foreground: 210 40% 98%;
     --sidebar-border: 222 47% 15%;
-    --sidebar-ring: 173 58% 50%;
+    --sidebar-ring: 18 90% 60%;
 
     --success: 142 76% 36%;
     --success-foreground: 0 0% 100%;

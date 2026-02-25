@@ -20,7 +20,11 @@ type Props = {
   restaurant: RestaurantMe;
 };
 
-type FormState = Pick<RestaurantMe, "name" | "address" | "phone" | "email" | "contacts" | "logo">;
+// ✅ убрали logo
+type FormState = Pick<
+  RestaurantMe,
+  "name" | "address" | "phone" | "email" | "contacts"
+>;
 
 export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Props) {
   const qc = useQueryClient();
@@ -31,10 +35,8 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
     phone: "",
     email: "",
     contacts: "",
-    logo: "",
   });
 
-  // when modal opens (or restaurant changes) — sync form with backend data
   useEffect(() => {
     if (!open) return;
     setForm({
@@ -43,7 +45,6 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
       phone: restaurant.phone ?? "",
       email: restaurant.email ?? "",
       contacts: restaurant.contacts ?? "",
-      logo: restaurant.logo ?? "",
     });
   }, [open, restaurant]);
 
@@ -51,12 +52,12 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
     setForm((f) => ({ ...f, [key]: value }));
 
   const mutation = useMutation({
-  mutationFn: (payload: Partial<RestaurantMe>) => restaurantApi.update(payload),
-  onSuccess: async () => {
-    await qc.invalidateQueries({ queryKey: ["restaurant", "me"] });
-    onOpenChange(false);
-  },
-});
+    mutationFn: (payload: Partial<RestaurantMe>) => restaurantApi.update(payload),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["restaurant", "me"] });
+      onOpenChange(false);
+    },
+  });
 
   const handleSave = () => {
     mutation.mutate({
@@ -65,7 +66,7 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
       phone: form.phone,
       email: form.email,
       contacts: form.contacts,
-      logo: form.logo,
+      // ✅ logo НЕ отправляем
     });
   };
 
@@ -124,19 +125,17 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
             />
           </div>
 
-          <div>
-            <Label htmlFor="logo">Logo URL (optional)</Label>
-            <Input
-              id="logo"
-              value={form.logo}
-              onChange={(e) => update("logo", e.target.value)}
-              placeholder="platform/Turlogo.png"
-            />
-          </div>
+          {/* ✅ Logo input removed for now */}
 
           {mutation.isError && (
             <div className="text-sm text-red-600">
-              Failed to save: {(mutation.error as any)?.message ?? "Unknown error"}
+              Failed to save:{" "}
+              {(() => {
+                const err: any = mutation.error;
+                // если apiClient кладёт ответ в err.data — покажем его
+                if (err?.data) return JSON.stringify(err.data);
+                return err?.message ?? "Unknown error";
+              })()}
             </div>
           )}
         </div>
