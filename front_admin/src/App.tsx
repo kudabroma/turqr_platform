@@ -11,10 +11,18 @@ import CategoriesPage from "@/pages/admin/CategoriesPage";
 import MenuPage from "@/pages/admin_studio/MenuPage";
 import RestaurantPreview from "@/pages/admin_studio/RestaurantPreview";
 
-import SuperuserDashboard from "@/pages/super/SuperuserDashboard";
 import NotFound from "@/pages/NotFound";
 import AccessDenied from "@/pages/AccessDenied";
 import { Loader2 } from "lucide-react";
+
+// ===== SUPER ADMIN =====
+import SuperAdminLayout from "@/superadmin/layout/SuperAdminLayout";
+import DashboardPage from "@/superadmin/pages/superadmin/Dashboard";
+import RestaurantsPage from "@/superadmin/pages/superadmin/Restaurants";
+import UsersPage from "@/superadmin/pages/superadmin/BusinessUsers";
+import SubscriptionsPage from "@/superadmin/pages/superadmin/Subscriptions";
+import PaymentsPage from "@/superadmin/pages/superadmin/Payments";
+import SettingsPage from "@/superadmin/pages/superadmin/Settings";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -39,7 +47,7 @@ function RootRedirect() {
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   const isSuper = user?.restaurant === null;
-  return <Navigate to={isSuper ? "/super" : "/admin"} replace />;
+  return <Navigate to={isSuper ? "/superadmin" : "/admin"} replace />;
 }
 
 function LoginWrapper() {
@@ -55,7 +63,7 @@ function LoginWrapper() {
 
   if (isAuthenticated) {
     const isSuper = user?.restaurant === null;
-    return <Navigate to={isSuper ? "/super" : "/admin"} replace />;
+    return <Navigate to={isSuper ? "/superadmin" : "/admin"} replace />;
   }
 
   return <LoginPage />;
@@ -91,7 +99,6 @@ const App = () => (
               }
             />
 
-            {/* ✅ ЕДИНСТВЕННЫЙ путь для редактирования меню */}
             <Route
               path="/admin/menu"
               element={
@@ -110,15 +117,25 @@ const App = () => (
               }
             />
 
-            {/* ===== SUPERUSER ===== */}
+            {/* ===== SUPER ADMIN ===== */}
             <Route
-              path="/super"
+              path="/superadmin"
               element={
                 <ProtectedRoute role="superuser">
-                  <SuperuserDashboard />
+                  <SuperAdminLayout />
                 </ProtectedRoute>
               }
-            />
+            >
+              <Route index element={<DashboardPage />} />
+              <Route path="restaurants" element={<RestaurantsPage />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="subscriptions" element={<SubscriptionsPage />} />
+              <Route path="payments" element={<PaymentsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+
+            {/* Backward compatibility */}
+            <Route path="/super" element={<Navigate to="/superadmin" replace />} />
 
             <Route path="/access-denied" element={<AccessDenied />} />
             <Route path="*" element={<NotFound />} />
