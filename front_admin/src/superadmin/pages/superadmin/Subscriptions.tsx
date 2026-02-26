@@ -22,7 +22,7 @@ const statusColors: Record<string, string> = {
 export default function Subscriptions() {
   const { toast } = useToast();
   const qc = useQueryClient();
-  const { data: subscriptions, isLoading } = useQuery({ queryKey: ["subscriptions"], queryFn: getSubscriptions });
+  const { data: subscriptions, isLoading } = useQuery({ queryKey: ["superadmin","subscriptions"], queryFn: getSubscriptions });
 
   const [extendOpen, setExtendOpen] = useState(false);
   const [extendSub, setExtendSub] = useState<Subscription | null>(null);
@@ -31,7 +31,7 @@ export default function Subscriptions() {
   const mutation = useMutation({
     mutationFn: updateSubscription,
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["subscriptions"] });
+      qc.invalidateQueries({ queryKey: ["superadmin","subscriptions"] });
       toast({ title: "Subscription updated" });
       setExtendOpen(false);
     },

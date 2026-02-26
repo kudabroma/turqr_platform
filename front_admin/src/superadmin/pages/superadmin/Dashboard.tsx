@@ -4,10 +4,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Store, Users, CreditCard, Receipt, TrendingUp, AlertCircle } from "lucide-react";
 
 export default function Dashboard() {
-  const { data: restaurants } = useQuery({ queryKey: ["restaurants"], queryFn: getRestaurants });
-  const { data: users } = useQuery({ queryKey: ["businessUsers"], queryFn: getBusinessUsers });
-  const { data: subscriptions } = useQuery({ queryKey: ["subscriptions"], queryFn: getSubscriptions });
-  const { data: payments } = useQuery({ queryKey: ["payments"], queryFn: getPaymentHistory });
+  const { data: restaurants } = useQuery({ queryKey: ["superadmin","restaurants"], queryFn: getRestaurants });
+  const { data: users } = useQuery({ queryKey: ["superadmin","businessUsers"], queryFn: getBusinessUsers });
+  const { data: subscriptions } = useQuery({ queryKey: ["superadmin","subscriptions"], queryFn: getSubscriptions });
+  const { data: payments } = useQuery({ queryKey: ["superadmin","payments"], queryFn: getPaymentHistory });
 
   const activeRestaurants = restaurants?.filter((r) => r.active).length ?? 0;
   const totalRestaurants = restaurants?.length ?? 0;

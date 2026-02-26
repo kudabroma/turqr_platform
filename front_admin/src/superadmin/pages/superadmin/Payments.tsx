@@ -14,8 +14,8 @@ const statusStyles: Record<string, string> = {
 };
 
 export default function Payments() {
-  const { data: payments, isLoading } = useQuery({ queryKey: ["payments"], queryFn: getPaymentHistory });
-  const { data: restaurants } = useQuery({ queryKey: ["restaurants"], queryFn: getRestaurants });
+  const { data: payments, isLoading } = useQuery({ queryKey: ["superadmin", "payments"], queryFn: getPaymentHistory });
+  const { data: restaurants } = useQuery({ queryKey: ["superadmin","restaurants"], queryFn: getRestaurants });
 
   const [filterRestaurant, setFilterRestaurant] = useState("all");
   const [filterStatus, setFilterStatus] = useState("all");

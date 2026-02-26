@@ -1,4 +1,8 @@
-// TODO: Replace all mock data with real Django/DRF API calls
+// src/superadmin/api/superadmin.ts
+// Super Admin API layer
+// Restaurants + Business Users: REAL Django/DRF API (SessionAuth + CSRF)
+// Subscriptions / Payments: mock for now
+
 import type {
   Restaurant,
   BusinessUser,
@@ -9,125 +13,232 @@ import type {
   UpdateSubscriptionPayload,
 } from "@/superadmin/types/superadmin";
 
+/* =========================
+   Helpers
+   ========================= */
+
 const delay = (ms = 500) => new Promise((r) => setTimeout(r, ms));
 
-let restaurants: Restaurant[] = [
-  { id: 1, name: "Kebab Palace", slug: "kebab-palace", active: true, plan: "premium", paid_until: "2025-12-31", created_at: "2024-06-01" },
-  { id: 2, name: "Sushi Garden", slug: "sushi-garden", active: true, plan: "basic", paid_until: "2025-08-15", created_at: "2024-07-12" },
-  { id: 3, name: "Pizza Roma", slug: "pizza-roma", active: false, plan: null, paid_until: null, created_at: "2024-09-20" },
-  { id: 4, name: "Burger Barn", slug: "burger-barn", active: true, plan: "trial", paid_until: "2025-04-01", created_at: "2025-01-05" },
-  { id: 5, name: "Thai Orchid", slug: "thai-orchid", active: true, plan: "premium", paid_until: "2026-01-20", created_at: "2024-03-18" },
-];
+function getCookie(name: string): string | null {
+  const match = document.cookie.match(new RegExp("(^|;\\s*)" + name + "=([^;]*)"));
+  return match ? decodeURIComponent(match[2]) : null;
+}
 
-let businessUsers: BusinessUser[] = [
-  { id: 1, username: "ali@kebabpalace.com", email: "ali@kebabpalace.com", restaurant: "Kebab Palace", restaurant_id: 1, is_active: true, created_at: "2024-06-01" },
-  { id: 2, username: "yuki@sushigarden.com", email: "yuki@sushigarden.com", restaurant: "Sushi Garden", restaurant_id: 2, is_active: true, created_at: "2024-07-12" },
-  { id: 3, username: "marco@pizzaroma.com", email: "marco@pizzaroma.com", restaurant: "Pizza Roma", restaurant_id: 3, is_active: false, created_at: "2024-09-20" },
-];
+function isUnsafe(method?: string) {
+  const m = (method || "GET").toUpperCase();
+  return ["POST", "PUT", "PATCH", "DELETE"].includes(m);
+}
 
-let subscriptions: Subscription[] = [
-  { id: 1, restaurant: "Kebab Palace", restaurant_id: 1, status: "active", plan: "premium", paid_until: "2025-12-31" },
-  { id: 2, restaurant: "Sushi Garden", restaurant_id: 2, status: "active", plan: "basic", paid_until: "2025-08-15" },
-  { id: 3, restaurant: "Pizza Roma", restaurant_id: 3, status: "inactive", plan: "basic", paid_until: null },
-  { id: 4, restaurant: "Burger Barn", restaurant_id: 4, status: "trial", plan: "trial", paid_until: "2025-04-01" },
-  { id: 5, restaurant: "Thai Orchid", restaurant_id: 5, status: "active", plan: "premium", paid_until: "2026-01-20" },
-];
+async function api<T>(url: string, options?: RequestInit): Promise<T> {
+  const method = (options?.method || "GET").toUpperCase();
 
-const payments: Payment[] = [
-  { id: 1, restaurant: "Kebab Palace", amount: 49.99, currency: "USD", provider: "stripe", status: "success", created_at: "2025-01-15" },
-  { id: 2, restaurant: "Sushi Garden", amount: 29.99, currency: "USD", provider: "stripe", status: "success", created_at: "2025-01-10" },
-  { id: 3, restaurant: "Burger Barn", amount: 49.99, currency: "USD", provider: "paypal", status: "pending", created_at: "2025-02-01" },
-  { id: 4, restaurant: "Thai Orchid", amount: 49.99, currency: "USD", provider: "stripe", status: "success", created_at: "2025-02-10" },
-  { id: 5, restaurant: "Pizza Roma", amount: 29.99, currency: "USD", provider: "stripe", status: "failed", created_at: "2025-01-20" },
-  { id: 6, restaurant: "Kebab Palace", amount: 49.99, currency: "USD", provider: "stripe", status: "refund", created_at: "2024-12-01" },
-];
+  const headers: Record<string, string> = {
+    ...(options?.headers as any),
+  };
 
-let nextRestaurantId = 6;
-let nextUserId = 4;
+  // Add JSON content-type only when we have body
+  if (!headers["Content-Type"] && options?.body) {
+    headers["Content-Type"] = "application/json";
+  }
 
-// TODO: Replace with GET /api/superadmin/restaurants/
+  // ✅ CSRF for unsafe methods (SessionAuthentication)
+  if (isUnsafe(method)) {
+    const csrf = getCookie("csrftoken");
+    if (csrf) headers["X-CSRFToken"] = csrf;
+  }
+
+  const res = await fetch(url, {
+    credentials: "include",
+    ...options,
+    headers,
+  });
+
+  if (!res.ok) {
+    const text = await res.text().catch(() => "");
+    throw new Error(`${res.status} ${res.statusText} ${text}`);
+  }
+
+  if (res.status === 204) return undefined as T;
+  return (await res.json()) as T;
+}
+
+/**
+ * Backend returns restaurant:
+ * { id, name, slug, plan, paid_until, created_at, active? }
+ */
+function normalizeRestaurant(raw: any): Restaurant {
+  return {
+    id: raw.id,
+    name: raw.name,
+    slug: raw.slug,
+    active: typeof raw.active === "boolean" ? raw.active : true,
+    plan: raw.plan ?? null,
+    paid_until: raw.paid_until ?? null,
+    created_at: raw.created_at ?? raw.created ?? raw.createdAt ?? null,
+  };
+}
+
+/**
+ * Backend returns user:
+ * {
+ *   id, email, display_email, first_name, last_name,
+ *   is_active, date_joined, last_login,
+ *   restaurant: {id,name,slug} | null
+ * }
+ *
+ * But our UI/types may use restaurant as string OR object -> keep it flexible.
+ */
+function normalizeBusinessUser(raw: any): BusinessUser {
+  const restaurantObj = raw.restaurant ?? null;
+
+  // Choose username/email for display (UI uses u.username)
+  const username =
+    raw.display_email ||
+    raw.email ||
+    raw.username ||
+    "";
+
+  // Convert restaurant for UI (keep object if your types allow it, otherwise fallback to name string)
+  // We'll keep object if present, but if UI expects string, it can render typeof === 'string' ? ... : .name
+  const restaurant = restaurantObj
+    ? {
+        id: restaurantObj.id,
+        name: restaurantObj.name,
+        slug: restaurantObj.slug,
+      }
+    : null;
+
+  // created_at: UI expects created_at string
+  const createdAt = raw.date_joined || raw.created_at || raw.created || null;
+
+  return {
+    id: raw.id,
+    username,
+    email: raw.email || username,
+    restaurant: restaurant as any, // allow RestaurantMini | string | null depending on your types
+    restaurant_id: restaurantObj?.id ?? null,
+    is_active: !!raw.is_active,
+    created_at: createdAt,
+  };
+}
+
+/* =========================
+   REAL API: Restaurants
+   ========================= */
+
 export async function getRestaurants(): Promise<Restaurant[]> {
-  await delay();
-  return [...restaurants];
+  const data = await api<any[]>("/api/superadmin/restaurants/");
+  return data.map(normalizeRestaurant);
 }
 
-// TODO: Replace with POST /api/superadmin/restaurants/
 export async function createRestaurant(data: CreateRestaurantPayload): Promise<Restaurant> {
-  await delay();
-  const r: Restaurant = {
-    id: nextRestaurantId++,
-    name: data.name,
-    slug: data.slug,
-    active: true,
-    plan: null,
-    paid_until: null,
-    created_at: new Date().toISOString().split("T")[0],
-  };
-  restaurants = [...restaurants, r];
-  return r;
+  const created = await api<any>("/api/superadmin/restaurants/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return normalizeRestaurant(created);
 }
 
-// TODO: Replace with GET /api/superadmin/users/
+/* =========================
+   REAL API: Business Users
+   ========================= */
+
 export async function getBusinessUsers(): Promise<BusinessUser[]> {
-  await delay();
-  return [...businessUsers];
+  const data = await api<any[]>("/api/superadmin/users/");
+  return data.map(normalizeBusinessUser);
 }
 
-// TODO: Replace with POST /api/superadmin/users/
 export async function createBusinessUser(data: CreateBusinessUserPayload): Promise<BusinessUser> {
-  await delay();
-  const rest = restaurants.find((r) => r.id === data.restaurant_id);
-  const u: BusinessUser = {
-    id: nextUserId++,
-    username: data.username,
-    email: data.username,
-    restaurant: rest?.name ?? "Unknown",
-    restaurant_id: data.restaurant_id,
-    is_active: true,
-    created_at: new Date().toISOString().split("T")[0],
-  };
-  businessUsers = [...businessUsers, u];
-  return u;
+  // Backend expected payload: { username/email, restaurant_id, password }
+  const created = await api<any>("/api/superadmin/users/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+  return normalizeBusinessUser(created);
 }
 
-// TODO: Replace with POST /api/superadmin/users/{id}/reset-password/
-export async function resetBusinessUserPassword(_userId: number, _newPassword: string): Promise<void> {
-  await delay();
-}
-
-// TODO: Replace with PATCH /api/superadmin/users/{id}/
+/**
+ * Action endpoint (recommended):
+ * POST /api/superadmin/users/<id>/toggle-active/
+ * returns updated user OR 204
+ */
 export async function toggleBusinessUserActive(userId: number): Promise<void> {
-  await delay();
-  businessUsers = businessUsers.map((u) =>
-    u.id === userId ? { ...u, is_active: !u.is_active } : u
-  );
+  await api(`/api/superadmin/users/${userId}/toggle-active/`, {
+    method: "PATCH",
+    body: JSON.stringify({}), // можно пустое тело
+  });
+}
+export async function deleteRestaurant(id: number) {
+  return api(`/api/superadmin/restaurants/${id}/`, {
+    method: "DELETE",
+  });
 }
 
-// TODO: Replace with GET /api/superadmin/subscriptions/
+/**
+ * Action endpoint:
+ * POST /api/superadmin/users/<id>/reset-password/
+ * payload: { password: "..." }
+ * returns 204 or {ok:true}
+ */
+export async function resetBusinessUserPassword(userId: number, newPassword: string): Promise<void> {
+  await api<void>(`/api/superadmin/users/${userId}/reset-password/`, {
+    method: "POST",
+    body: JSON.stringify({ password: newPassword }),
+  });
+}
+
+/* =========================
+   MOCK (for now): Subscriptions
+   ========================= */
+
+let subscriptions: Subscription[] = [];
+
 export async function getSubscriptions(): Promise<Subscription[]> {
   await delay();
   return [...subscriptions];
 }
 
-// TODO: Replace with PATCH /api/superadmin/subscriptions/{id}/
 export async function updateSubscription(data: UpdateSubscriptionPayload): Promise<Subscription> {
   await delay();
   let updated: Subscription | undefined;
+
   subscriptions = subscriptions.map((s) => {
     if (s.id === data.id) {
       updated = { ...s, ...data };
-      return updated;
+      return updated!;
     }
     return s;
   });
-  return updated!;
+
+  if (!updated) {
+    updated = {
+      id: data.id,
+      restaurant: "Unknown",
+      restaurant_id: 0,
+      status: (data as any).status ?? "inactive",
+      plan: (data as any).plan ?? "basic",
+      paid_until: (data as any).paid_until ?? null,
+    };
+    subscriptions = [updated, ...subscriptions];
+  }
+
+  return updated;
 }
 
-// TODO: Replace with GET /api/superadmin/payments/
+/* =========================
+   MOCK (for now): Payments
+   ========================= */
+
+const payments: Payment[] = [];
+
 export async function getPaymentHistory(): Promise<Payment[]> {
   await delay();
   return [...payments];
 }
+
+/* =========================
+   Utils
+   ========================= */
 
 export function generatePassword(length = 16): string {
   const chars = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789!@#$%&*";
