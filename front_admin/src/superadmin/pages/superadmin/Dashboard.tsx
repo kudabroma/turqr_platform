@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { getRestaurants, getBusinessUsers, getSubscriptions, getPaymentHistory } from "@/api/superadmin";
+import { getRestaurants, getBusinessUsers, getSubscriptions, getPaymentHistory } from "@/superadmin/api/superadmin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Store, Users, CreditCard, Receipt, TrendingUp, AlertCircle } from "lucide-react";
 

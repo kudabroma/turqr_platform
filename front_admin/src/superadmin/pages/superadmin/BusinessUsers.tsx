@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getBusinessUsers, createBusinessUser, getRestaurants, resetBusinessUserPassword, toggleBusinessUserActive, generatePassword } from "@/api/superadmin";
-import type { CreateBusinessUserPayload } from "@/types/superadmin";
+import { getBusinessUsers, createBusinessUser, getRestaurants, resetBusinessUserPassword, toggleBusinessUserActive, generatePassword } from "@/superadmin/api/superadmin";
+import type { CreateBusinessUserPayload } from "@/superadmin/types/superadmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

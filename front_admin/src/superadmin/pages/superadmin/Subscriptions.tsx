@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getSubscriptions, updateSubscription } from "@/api/superadmin";
-import type { Subscription } from "@/types/superadmin";
+import { getSubscriptions, updateSubscription } from "@/superadmin/api/superadmin";
+import type { Subscription } from "@/superadmin/types/superadmin";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";

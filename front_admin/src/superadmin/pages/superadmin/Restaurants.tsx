@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getRestaurants, createRestaurant } from "@/api/superadmin";
-import type { CreateRestaurantPayload } from "@/types/superadmin";
+import { getRestaurants, createRestaurant } from "@/superadmin/api/superadmin";
+import type { CreateRestaurantPayload } from "@/superadmin/types/superadmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";

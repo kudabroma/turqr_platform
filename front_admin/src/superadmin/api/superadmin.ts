@@ -7,7 +7,7 @@ import type {
   CreateRestaurantPayload,
   CreateBusinessUserPayload,
   UpdateSubscriptionPayload,
-} from "@/types/superadmin";
+} from "@/superadmin/types/superadmin";
 
 const delay = (ms = 500) => new Promise((r) => setTimeout(r, ms));
 

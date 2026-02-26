@@ -1,7 +1,7 @@
 import { useState, useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getPaymentHistory, getRestaurants } from "@/api/superadmin";
-import type { Payment } from "@/types/superadmin";
+import { getPaymentHistory, getRestaurants } from "@/superadmin/api/superadmin";
+import type { Payment } from "@/superadmin/types/superadmin";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
