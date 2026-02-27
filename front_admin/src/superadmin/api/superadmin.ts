@@ -173,7 +173,11 @@ export async function deleteRestaurant(id: number) {
     method: "DELETE",
   });
 }
-
+export async function toggleRestaurantActive(id: number) {
+  return api(`/api/superadmin/restaurants/${id}/toggle-active/`, {
+    method: "PATCH",
+  });
+}
 /**
  * Action endpoint:
  * POST /api/superadmin/users/<id>/reset-password/

@@ -52,10 +52,12 @@ def restaurant_is_active(restaurant: Restaurant) -> tuple[bool, str | None]:
 def get_public_restaurant_or_404(request, slug_from_url: str | None):
     """
     Возвращает ресторан для публичного доступа:
-    1) сначала пытаемся взять slug из subdomain middleware: request.restaurant_slug
-    2) если его нет — используем slug из URL (fallback)
-    3) если ресторан не активен по подписке -> 404 (для туриста "не существует")
+    1) slug из subdomain middleware
+    2) fallback из URL
+    3) если ресторан отключён (active=False) -> 404
+    4) если подписка не активна -> 404
     """
+
     slug = getattr(request, "restaurant_slug", None) or slug_from_url
 
     if not slug:
@@ -66,6 +68,11 @@ def get_public_restaurant_or_404(request, slug_from_url: str | None):
         slug=slug,
     )
 
+    # 🔴 НОВОЕ: проверка ручного отключения
+    if not restaurant.active:
+        raise Http404("Restaurant not found")
+
+    # 🔴 Проверка подписки (твоя логика)
     ok, _reason = restaurant_is_active(restaurant)
     if not ok:
         raise Http404("Restaurant not found")

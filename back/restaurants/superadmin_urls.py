@@ -7,7 +7,8 @@ from .superadmin_views import (
     SuperAdminBusinessUserDetailView,
     SuperAdminBusinessUserResetPasswordView,
     SuperAdminBusinessUserToggleActiveView,
-    SuperAdminRestaurantDetailView
+    SuperAdminRestaurantDetailView,
+    SuperAdminRestaurantToggleActiveView
 )
 
 urlpatterns = [
@@ -26,5 +27,10 @@ urlpatterns = [
     "restaurants/<int:pk>/",
     SuperAdminRestaurantDetailView.as_view(),
     name="sa-restaurant-detail"
-),
+    ),
+    path(
+    "restaurants/<int:pk>/toggle-active/",
+    SuperAdminRestaurantToggleActiveView.as_view(),
+    name="sa-restaurant-toggle-active",
+    ),
 ]

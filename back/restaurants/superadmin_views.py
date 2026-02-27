@@ -5,6 +5,8 @@ from rest_framework import generics, permissions, status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.generics import RetrieveUpdateDestroyAPIView
+from .models import Restaurant
+
 
 
 from .models import Restaurant
@@ -86,3 +88,16 @@ class SuperAdminBusinessUserToggleActiveView(APIView):
         user.is_active = not user.is_active
         user.save(update_fields=["is_active"])
         return Response({"id": user.id, "is_active": user.is_active})
+class SuperAdminRestaurantToggleActiveView(APIView):
+    permission_classes = [permissions.IsAdminUser]
+
+    def patch(self, request, pk):
+        restaurant = get_object_or_404(Restaurant, pk=pk)
+
+        restaurant.active = not restaurant.active
+        restaurant.save(update_fields=["active"])
+
+        return Response({
+            "id": restaurant.id,
+            "active": restaurant.active,
+        })

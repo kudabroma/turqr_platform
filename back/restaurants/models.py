@@ -14,6 +14,7 @@ class Restaurant(models.Model):
         unique=True,
         help_text="Используется в URL и поддомене ресторана",
     )
+    active = models.BooleanField(default=True, db_index=True)
     contacts = models.TextField(blank=True, verbose_name="Контакты")
     phone = models.CharField(max_length=50, blank=True, default="", verbose_name="Телефон")
     email = models.EmailField(blank=True, default="", verbose_name="Email")

@@ -4,6 +4,7 @@ import {
   createRestaurant,
   deleteRestaurant,
   getRestaurants,
+  toggleRestaurantActive,
 } from "@/superadmin/api/superadmin";
 import type { CreateRestaurantPayload, Restaurant } from "@/superadmin/types/superadmin";
 
@@ -27,7 +28,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ExternalLink, Link2, Plus, Trash2 } from "lucide-react";
+import { ExternalLink, Link2, Plus, Trash2, UserCheck, UserX } from "lucide-react";
 
 function toSlug(input: string) {
   return input
@@ -69,6 +70,22 @@ export default function RestaurantsPage() {
     onError: (e: any) => {
       toast({
         title: "Failed to create restaurant",
+        description: e?.message ?? "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // TOGGLE ACTIVE
+  const toggleMut = useMutation({
+    mutationFn: (id: number) => toggleRestaurantActive(id),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["superadmin", "restaurants"] });
+      toast({ title: "Restaurant status updated" });
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Failed to update status",
         description: e?.message ?? "Unknown error",
         variant: "destructive",
       });
@@ -213,6 +230,19 @@ export default function RestaurantsPage() {
                       Django admin
                     </Button>
 
+                    {/* ✅ Toggle Active button (next to Delete) */}
+                    <Button
+                      variant={r.active ? "secondary" : "outline"}
+                      size="sm"
+                      onClick={() => toggleMut.mutate(r.id)}
+                      className="gap-2"
+                      disabled={toggleMut.isPending}
+                      title={r.active ? "Disable restaurant" : "Enable restaurant"}
+                    >
+                      {r.active ? <UserX size={16} /> : <UserCheck size={16} />}
+                      {r.active ? "Disable" : "Enable"}
+                    </Button>
+
                     <Button
                       variant="destructive"
                       size="sm"
@@ -273,7 +303,6 @@ export default function RestaurantsPage() {
       <Dialog
         open={deleteOpen}
         onOpenChange={(v) => {
-          // не даём закрыть во время запроса
           if (deleteMut.isPending) return;
           setDeleteOpen(v);
           if (!v) setDeleteTarget(null);
