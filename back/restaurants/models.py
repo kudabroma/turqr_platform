@@ -71,7 +71,14 @@ class User(AbstractUser):
 
 
 class Category(models.Model):
+    # старое поле пока оставляем (для совместимости)
     name = models.CharField(max_length=255, verbose_name="Название категории")
+
+    # ✅ NEW: bilingual fields (TR + EN)
+    # Пустые строки по умолчанию, чтобы миграции проходили без ручных правок
+    name_tr = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (TR)")
+    name_en = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (EN)")
+
     restaurant = models.ForeignKey(
         Restaurant,
         on_delete=models.CASCADE,
@@ -85,10 +92,26 @@ class Category(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    def __str__(self) -> str:
+        # удобно в админке: сначала tr, потом name, потом en
+        return self.name_tr or self.name or self.name_en or f"Category #{self.pk}"
+
+    class Meta:
+        verbose_name = "Категория"
+        verbose_name_plural = "Категории"
+
 
 class Dish(models.Model):
+    # старые поля пока оставляем (для совместимости)
     name = models.CharField(max_length=255, verbose_name="Название блюда")
     description = models.TextField(blank=True, verbose_name="Описание")
+
+    # ✅ NEW: bilingual fields (TR + EN)
+    name_tr = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (TR)")
+    name_en = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (EN)")
+    description_tr = models.TextField(blank=True, default="", verbose_name="Описание (TR)")
+    description_en = models.TextField(blank=True, default="", verbose_name="Описание (EN)")
+
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
     image = models.ImageField(upload_to="dishes/images/", blank=True, null=True)
 
@@ -111,6 +134,13 @@ class Dish(models.Model):
 
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self) -> str:
+        return self.name_tr or self.name or self.name_en or f"Dish #{self.pk}"
+
+    class Meta:
+        verbose_name = "Блюдо"
+        verbose_name_plural = "Блюда"
 
 
 class Subscription(models.Model):

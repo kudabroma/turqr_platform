@@ -12,19 +12,39 @@ export interface User {
 
 export interface Category {
   id: number;
+
+  // display name (для табов/вьюхи меню); public/menu обычно отдаёт только это
   name: string;
+
+  // bilingual fields (для CRUD)
+  name_tr?: string;
+  name_en?: string;
+
   is_system?: boolean;
   restaurant?: number;
 }
 
 export interface Dish {
   id: number;
+
+  // display fields (из /menu/)
   name: string;
   description: string;
+
+  // bilingual fields (для CRUD)
+  name_tr?: string;
+  name_en?: string;
+  description_tr?: string;
+  description_en?: string;
+
   price: string; // DRF часто отдаёт как string
   category: number;
   restaurant?: number;
+
+  // optional helpers
   category_name?: string;
+  image?: string | null;
+  image_url?: string | null;
 }
 
 export interface RestaurantMe {
@@ -40,14 +60,6 @@ export interface RestaurantMe {
   active: boolean;
   plan: string;
   paid_until: string | null;
-
-  // если у тебя уже добавлены поля фото ресторана на бэке — можно типизировать тут (не обязательно)
-  // photo1_url?: string | null;
-  // photo2_url?: string | null;
-  // photo3_url?: string | null;
-  // photo4_url?: string | null;
-  // photo5_url?: string | null;
-  // photo6_url?: string | null;
 }
 
 // /api/menu/ -> список категорий с dishes
@@ -55,22 +67,34 @@ export interface CategoryWithDishes extends Category {
   dishes: Dish[];
 }
 
+// =====================
+// Payload Types (CRUD)
+// =====================
+
 export interface CreateCategoryData {
-  name: string;
+  name_tr: string;
+  name_en?: string;
 }
+
 export interface UpdateCategoryData {
-  name: string;
+  name_tr?: string;
+  name_en?: string;
 }
 
 export interface CreateDishData {
-  name: string;
-  description: string;
+  name_tr: string;
+  name_en?: string;
+  description_tr?: string;
+  description_en?: string;
   price: string;
   category: number;
 }
+
 export interface UpdateDishData {
-  name?: string;
-  description?: string;
+  name_tr?: string;
+  name_en?: string;
+  description_tr?: string;
+  description_en?: string;
   price?: string;
   category?: number;
 }
@@ -133,12 +157,18 @@ export const restaurantApi = {
 export const categoriesApi = {
   list: () => apiClient<Category[]>("/categories/"),
 
+  get: (id: number) => apiClient<Category>(`/categories/${id}/`),
+
   create: (data: CreateCategoryData) =>
     apiClient<Category>("/categories/", {
       method: "POST",
       body: data,
     }),
 
+/**
+ * PATCH /categories/:id/
+ * передавай name_tr/name_en
+ */
   update: (id: number, data: UpdateCategoryData) =>
     apiClient<Category>(`/categories/${id}/`, {
       method: "PATCH",
@@ -158,12 +188,19 @@ export const categoriesApi = {
 export const dishesApi = {
   list: () => apiClient<Dish[]>("/dishes/"),
 
+  // ✅ важно для заполнения модалки bilingual полями
+  get: (id: number) => apiClient<Dish>(`/dishes/${id}/`),
+
   create: (data: CreateDishData) =>
     apiClient<Dish>("/dishes/", {
       method: "POST",
       body: data,
     }),
 
+/**
+ * PATCH /dishes/:id/
+ * передавай bilingual поля
+ */
   update: (id: number, data: UpdateDishData) =>
     apiClient<Dish>(`/dishes/${id}/`, {
       method: "PATCH",

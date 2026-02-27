@@ -10,24 +10,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
 
 export interface DishData {
-  id?: number; // undefined для нового блюда
-  name: string;
-  description: string;
+  id?: number;
+
+  name_tr: string;
+  name_en: string;
+
+  description_tr: string;
+  description_en: string;
+
   price: number;
-  //✅ URL картинки, которую вернёт backend ("/media/...") или пусто
+
   image: string;
-  // ✅ UI-only: выбранный файл (для загрузки на сервер)
   imageFile?: File | null;
 
-  // (пока не используем, скрыты)
   vegan: boolean;
   spicy: boolean;
   featured: boolean;
 
-  // ✅ UI-only
   _categoryId?: number;
   _categoryName?: string;
 }
@@ -38,14 +39,14 @@ interface EditDishModalProps {
   dish: DishData | null;
   onSave: (dish: DishData) => void;
   onDelete?: (id: number) => void;
-
-  // ✅ список категорий для "Move to category" внутри модалки
   categories?: { id: number; name: string }[];
 }
 
 const emptyDish: DishData = {
-  name: "",
-  description: "",
+  name_tr: "",
+  name_en: "",
+  description_tr: "",
+  description_en: "",
   price: 0,
   image: "",
   vegan: false,
@@ -64,6 +65,7 @@ export function EditDishModal({
   const [form, setForm] = useState<DishData>(emptyDish);
 
   const isNew = !dish;
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -74,19 +76,32 @@ export function EditDishModal({
     setImagePreview(url);
   }
 
-  // ✅ синхронизируем форму при открытии/смене dish
+  // ✅ cleanup object URL (prevents memory leak)
   useEffect(() => {
-  if (!open) return;
+    return () => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+    };
+  }, [imagePreview]);
 
-  if (dish) setForm(dish);
-  else setForm(emptyDish);
+  useEffect(() => {
+    if (!open) return;
 
-  setImageFile(null);
-  setImagePreview(null);
-}, [open, dish]);
+    if (dish) {
+      setForm({
+        ...dish,
+        name_tr: dish.name_tr ?? "",
+        name_en: dish.name_en ?? "",
+        description_tr: dish.description_tr ?? "",
+        description_en: dish.description_en ?? "",
+      });
+    } else {
+      setForm(emptyDish);
+    }
 
-  // ✅ для селекта: категории без Unsorted, если ты уже исключаешь is_system в MenuPage — ок,
-  // но тут ещё раз подстрахуемся (если вдруг прилетит)
+    setImageFile(null);
+    setImagePreview(null);
+  }, [open, dish]);
+
   const categoryOptions = useMemo(() => {
     return (categories ?? []).filter((c: any) => !c?.is_system);
   }, [categories]);
@@ -95,15 +110,17 @@ export function EditDishModal({
     setForm((prev) => ({ ...prev, [key]: value }));
 
   const handleSave = () => {
-    if (!form.name.trim()) return;
+    if (!form.name_tr.trim()) {
+      alert("Name (TR) is required.");
+      return;
+    }
 
-    // ✅ category обязателен для сохранения (в MenuPage ты ещё раз проверяешь)
     if (!form._categoryId) {
       alert("Select a category for this dish.");
       return;
     }
 
-    onSave({ ...form, imageFile }); // ✅ передаём файл внутри объекта
+    onSave({ ...form, imageFile });
     onOpenChange(false);
   };
 
@@ -115,150 +132,138 @@ export function EditDishModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+      {/* ✅ key fix: constrained modal + scrollable body + sticky footer */}
+      <DialogContent className="sm:max-w-lg max-h-[85vh] p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6">
           <DialogTitle>{isNew ? "Add New Dish" : "Edit Dish"}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 mt-2">
-          {/* Photo */}
-          <div className="flex items-center gap-4">
-            {/* ✅ ВОТ ЭТОГО У ТЕБЯ НЕ ХВАТАЛО: реальный input */}
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/*"
-              className="hidden"
-              onChange={(e) => {
-                const file = e.target.files?.[0];
-                if (file) acceptFile(file);
-              }}
-            />
+        {/* ✅ Scrollable body */}
+        <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
+          <div className="space-y-4 mt-2">
+            {/* Photo */}
+            <div className="flex items-center gap-4">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) acceptFile(file);
+                }}
+              />
 
-            <div
-              className="w-20 h-20 rounded-xl bg-muted border-2 border-dashed border-border flex items-center justify-center overflow-hidden cursor-pointer"
-              title="Click to upload"
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-              }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const file = e.dataTransfer.files?.[0];
-                if (file) acceptFile(file);
-              }}
-            >
-              {(imagePreview || form.image) ? (
-                <img
-                  src={imagePreview || form.image}
-                  alt=""
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <Upload className="h-6 w-6 text-muted-foreground" />
-              )}
-            </div>
-
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              Upload Photo
-            </Button>
-          </div>
-
-          <div>
-            <Label htmlFor="dish-name">Name</Label>
-            <Input
-              id="dish-name"
-              value={form.name}
-              onChange={(e) => update("name", e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="dish-desc">Description</Label>
-            <Textarea
-              id="dish-desc"
-              value={form.description}
-              onChange={(e) => update("description", e.target.value)}
-              rows={2}
-            />
-          </div>
-
-          {/* ✅ Move to category */}
-          {categoryOptions.length > 0 ? (
-            <div>
-              <Label htmlFor="dish-category">Category</Label>
-              <select
-                id="dish-category"
-                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                value={form._categoryId ?? ""}
-                onChange={(e) =>
-                  update(
-                    "_categoryId",
-                    e.target.value ? Number(e.target.value) : undefined
-                  )
-                }
+              <div
+                className="w-20 h-20 rounded-xl bg-muted border-2 border-dashed border-border flex items-center justify-center overflow-hidden cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) acceptFile(file);
+                }}
+                title="Click to upload"
               >
-                <option value="" disabled>
-                  Select category…
-                </option>
-                {categoryOptions.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-              <div className="text-xs text-muted-foreground mt-1">
-                This moves the dish into the selected category.
+                {imagePreview || form.image ? (
+                  <img
+                    src={imagePreview || form.image}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <Upload className="h-6 w-6 text-muted-foreground" />
+                )}
               </div>
-            </div>
-          ) : null}
 
-          <div>
-            <Label htmlFor="dish-price">Price (₺)</Label>
-            <Input
-              id="dish-price"
-              type="number"
-              value={form.price}
-              onChange={(e) => update("price", Number(e.target.value))}
-            />
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => fileInputRef.current?.click()}
+              >
+                Upload Photo
+              </Button>
+            </div>
+
+            {/* Name TR */}
+            <div>
+              <Label>Name (TR)</Label>
+              <Input
+                value={form.name_tr}
+                onChange={(e) => update("name_tr", e.target.value)}
+              />
+            </div>
+
+            {/* Name EN */}
+            <div>
+              <Label>Name (EN)</Label>
+              <Input
+                value={form.name_en}
+                onChange={(e) => update("name_en", e.target.value)}
+              />
+            </div>
+
+            {/* Description TR */}
+            <div>
+              <Label>Description (TR)</Label>
+              <Textarea
+                value={form.description_tr}
+                onChange={(e) => update("description_tr", e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            {/* Description EN */}
+            <div>
+              <Label>Description (EN)</Label>
+              <Textarea
+                value={form.description_en}
+                onChange={(e) => update("description_en", e.target.value)}
+                rows={2}
+              />
+            </div>
+
+            {/* Category */}
+            {categoryOptions.length > 0 && (
+              <div>
+                <Label>Category</Label>
+                <select
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  value={form._categoryId ?? ""}
+                  onChange={(e) =>
+                    update(
+                      "_categoryId",
+                      e.target.value ? Number(e.target.value) : undefined
+                    )
+                  }
+                >
+                  <option value="" disabled>
+                    Select category…
+                  </option>
+                  {categoryOptions.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            )}
+
+            {/* Price */}
+            <div>
+              <Label>Price (₺)</Label>
+              <Input
+                type="number"
+                value={form.price}
+                onChange={(e) => update("price", Number(e.target.value))}
+              />
+            </div>
           </div>
-
-          {/* Checkboxes (disabled) */}
-          {false && (
-            <div className="flex flex-wrap gap-6">
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={form.vegan}
-                  onCheckedChange={(v) => update("vegan", !!v)}
-                />
-                Vegan
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={form.spicy}
-                  onCheckedChange={(v) => update("spicy", !!v)}
-                />
-                Spicy
-              </label>
-              <label className="flex items-center gap-2 text-sm">
-                <Checkbox
-                  checked={form.featured}
-                  onCheckedChange={(v) => update("featured", !!v)}
-                />
-                Featured
-              </label>
-            </div>
-          )}
         </div>
 
-        <div className="flex items-center justify-between mt-4">
+        {/* ✅ Sticky footer (always visible) */}
+        <div className="px-6 py-4 border-t bg-background sticky bottom-0 flex items-center justify-between">
           <div>
             {!isNew && onDelete && (
               <Button variant="destructive" size="sm" onClick={handleDelete}>

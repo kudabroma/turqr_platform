@@ -11,6 +11,7 @@ from rest_framework import permissions
 
 from .models import Restaurant, Category, Dish
 from .serializers_public import PublicRestaurantSerializer, PublicCategorySerializer
+from .utils.lang import normalize_lang
 
 
 # ✅ В DEV можно разрешать публичный доступ даже без активной подписки
@@ -106,15 +107,15 @@ class PublicRestaurantView(APIView):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = get_public_categories_queryset(restaurant)
 
+        lang = normalize_lang(request.query_params.get("lang"))
+        ctx = {"request": request, "lang": lang}
+
         return Response(
             {
                 "active": True,
-                "restaurant": PublicRestaurantSerializer(
-                    restaurant, context={"request": request}
-                ).data,
-                "categories": PublicCategorySerializer(
-                    categories, many=True, context={"request": request}
-                ).data,
+                "lang": lang,
+                "restaurant": PublicRestaurantSerializer(restaurant, context=ctx).data,
+                "categories": PublicCategorySerializer(categories, many=True, context=ctx).data,
             }
         )
 
@@ -126,15 +127,15 @@ class PublicMenuView(APIView):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = get_public_categories_queryset(restaurant)
 
+        lang = normalize_lang(request.query_params.get("lang"))
+        ctx = {"request": request, "lang": lang}
+
         return Response(
             {
                 "active": True,
-                "restaurant": PublicRestaurantSerializer(
-                    restaurant, context={"request": request}
-                ).data,
-                "categories": PublicCategorySerializer(
-                    categories, many=True, context={"request": request}
-                ).data,
+                "lang": lang,
+                "restaurant": PublicRestaurantSerializer(restaurant, context=ctx).data,
+                "categories": PublicCategorySerializer(categories, many=True, context=ctx).data,
             }
         )
 
@@ -177,14 +178,14 @@ class PublicMenuBySubdomainView(APIView):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
         categories = get_public_categories_queryset(restaurant)
 
+        lang = normalize_lang(request.query_params.get("lang"))
+        ctx = {"request": request, "lang": lang}
+
         return Response(
             {
                 "active": True,
-                "restaurant": PublicRestaurantSerializer(
-                    restaurant, context={"request": request}
-                ).data,
-                "categories": PublicCategorySerializer(
-                    categories, many=True, context={"request": request}
-                ).data,
+                "lang": lang,
+                "restaurant": PublicRestaurantSerializer(restaurant, context=ctx).data,
+                "categories": PublicCategorySerializer(categories, many=True, context=ctx).data,
             }
-        )       
+        )

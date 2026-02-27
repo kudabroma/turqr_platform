@@ -160,7 +160,7 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 # =========================
-# Categories (Admin)
+# Categories (Business / Admin)
 # =========================
 class CategorySerializer(serializers.ModelSerializer):
     """
@@ -170,8 +170,16 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "restaurant", "is_system"]
+        fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system"]
         read_only_fields = ["id", "restaurant", "is_system"]
+
+    def validate(self, attrs):
+        # Backward compatibility:
+        # если новый фронт шлёт name_tr, а старый name не шлёт -> заполним name
+        name_tr = (attrs.get("name_tr") or "").strip()
+        if name_tr and not (attrs.get("name") or "").strip():
+            attrs["name"] = name_tr
+        return attrs
 
 
 class CategorySuperuserSerializer(serializers.ModelSerializer):
@@ -182,13 +190,19 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "restaurant", "is_system"]
+        fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system"]
         # is_system делаем read-only: системные категории создаём/контролим сервером
         read_only_fields = ["id", "is_system"]
 
+    def validate(self, attrs):
+        name_tr = (attrs.get("name_tr") or "").strip()
+        if name_tr and not (attrs.get("name") or "").strip():
+            attrs["name"] = name_tr
+        return attrs
+
 
 # =========================
-# Dishes (Admin)
+# Dishes (Business / Admin)
 # =========================
 class DishSerializer(serializers.ModelSerializer):
     """
@@ -218,6 +232,10 @@ class DishSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "description",
+            "name_tr",
+            "name_en",
+            "description_tr",
+            "description_en",
             "price",
             "category",
             "restaurant",
@@ -229,6 +247,20 @@ class DishSerializer(serializers.ModelSerializer):
             "archived_at",
         ]
         read_only_fields = ["id", "restaurant", "image_url", "moved_to_unsorted_at", "archived_at"]
+
+    def validate(self, attrs):
+        # Backward compatibility:
+        # если новый фронт шлёт name_tr/description_tr, а legacy name/description не шлёт
+        name_tr = (attrs.get("name_tr") or "").strip()
+        if name_tr and not (attrs.get("name") or "").strip():
+            attrs["name"] = name_tr
+
+        # description может быть пустым, поэтому проверяем ключ
+        if "description_tr" in attrs and "description" not in attrs:
+            desc_tr = (attrs.get("description_tr") or "").strip()
+            attrs["description"] = desc_tr
+
+        return attrs
 
 
 class DishSuperuserSerializer(serializers.ModelSerializer):
@@ -253,6 +285,10 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
             "id",
             "name",
             "description",
+            "name_tr",
+            "name_en",
+            "description_tr",
+            "description_en",
             "price",
             "category",
             "restaurant",
@@ -265,17 +301,45 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "image_url", "moved_to_unsorted_at", "archived_at"]
 
+    def validate(self, attrs):
+        name_tr = (attrs.get("name_tr") or "").strip()
+        if name_tr and not (attrs.get("name") or "").strip():
+            attrs["name"] = name_tr
+
+        if "description_tr" in attrs and "description" not in attrs:
+            desc_tr = (attrs.get("description_tr") or "").strip()
+            attrs["description"] = desc_tr
+
+        return attrs
+
 
 # =========================
-# Public Menu (Tourists)  (используется в admin MenuView тоже, если ты так подключаешь)
+# Menu Read (Business MenuView / tourists style)
 # =========================
 class DishReadSerializer(serializers.ModelSerializer):
     """
     Read-only вариант блюда без лишних технических полей.
-    Используется в выдаче меню (туристы).
+    Используется в выдаче меню.
     """
-
+    name = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
+
+    def _lang(self) -> str:
+        lang = (self.context.get("lang") or "tr").lower()
+        return "en" if lang.startswith("en") else "tr"
+
+    def get_name(self, obj: Dish):
+        lang = self._lang()
+        if lang == "en":
+            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
+        return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
+
+    def get_description(self, obj: Dish):
+        lang = self._lang()
+        if lang == "en":
+            return (obj.description_en or "").strip() or (obj.description_tr or "").strip() or (obj.description or "").strip()
+        return (obj.description_tr or "").strip() or (obj.description or "").strip() or (obj.description_en or "").strip()
 
     def get_image_url(self, obj: Dish):
         request = self.context.get("request")
@@ -294,7 +358,18 @@ class DishReadSerializer(serializers.ModelSerializer):
 
 
 class CategoryWithDishesSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
     dishes = DishReadSerializer(many=True, read_only=True)
+
+    def _lang(self) -> str:
+        lang = (self.context.get("lang") or "tr").lower()
+        return "en" if lang.startswith("en") else "tr"
+
+    def get_name(self, obj: Category):
+        lang = self._lang()
+        if lang == "en":
+            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
+        return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
 
     class Meta:
         model = Category

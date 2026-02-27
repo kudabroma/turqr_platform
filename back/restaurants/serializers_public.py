@@ -91,13 +91,34 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
 
         return (obj.contacts or "").strip()
 
+
 class PublicDishSerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
     price = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Dish
-        fields = ["id", "name", "price", "image_url"]  # ✅ добавили image_url
+        # ✅ name/description динамические по lang, price/image_url как раньше
+        fields = ["id", "name", "description", "price", "image_url"]
+
+    def _lang(self) -> str:
+        # default TR
+        lang = (self.context.get("lang") or "tr").lower()
+        return "en" if lang.startswith("en") else "tr"
+
+    def get_name(self, obj: Dish):
+        lang = self._lang()
+        if lang == "en":
+            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
+        return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
+
+    def get_description(self, obj: Dish):
+        lang = self._lang()
+        if lang == "en":
+            return (obj.description_en or "").strip() or (obj.description_tr or "").strip() or (obj.description or "").strip()
+        return (obj.description_tr or "").strip() or (obj.description or "").strip() or (obj.description_en or "").strip()
 
     def get_price(self, obj):
         for attr in ("price", "cost", "amount", "price_value", "price_try", "price_amount"):
@@ -119,13 +140,24 @@ class PublicDishSerializer(serializers.ModelSerializer):
 
 
 class PublicCategorySerializer(serializers.ModelSerializer):
+    name = serializers.SerializerMethodField()
     dishes = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
         fields = ("id", "name", "dishes")
 
+    def _lang(self) -> str:
+        lang = (self.context.get("lang") or "tr").lower()
+        return "en" if lang.startswith("en") else "tr"
+
+    def get_name(self, obj: Category):
+        lang = self._lang()
+        if lang == "en":
+            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
+        return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
+
     def get_dishes(self, obj):
         qs = Dish.objects.filter(category=obj).order_by("id")
-        # ✅ важно: передадим context, чтобы build_absolute_uri работал
+        # ✅ важно: передаем context (request + lang), чтобы работали build_absolute_uri и язык
         return PublicDishSerializer(qs, many=True, context=self.context).data

@@ -402,6 +402,7 @@ class MenuView(APIView):
     """
     GET /api/menu/
     Возвращает категории и блюда ресторана текущего пользователя.
+    Поддерживает ?lang=en (по умолчанию tr).
     """
 
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
@@ -409,11 +410,15 @@ class MenuView(APIView):
     def get(self, request):
         user = request.user
 
+        # 🔹 Определяем ресторан
         if user.is_superuser and request.query_params.get("restaurant_id"):
             try:
                 restaurant = Restaurant.objects.get(pk=request.query_params.get("restaurant_id"))
             except Restaurant.DoesNotExist:
-                return Response({"detail": "Restaurant not found."}, status=status.HTTP_404_NOT_FOUND)
+                return Response(
+                    {"detail": "Restaurant not found."},
+                    status=status.HTTP_404_NOT_FOUND
+                )
         else:
             restaurant = _get_user_restaurant(user)
             if restaurant is None:
@@ -422,6 +427,15 @@ class MenuView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
+        # 🔹 Получаем язык (по умолчанию TR)
+        lang = request.query_params.get("lang", "tr")
+        lang = lang.lower()
+        if not lang.startswith("en"):
+            lang = "tr"
+        else:
+            lang = "en"
+
+        # 🔹 Загружаем категории с блюдами
         categories = (
             Category.objects
             .filter(restaurant=restaurant)
@@ -429,12 +443,17 @@ class MenuView(APIView):
             .order_by("id")
         )
 
-        serializer = CategoryWithDishesSerializer(categories, many=True, context={"request": request})
-
-        # ✅ чаще удобнее фронту
-        return Response(serializer.data)    
-
-
+        # 🔹 Передаем lang в context
+        serializer = CategoryWithDishesSerializer(
+            categories,
+            many=True,
+            context={
+                "request": request,
+                "lang": lang,
+            }
+        )
+        return Response(serializer.data)   # ✅ ВАЖНО: без {"categories": ...}
+    
 # =====================
 # Subscription
 # =====================
