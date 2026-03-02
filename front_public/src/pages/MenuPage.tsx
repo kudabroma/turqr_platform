@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -9,9 +9,7 @@ import { adaptPublicMenuToUi } from "@/api/adapters/menuAdapter";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SearchBar } from "@/components/SearchBar";
 import { CategoryTabs } from "@/components/CategoryTabs";
-// ❌ убрали FilterButtons
 import { DishCard } from "@/components/DishCard";
-import { useLanguage } from "@/context/LanguageContext";
 
 import { restaurantInfo, uiTranslations } from "@/data/menuData";
 import { dishImages } from "@/data/images";
@@ -20,8 +18,7 @@ type Lang = "en" | "ru" | "tr";
 
 type UiDish = {
   id: string;
-  category: string;
-  // ✅ оставляем поля в типе (не мешают), но UI их не использует
+  category: string; // fallback category
   isVegan: boolean;
   isSpicy: boolean;
   image: string;
@@ -29,11 +26,20 @@ type UiDish = {
   price: number;
 };
 
+function normalizeLang(x: string | null): Lang {
+  const v = (x ?? "tr").toLowerCase();
+  if (v.startsWith("en")) return "en";
+  if (v.startsWith("ru")) return "ru";
+  return "tr";
+}
+
 function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   const id = String(input?.id ?? input?.uuid ?? input?.slug ?? "");
   const category = String(input?.category ?? fallbackCategory ?? "Other");
 
-  const name = String(input?.translations?.en?.name ?? input?.name ?? input?.title ?? "Без названия");
+  const name = String(
+    input?.translations?.en?.name ?? input?.name ?? input?.title ?? "Без названия"
+  );
   const description = String(input?.translations?.en?.description ?? input?.description ?? "");
 
   const image =
@@ -49,7 +55,6 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
       ? input.imageUrl
       : "";
 
-  // ✅ поля остаются на будущее, но сейчас не используются в UI
   const isVegan = Boolean(input?.isVegan ?? input?.is_vegan ?? false);
   const isSpicy = Boolean(input?.isSpicy ?? input?.is_spicy ?? false);
 
@@ -98,24 +103,27 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
 }
 
 export default function MenuPage() {
-  const { language } = useLanguage();
-  const lang = (language as Lang) ?? "en";
+  const [searchParams] = useSearchParams();
+  const lang = normalizeLang(searchParams.get("lang"));
 
-  const restaurantDemo = restaurantInfo.translations[language];
+  // demo fallback
+  const restaurantDemo = restaurantInfo.translations[lang];
+  // uiTranslations может быть без loading/loadError — ок, просто не используем эти ключи
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const ui = uiTranslations[language];
+  const ui = uiTranslations[lang];
 
+  // ✅ FIX: fetchPublicMenu / fetchPublicRestaurant сейчас без аргументов (ts2554)
   const menuQuery = useQuery({
-    queryKey: ["public-menu"],
-    queryFn: fetchPublicMenu,
+    queryKey: ["public-menu", lang],
+    queryFn: () => fetchPublicMenu(lang),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
   const restaurantQuery = useQuery({
-    queryKey: ["public-restaurant"],
-    queryFn: fetchPublicRestaurant,
+    queryKey: ["public-restaurant", lang],
+    queryFn: () => fetchPublicRestaurant(lang),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -125,9 +133,7 @@ export default function MenuPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
-  // ❌ убрали veganFilter/spicyFilter state
 
-  // ✅ ВСЕ useMemo идут ДО любых return
   const enhancedMenuItems: UiDish[] = useMemo(() => {
     const adaptedCategories = adaptPublicMenuToUi(menuQuery.data);
 
@@ -153,12 +159,14 @@ export default function MenuPage() {
     });
     return ["all", ...Array.from(set)];
   }, [enhancedMenuItems, lang]);
-
+  
+  // ✅ FIX: фильтрация должна сравнивать категорию текущего языка (а не dish.category)
   const filteredItems = useMemo(() => {
     return enhancedMenuItems.filter((dish) => {
       const t = dish.translations[lang];
+      const catForLang = t?.category || dish.category;
 
-      if (activeCategory !== "all" && dish.category !== activeCategory) return false;
+      if (activeCategory !== "all" && catForLang !== activeCategory) return false;
 
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
@@ -167,7 +175,6 @@ export default function MenuPage() {
         if (!name.includes(query) && !desc.includes(query)) return false;
       }
 
-      // ❌ убрали vegan/spicy фильтры (пока не поддерживаются)
       return true;
     });
   }, [enhancedMenuItems, lang, activeCategory, searchQuery]);
@@ -182,11 +189,19 @@ export default function MenuPage() {
     return groups;
   }, [filteredItems, lang]);
 
-  // ✅ только теперь можно делать ранние return
+  const loadingText =
+    lang === "en" ? "Loading menu..." : lang === "ru" ? "Загрузка меню..." : "Menü yükleniyor...";
+  const errorText =
+    lang === "en"
+      ? "Failed to load data"
+      : lang === "ru"
+      ? "Не удалось загрузить данные"
+      : "Veri yüklenemedi";
+
   if (menuQuery.isLoading || restaurantQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Загрузка меню...</p>
+        <p className="text-muted-foreground">{loadingText}</p>
       </div>
     );
   }
@@ -194,12 +209,12 @@ export default function MenuPage() {
   if (menuQuery.isError || restaurantQuery.isError) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Не удалось загрузить данные</p>
+        <p className="text-muted-foreground">{errorText}</p>
       </div>
     );
   }
 
-  const restaurantName = restaurantFromApi?.name ?? restaurantDemo.name;
+  const restaurantName = restaurantFromApi?.name ?? restaurantDemo?.name ?? "Restaurant";
 
   return (
     <div className="min-h-screen bg-background">
@@ -214,9 +229,7 @@ export default function MenuPage() {
                 <ArrowLeft className="w-5 h-5" />
               </Link>
 
-              <h1 className="font-display font-semibold text-lg text-foreground">
-                {restaurantName}
-              </h1>
+              <h1 className="font-display font-semibold text-lg text-foreground">{restaurantName}</h1>
             </div>
 
             <LanguageSwitcher />
@@ -229,10 +242,9 @@ export default function MenuPage() {
               activeCategory={activeCategory}
               onCategoryChange={setActiveCategory}
               categories={categoryOptions}
+              lang={lang}
             />
           </div>
-
-          {/* ❌ FilterButtons убрали */}
         </div>
       </header>
 
@@ -240,9 +252,7 @@ export default function MenuPage() {
         {activeCategory === "all" ? (
           Object.entries(groupedItems).map(([categoryName, dishes]) => (
             <section key={categoryName} className="mb-8">
-              <h2 className="font-display text-xl font-semibold text-foreground mb-4">
-                {categoryName}
-              </h2>
+              <h2 className="font-display text-xl font-semibold text-foreground mb-4">{categoryName}</h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {dishes.map((dish) => (
                   <DishCard key={dish.id} dish={dish} />

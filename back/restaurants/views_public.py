@@ -13,29 +13,17 @@ from .models import Restaurant, Category, Dish
 from .serializers_public import PublicRestaurantSerializer, PublicCategorySerializer
 from .utils.lang import normalize_lang
 
-
-# ✅ В DEV можно разрешать публичный доступ даже без активной подписки
-# (чтобы ты мог тестить меню локально).
 ALLOW_PUBLIC_IN_DEBUG = True
 
 
 def restaurant_is_active(restaurant: Restaurant) -> tuple[bool, str | None]:
-    """
-    Единая точка правды: активность ресторана через подписку.
-
-    Возвращает:
-      (True, None) если ресторан можно показывать публично
-      (False, reason) если нельзя (например: "inactive")
-    """
     sub = getattr(restaurant, "subscription", None)
 
-    # Нет подписки
     if not sub:
         if settings.DEBUG and ALLOW_PUBLIC_IN_DEBUG:
             return True, None
         return False, "no_subscription"
 
-    # Есть подписка, проверяем активность
     try:
         active = bool(sub.is_active())
     except Exception:
@@ -51,16 +39,7 @@ def restaurant_is_active(restaurant: Restaurant) -> tuple[bool, str | None]:
 
 
 def get_public_restaurant_or_404(request, slug_from_url: str | None):
-    """
-    Возвращает ресторан для публичного доступа:
-    1) slug из subdomain middleware
-    2) fallback из URL
-    3) если ресторан отключён (active=False) -> 404
-    4) если подписка не активна -> 404
-    """
-
     slug = getattr(request, "restaurant_slug", None) or slug_from_url
-
     if not slug:
         raise Http404("Restaurant not found")
 
@@ -69,11 +48,9 @@ def get_public_restaurant_or_404(request, slug_from_url: str | None):
         slug=slug,
     )
 
-    # 🔴 НОВОЕ: проверка ручного отключения
     if not restaurant.active:
         raise Http404("Restaurant not found")
 
-    # 🔴 Проверка подписки (твоя логика)
     ok, _reason = restaurant_is_active(restaurant)
     if not ok:
         raise Http404("Restaurant not found")
@@ -100,24 +77,25 @@ def get_public_categories_queryset(restaurant: Restaurant):
     )
 
 
+def build_public_payload(request, restaurant: Restaurant, categories_qs):
+    lang = normalize_lang(request.query_params.get("lang"))
+    ctx = {"request": request, "lang": lang}
+
+    return {
+        "active": True,
+        "lang": lang,
+        "restaurant": PublicRestaurantSerializer(restaurant, context=ctx).data,
+        "categories": PublicCategorySerializer(categories_qs, many=True, context=ctx).data,
+    }
+
+
 class PublicRestaurantView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, slug: str):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = get_public_categories_queryset(restaurant)
-
-        lang = normalize_lang(request.query_params.get("lang"))
-        ctx = {"request": request, "lang": lang}
-
-        return Response(
-            {
-                "active": True,
-                "lang": lang,
-                "restaurant": PublicRestaurantSerializer(restaurant, context=ctx).data,
-                "categories": PublicCategorySerializer(categories, many=True, context=ctx).data,
-            }
-        )
+        return Response(build_public_payload(request, restaurant, categories))
 
 
 class PublicMenuView(APIView):
@@ -126,18 +104,7 @@ class PublicMenuView(APIView):
     def get(self, request, slug: str):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = get_public_categories_queryset(restaurant)
-
-        lang = normalize_lang(request.query_params.get("lang"))
-        ctx = {"request": request, "lang": lang}
-
-        return Response(
-            {
-                "active": True,
-                "lang": lang,
-                "restaurant": PublicRestaurantSerializer(restaurant, context=ctx).data,
-                "categories": PublicCategorySerializer(categories, many=True, context=ctx).data,
-            }
-        )
+        return Response(build_public_payload(request, restaurant, categories))
 
 
 class PublicRestaurantStatusView(APIView):
@@ -151,12 +118,15 @@ class PublicRestaurantStatusView(APIView):
         restaurant = (
             Restaurant.objects.select_related("subscription")
             .filter(slug=slug_effective)
-            .only("id", "slug")
+            .only("id", "slug", "active")
             .first()
         )
 
         if not restaurant:
             return Response({"exists": False, "active": False}, status=200)
+
+        if not restaurant.active:
+            return Response({"exists": True, "active": False}, status=200)
 
         ok, _reason = restaurant_is_active(restaurant)
         return Response({"exists": True, "active": bool(ok)}, status=200)
@@ -167,8 +137,12 @@ class PublicRestaurantBySubdomainView(APIView):
 
     def get(self, request):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
-        data = PublicRestaurantSerializer(restaurant, context={"request": request}).data
-        return Response(data)
+
+        lang = normalize_lang(request.query_params.get("lang"))
+        ctx = {"request": request, "lang": lang}
+
+        # ✅ BACKWARD COMPAT: возвращаем ПРЯМО объект ресторана, как раньше
+        return Response(PublicRestaurantSerializer(restaurant, context=ctx).data)
 
 
 class PublicMenuBySubdomainView(APIView):
@@ -177,15 +151,5 @@ class PublicMenuBySubdomainView(APIView):
     def get(self, request):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
         categories = get_public_categories_queryset(restaurant)
-
-        lang = normalize_lang(request.query_params.get("lang"))
-        ctx = {"request": request, "lang": lang}
-
-        return Response(
-            {
-                "active": True,
-                "lang": lang,
-                "restaurant": PublicRestaurantSerializer(restaurant, context=ctx).data,
-                "categories": PublicCategorySerializer(categories, many=True, context=ctx).data,
-            }
-        )
+        return Response(build_public_payload(request, restaurant, categories))
+        

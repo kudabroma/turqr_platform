@@ -17,7 +17,9 @@ import {
 export default function MenuPage() {
   const qc = useQueryClient();
 
-  const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  // ✅ лучше хранить активную категорию по ID (а не по имени)
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
+
   const [search, setSearch] = useState("");
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [editingDish, setEditingDish] = useState<DishData | null>(null);
@@ -36,12 +38,14 @@ export default function MenuPage() {
       ? `Restaurant #${restaurantQuery.data.id}`
       : "Restaurant");
 
-  // ✅ меню
+  // ✅ меню (категории + блюда)
   const menuQuery = useQuery({
     queryKey: ["menu"],
     queryFn: menuApi.get,
     staleTime: 10_000,
   });
+
+  // ✅ категории CRUD (для bilingual редактирования)
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
     queryFn: categoriesApi.list,
@@ -50,37 +54,58 @@ export default function MenuPage() {
 
   const categoriesRaw = (menuQuery.data ?? []) as CategoryWithDishes[];
 
-  // ✅ категории (для табов): string[] (показываем то, что пришло как display name)
-  const categories = useMemo(() => categoriesRaw.map((c) => c.name), [categoriesRaw]);
+  /**
+   * ✅ Гарантия: system категории (Unsorted) всегда в конце.
+   */
+  const categoriesRawSorted = useMemo(() => {
+    return [...categoriesRaw].sort((a: any, b: any) => {
+      const aSys = a?.is_system ? 1 : 0;
+      const bSys = b?.is_system ? 1 : 0;
+      if (aSys !== bSys) return aSys - bSys; // system -> last
+      return (a?.id ?? 0) - (b?.id ?? 0);
+    });
+  }, [categoriesRaw]);
+
+  // ✅ список категорий для UI (табов)
+  const categoriesForTabs = useMemo(() => {
+    return categoriesRawSorted.map((c) => ({
+      id: c.id,
+      name: c.name, // это display name (как пришло)
+      is_system: (c as any).is_system,
+    }));
+  }, [categoriesRawSorted]);
 
   // ✅ категории для модалки категорий: bilingual payload
-  // menu endpoint отдаёт только `name` (динамический), поэтому
-  // для редактирования берём: name_tr = name, name_en = "" (fallback).
   const categoriesForModal = useMemo(() => {
     const source = (categoriesQuery.data ?? []) as any[];
-
-    return source.map((c) => ({
-      id: c.id,
-      name_tr: c.name_tr ?? c.name ?? "",
-      name_en: c.name_en ?? "",
-    }));
+    // тоже сортируем: system в конец, чтобы Unsorted не был первым в модалке
+    return [...source]
+      .sort((a: any, b: any) => {
+        const aSys = a?.is_system ? 1 : 0;
+        const bSys = b?.is_system ? 1 : 0;
+        if (aSys !== bSys) return aSys - bSys;
+        return (a?.id ?? 0) - (b?.id ?? 0);
+      })
+      .map((c) => ({
+        id: c.id,
+        name_tr: c.name_tr ?? c.name ?? "",
+        name_en: c.name_en ?? "",
+      }));
   }, [categoriesQuery.data]);
 
   // ✅ категории для выбора в модалке блюда (исключаем system)
   const dishCategoryOptions = useMemo(() => {
-    return categoriesRaw
+    return categoriesRawSorted
       .filter((c: any) => !c.is_system)
       .map((c) => ({ id: c.id, name: c.name }));
-  }, [categoriesRaw]);
+  }, [categoriesRawSorted]);
 
-  // ✅ плоский список блюд (преобразуем menu-данные в bilingual DishData)
+  // ✅ плоский список блюд (из menu -> DishData)
   const dishes: DishData[] = useMemo(() => {
-    return categoriesRaw.flatMap((c) =>
+    return categoriesRawSorted.flatMap((c) =>
       (c.dishes ?? []).map((d: any) => ({
         id: d.id,
 
-        // menu endpoint отдаёт `name/description` (динамический по lang),
-        // но для формы нам нужны bilingual поля:
         name_tr: d.name_tr ?? d.name ?? "",
         name_en: d.name_en ?? "",
         description_tr: d.description_tr ?? d.description ?? "",
@@ -88,7 +113,6 @@ export default function MenuPage() {
 
         price: typeof d.price === "string" ? Number(d.price) : d.price ?? 0,
 
-        // ✅ картинка
         image: d.image_url ?? d.image ?? "",
         imageFile: null,
 
@@ -100,58 +124,64 @@ export default function MenuPage() {
         _categoryId: c.id,
       }))
     );
-  }, [categoriesRaw]);
+  }, [categoriesRawSorted]);
 
   // если активная категория исчезла — сбрасываем
   useEffect(() => {
-    if (activeCategory && !categories.includes(activeCategory)) {
-      setActiveCategory(null);
-    }
-  }, [activeCategory, categories]);
+    if (activeCategoryId === null) return;
+    const stillExists = categoriesRawSorted.some((c) => c.id === activeCategoryId);
+    if (!stillExists) setActiveCategoryId(null);
+  }, [activeCategoryId, categoriesRawSorted]);
 
   const filteredDishes = useMemo(() => {
     const q = search.trim().toLowerCase();
     return dishes.filter((d: any) => {
-      // ✅ поиск по TR + EN
       const hay = `${d.name_tr ?? ""} ${d.name_en ?? ""}`.toLowerCase();
       const matchesSearch = !q || hay.includes(q);
-      const matchesCategory = !activeCategory || d._categoryName === activeCategory;
+      const matchesCategory = activeCategoryId === null || d._categoryId === activeCategoryId;
       return matchesSearch && matchesCategory;
     });
-  }, [dishes, search, activeCategory]);
+  }, [dishes, search, activeCategoryId]);
 
   const groupedByCategory = useMemo(() => {
-    if (!activeCategory) {
-      return categories.map((cat) => ({
-        category: cat,
-        dishes: filteredDishes.filter((d: any) => d._categoryName === cat),
+    if (activeCategoryId === null) {
+      return categoriesForTabs.map((cat) => ({
+        categoryId: cat.id,
+        categoryName: cat.name,
+        dishes: filteredDishes.filter((d: any) => d._categoryId === cat.id),
       }));
     }
-    return [{ category: activeCategory, dishes: filteredDishes }];
-  }, [activeCategory, categories, filteredDishes]);
+
+    const cat = categoriesForTabs.find((c) => c.id === activeCategoryId);
+    return [
+      {
+        categoryId: activeCategoryId,
+        categoryName: cat?.name ?? "Category",
+        dishes: filteredDishes,
+      },
+    ];
+  }, [activeCategoryId, categoriesForTabs, filteredDishes]);
 
   // ---- блюда (CRUD) ----
   const handleSaveDish = async (dish: DishData) => {
     const categoryId =
       (dish as any)._categoryId ??
       (editingDish as any)?._categoryId ??
-      (activeCategory
-        ? categoriesRaw.find((c) => c.name === activeCategory)?.id
-        : undefined);
+      activeCategoryId ??
+      undefined;
 
     if (!categoryId) {
       alert("Select a category for this dish.");
       return;
     }
 
-    // минимально обязательное: TR name
     if (!dish.name_tr?.trim()) {
       alert("Name (TR) is required.");
       return;
     }
 
     try {
-      // ✅ если выбран файл — multipart/form-data
+      // ✅ multipart/form-data
       if (dish.imageFile) {
         const fd = new FormData();
         fd.append("name_tr", dish.name_tr);
@@ -212,8 +242,22 @@ export default function MenuPage() {
   };
 
   const openNewDish = () => {
-    const active = activeCategory ? categoriesRaw.find((c) => c.name === activeCategory) : undefined;
-    const defaultCategoryId = active && !(active as any).is_system ? active.id : undefined;
+    // default category = activeCategoryId (если выбрана и не system), иначе первая не-system категория
+    const active = activeCategoryId
+      ? categoriesRawSorted.find((c) => c.id === activeCategoryId)
+      : undefined;
+
+    let defaultCategoryId: number | undefined =
+      active && !(active as any).is_system ? active.id : undefined;
+
+    if (!defaultCategoryId) {
+      defaultCategoryId = categoriesRawSorted.find((c: any) => !c.is_system)?.id;
+    }
+
+    const defaultCategoryName =
+      defaultCategoryId
+        ? categoriesRawSorted.find((c) => c.id === defaultCategoryId)?.name
+        : undefined;
 
     setEditingDish({
       id: 0,
@@ -228,44 +272,41 @@ export default function MenuPage() {
       spicy: false,
       featured: false,
       ...(defaultCategoryId ? ({ _categoryId: defaultCategoryId } as any) : {}),
-      ...(activeCategory ? ({ _categoryName: activeCategory } as any) : {}),
+      ...(defaultCategoryName ? ({ _categoryName: defaultCategoryName } as any) : {}),
     });
 
     setShowDishModal(true);
   };
 
   const openEditDish = async (dish: DishData) => {
-  setShowDishModal(true);
+    setShowDishModal(true);
+    setEditingDish(dish);
 
-  // показываем то, что уже есть (чтобы не было пусто)
-  setEditingDish(dish);
+    try {
+      if (!dish.id) return;
+      const full = await (dishesApi as any).get(dish.id);
 
-  try {
-    if (!dish.id) return;
-
-    const full = await dishesApi.get(dish.id);
-
-    // full приходит с backend: name_tr/name_en/description_tr/description_en/price/category/image_url
-    setEditingDish({
-      id: full.id,
-      name_tr: full.name_tr ?? "",
-      name_en: full.name_en ?? "",
-      description_tr: full.description_tr ?? "",
-      description_en: full.description_en ?? "",
-      price: typeof full.price === "string" ? Number(full.price) : full.price ?? 0,
-      image: full.image_url ?? full.image ?? "",
-      imageFile: null,
-      vegan: false,
-      spicy: false,
-      featured: false,
-      _categoryId: full.category ?? dish._categoryId,
-      _categoryName: dish._categoryName,
-    });
-  } catch (e) {
-    console.error(e);
-    // оставим draft, который уже был
-  }
-};
+      setEditingDish({
+        id: full.id,
+        name_tr: full.name_tr ?? "",
+        name_en: full.name_en ?? "",
+        description_tr: full.description_tr ?? "",
+        description_en: full.description_en ?? "",
+        price: typeof full.price === "string" ? Number(full.price) : full.price ?? 0,
+        image: full.image_url ?? full.image ?? "",
+        imageFile: null,
+        vegan: false,
+        spicy: false,
+        featured: false,
+        _categoryId: (full as any).category ?? dish._categoryId,
+        _categoryName:
+          categoriesRawSorted.find((c) => c.id === ((full as any).category ?? dish._categoryId))
+            ?.name ?? dish._categoryName,
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   // ✅ onSave для модалки категорий (bilingual)
   const handleSaveCategories = async (payload: {
@@ -277,10 +318,7 @@ export default function MenuPage() {
       if (payload.create.length) {
         await Promise.all(
           payload.create.map((c) =>
-            categoriesApi.create({
-              name_tr: c.name_tr,
-              name_en: c.name_en ?? "",
-            } as any)
+            categoriesApi.create({ name_tr: c.name_tr, name_en: c.name_en ?? "" } as any)
           )
         );
       }
@@ -288,10 +326,7 @@ export default function MenuPage() {
       if (payload.rename.length) {
         await Promise.all(
           payload.rename.map((c) =>
-            categoriesApi.update(c.id, {
-              name_tr: c.name_tr,
-              name_en: c.name_en ?? "",
-            } as any)
+            categoriesApi.update(c.id, { name_tr: c.name_tr, name_en: c.name_en ?? "" } as any)
           )
         );
       }
@@ -299,6 +334,7 @@ export default function MenuPage() {
       if (payload.delete.length) {
         await Promise.all(payload.delete.map((c) => categoriesApi.delete(c.id)));
       }
+
       await qc.invalidateQueries({ queryKey: ["categories"] });
       await qc.invalidateQueries({ queryKey: ["menu"] });
     } catch (e) {
@@ -323,9 +359,7 @@ export default function MenuPage() {
         <AdminHeader title={headerTitle} showBack />
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">
           <div className="font-medium">Failed to load menu</div>
-          <div className="text-sm opacity-70">
-            Check Network: GET /api/menu/ (should be 200)
-          </div>
+          <div className="text-sm opacity-70">Check Network: GET /api/menu/ (should be 200)</div>
         </div>
       </div>
     );
@@ -351,9 +385,9 @@ export default function MenuPage() {
         {/* Categories */}
         <div className="flex items-center gap-2 mb-2 overflow-x-auto pb-2">
           <button
-            onClick={() => setActiveCategory(null)}
+            onClick={() => setActiveCategoryId(null)}
             className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              activeCategory === null
+              activeCategoryId === null
                 ? "bg-primary text-primary-foreground"
                 : "bg-muted text-foreground hover:bg-border"
             }`}
@@ -361,17 +395,17 @@ export default function MenuPage() {
             All
           </button>
 
-          {categories.map((cat) => (
+          {categoriesForTabs.map((cat) => (
             <button
-              key={cat}
-              onClick={() => setActiveCategory(cat)}
+              key={cat.id}
+              onClick={() => setActiveCategoryId(cat.id)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                activeCategory === cat
+                activeCategoryId === cat.id
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-foreground hover:bg-border"
               }`}
             >
-              {cat}
+              {cat.name}
             </button>
           ))}
 
@@ -385,12 +419,12 @@ export default function MenuPage() {
         </div>
 
         {/* Dishes grouped */}
-        {groupedByCategory.map(({ category, dishes: catDishes }) => (
-          <div key={category} className="mt-6">
-            <h3 className="text-lg font-bold text-foreground mb-3">{category}</h3>
+        {groupedByCategory.map(({ categoryId, categoryName, dishes: catDishes }) => (
+          <div key={categoryId} className="mt-6">
+            <h3 className="text-lg font-bold text-foreground mb-3">{categoryName}</h3>
 
             <div className="grid grid-cols-2 gap-3">
-              {activeCategory && (
+              {activeCategoryId !== null && (
                 <button
                   onClick={openNewDish}
                   className="aspect-[4/5] rounded-xl border-2 border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
@@ -409,7 +443,11 @@ export default function MenuPage() {
                   >
                     <div className="aspect-[4/3] bg-[hsl(var(--warm-beige))]">
                       {dish.image ? (
-                        <img src={dish.image} alt={displayName} className="w-full h-full object-cover" />
+                        <img
+                          src={dish.image}
+                          alt={displayName}
+                          className="w-full h-full object-cover"
+                        />
                       ) : null}
                     </div>
 
@@ -437,7 +475,7 @@ export default function MenuPage() {
           </div>
         ))}
 
-        {!activeCategory && (
+        {activeCategoryId === null && (
           <div className="mt-6">
             <button
               onClick={openNewDish}
@@ -450,7 +488,7 @@ export default function MenuPage() {
         )}
       </div>
 
-      {/* ✅ Categories CRUD modal */}
+      {/* Categories CRUD modal */}
       <EditCategoriesModal
         open={showCategoriesModal}
         onOpenChange={setShowCategoriesModal}
@@ -458,7 +496,7 @@ export default function MenuPage() {
         onSave={handleSaveCategories as any}
       />
 
-      {/* ✅ Dish modal */}
+      {/* Dish modal */}
       <EditDishModal
         open={showDishModal}
         onOpenChange={setShowDishModal}

@@ -7,6 +7,7 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from django.db.models import Case, When, Value, IntegerField
 
 from .models import Restaurant, Category, Dish, PaymentHistory
 from .serializers import (
@@ -439,8 +440,15 @@ class MenuView(APIView):
         categories = (
             Category.objects
             .filter(restaurant=restaurant)
+            .annotate(
+                _sys_last=Case(
+                    When(is_system=True, then=Value(1)),
+                    default=Value(0),
+                    output_field=IntegerField(),
+                )
+            )
+            .order_by("_sys_last", "id")   # ✅ system (Unsorted) всегда в конце
             .prefetch_related("dishes")
-            .order_by("id")
         )
 
         # 🔹 Передаем lang в context

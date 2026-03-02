@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { MapPin, Clock, Star, ChevronRight } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
@@ -7,7 +7,6 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PhotoGallery } from "@/components/PhotoGallery";
 import { ReviewCard } from "@/components/ReviewCard";
 import { DishCard } from "@/components/DishCard";
-import { useLanguage } from "@/context/LanguageContext";
 
 import { fetchPublicMenu, fetchPublicRestaurant } from "@/api/public";
 import { adaptPublicMenuToUi } from "@/api/adapters/menuAdapter";
@@ -27,11 +26,20 @@ type UiDish = {
   price: number;
 };
 
+function normalizeLang(x: unknown): Lang {
+  const v = String(x ?? "tr").toLowerCase();
+  if (v.startsWith("en")) return "en";
+  if (v.startsWith("ru")) return "ru";
+  return "tr";
+}
+
 function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   const id = String(input?.id ?? input?.uuid ?? input?.slug ?? "");
   const category = String(input?.category ?? fallbackCategory ?? "Other");
 
-  const name = String(input?.translations?.en?.name ?? input?.name ?? input?.title ?? "Без названия");
+  const name = String(
+    input?.translations?.en?.name ?? input?.name ?? input?.title ?? "Без названия"
+  );
   const description = String(input?.translations?.en?.description ?? input?.description ?? "");
 
   const image =
@@ -99,33 +107,30 @@ function normalizePublicImageUrl(raw: unknown): string {
   const s = raw.trim();
   if (!s) return "";
 
-  // уже абсолютный
   if (s.startsWith("http://") || s.startsWith("https://")) return s;
-
-  // относительный -> делаем абсолютным на текущий origin (turko.localhost:8080)
-  // важно для /media/...
   if (s.startsWith("/")) return `${window.location.origin}${s}`;
-
-  // "media/xxx" или "platform/xxx"
   return `${window.location.origin}/${s}`;
 }
 
 export default function PreviewPage() {
-  const { language } = useLanguage();
-  const lang = (language as Lang) ?? "en";
-  const ui = uiTranslations[language];
+  // ✅ ЕДИНЫЙ источник языка для public: URL ?lang=
+  const [searchParams] = useSearchParams();
+  const lang = normalizeLang(searchParams.get("lang"));
+  const ui = uiTranslations[lang];
+
+  const menuLink = `/menu?lang=${lang}`;
 
   const restaurantQuery = useQuery({
-    queryKey: ["public-restaurant"],
-    queryFn: fetchPublicRestaurant,
+    queryKey: ["public-restaurant", lang],
+    queryFn: () => fetchPublicRestaurant(lang),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
   const menuQuery = useQuery({
-    queryKey: ["public-menu"],
-    queryFn: fetchPublicMenu,
+    queryKey: ["public-menu", lang],
+    queryFn: () => fetchPublicMenu(lang),
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -133,7 +138,6 @@ export default function PreviewPage() {
 
   const restaurantFromApi = restaurantQuery.data as any;
 
-  // ✅ Реальные фото ресторана с API: photo1_url..photo6_url (fallback: photo1..photo6)
   const galleryPhotos: string[] = useMemo(() => {
     const r: any = restaurantFromApi;
     if (!r) return restaurantPhotos;
@@ -164,7 +168,6 @@ export default function PreviewPage() {
       .map((d) => ensureDishShape(d, String(d?.category ?? "Other")))
       .map((dish) => ({
         ...dish,
-        // ✅ приоритет: API image -> демо-картинка
         image: dish.image || dishImages[dish.id] || "",
       }))
       .filter((dish) => dish.id);
@@ -175,7 +178,9 @@ export default function PreviewPage() {
   if (restaurantQuery.isLoading || menuQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Загрузка...</p>
+        <p className="text-muted-foreground">
+          {lang === "en" ? "Loading..." : lang === "ru" ? "Загрузка..." : "Yükleniyor..."}
+        </p>
       </div>
     );
   }
@@ -183,7 +188,13 @@ export default function PreviewPage() {
   if (restaurantQuery.isError || menuQuery.isError) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">Не удалось загрузить данные</p>
+        <p className="text-muted-foreground">
+          {lang === "en"
+            ? "Failed to load data"
+            : lang === "ru"
+            ? "Не удалось загрузить данные"
+            : "Veri yüklenemedi"}
+        </p>
       </div>
     );
   }
@@ -193,7 +204,6 @@ export default function PreviewPage() {
   const restaurantAddress = String(restaurantFromApi?.address ?? "");
   const restaurantHours = String(restaurantFromApi?.hours ?? "");
 
-  // --- Contacts: backward compatible ---
   const phoneFromApi = String(restaurantFromApi?.phone ?? "").trim();
   const emailFromApi = String(restaurantFromApi?.email ?? "").trim();
   const addressFromApi = String(restaurantFromApi?.address ?? "").trim();
@@ -212,13 +222,11 @@ export default function PreviewPage() {
   const email = emailFromApi || emailParsed;
   const address = addressFromApi || restaurantAddress;
 
-  // --- Platform header ---
   const platformName = "TurQR";
   const platformLogo = "/platform/Turlogo.png";
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header = ПЛАТФОРМА */}
       <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
         <div className="container max-w-lg mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -239,11 +247,9 @@ export default function PreviewPage() {
 
       <main className="container max-w-lg mx-auto px-4 pb-24">
         <section className="mt-4">
-          {/* ✅ реальные фото из API */}
           <PhotoGallery photos={galleryPhotos} />
         </section>
 
-        {/* Restaurant Info */}
         <section className="mt-6 animate-fade-in">
           <div className="mb-2">
             <h2 className="font-display text-2xl font-bold text-foreground">{restaurantName}</h2>
@@ -295,7 +301,6 @@ export default function PreviewPage() {
           </div>
         </section>
 
-        {/* Reviews (demo) */}
         <section className="mt-8">
           <h3 className="font-display text-xl font-semibold text-foreground mb-4">{ui.reviews}</h3>
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
@@ -305,11 +310,10 @@ export default function PreviewPage() {
           </div>
         </section>
 
-        {/* Featured Dishes */}
         <section className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-semibold text-foreground">{ui.featuredDishes}</h3>
-            <Link to="/menu" className="flex items-center gap-1 text-primary text-sm font-medium hover:underline">
+            <Link to={menuLink} className="flex items-center gap-1 text-primary text-sm font-medium hover:underline">
               {ui.fullMenu}
               <ChevronRight className="w-4 h-4" />
             </Link>
@@ -325,7 +329,7 @@ export default function PreviewPage() {
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border">
         <div className="container max-w-lg mx-auto">
-          <Link to="/menu" className="block w-full py-4 rounded-xl btn-primary text-center font-semibold text-lg">
+          <Link to={menuLink} className="block w-full py-4 rounded-xl btn-primary text-center font-semibold text-lg">
             {ui.viewMenu}
           </Link>
         </div>
