@@ -133,14 +133,13 @@ export function EditDishModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* ✅ оставляем p-0, но добавляем внутренний “air gap” через footer wrapper */}
       <DialogContent className="sm:max-w-lg max-h-[85vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6">
           <DialogTitle>{isNew ? "Yeni Yemek Ekle" : "Yemeği Düzenle"}</DialogTitle>
         </DialogHeader>
 
-        {/* ✅ body скроллится */}
-        <div className="px-6 pb-4 overflow-y-auto max-h-[calc(85vh-132px)]">
+        {/* body скроллится */}
+        <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
           <div className="space-y-4 mt-2">
             <div className="flex items-center gap-4">
               <input
@@ -313,23 +312,21 @@ export function EditDishModal({
           </div>
         </div>
 
-        {/* ✅ Footer wrapper даёт “воздух” снизу */}
-        <div className="px-6 pb-4">
-          <div className="px-4 py-3 border rounded-xl bg-background flex items-center justify-between shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
-            <div>
-              {!isNew && onDelete && (
-                <Button variant="destructive" size="sm" onClick={handleDelete}>
-                  Sil
-                </Button>
-              )}
-            </div>
-
-            <div className="flex gap-2">
-              <Button variant="outline" onClick={() => onOpenChange(false)}>
-                İptal
+        {/* Footer как в RestaurantInfo: без отдельной карточки */}
+        <div className="px-6 py-1 border-t bg-background flex items-center justify-between">
+          <div>
+            {!isNew && onDelete && (
+              <Button variant="destructive" size="sm" onClick={handleDelete}>
+                Sil
               </Button>
-              <Button onClick={handleSave}>Kaydet</Button>
-            </div>
+            )}
+          </div>
+
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>
+              İptal
+            </Button>
+            <Button onClick={handleSave}>Kaydet</Button>
           </div>
         </div>
       </DialogContent>
