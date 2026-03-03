@@ -3,13 +3,13 @@ from .models import Restaurant, Category, Dish
 
 
 # -------------------------------------------------
-# Inline Dish inside Restaurant (удобно)
+# Inline Dish inside Restaurant
 # -------------------------------------------------
 
 class DishInline(admin.TabularInline):
     model = Dish
     extra = 0
-    fields = ("category", "name_tr", "name_en", "price")
+    fields = ("category", "name_tr", "name_en", "price", "is_active")  # ✅ добавили
     show_change_link = True
 
 
@@ -26,7 +26,7 @@ class RestaurantAdmin(admin.ModelAdmin):
     readonly_fields = ("created_at", "updated_at")
     ordering = ("-updated_at",)
 
-    inlines = [DishInline]  # ✅ блюда внутри ресторана
+    inlines = [DishInline]
 
     fieldsets = (
         ("Main", {
@@ -74,11 +74,21 @@ class DishAdmin(admin.ModelAdmin):
         "restaurant",
         "category",
         "name_tr",
-        "name_en",
         "price",
+        "is_active",   # ✅ теперь видно статус
         "updated_at",
     )
-    list_filter = ("restaurant", "category")
+
+    list_filter = (
+        "restaurant",
+        "category",
+        "is_active",   # ✅ можно фильтровать Aktif / Pasif
+    )
+
+    list_editable = (
+        "is_active",   # ✅ можно переключать прямо в списке
+    )
+
     search_fields = (
         "name_tr",
         "name_en",
@@ -86,13 +96,20 @@ class DishAdmin(admin.ModelAdmin):
         "description_tr",
         "description_en",
     )
+
     readonly_fields = ("created_at", "updated_at")
     ordering = ("restaurant", "category", "id")
     autocomplete_fields = ("restaurant", "category")
 
     fieldsets = (
         ("Main", {
-            "fields": ("restaurant", "category", "price", "image")
+            "fields": (
+                "restaurant",
+                "category",
+                "price",
+                "image",
+                "is_active",   # ✅ добавили сюда
+            )
         }),
         ("Name (TR/EN)", {
             "fields": ("name_tr", "name_en")

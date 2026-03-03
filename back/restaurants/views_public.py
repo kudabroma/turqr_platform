@@ -72,6 +72,7 @@ def get_public_categories_queryset(restaurant: Restaurant):
     visible_dishes_qs = Dish.objects.filter(
         restaurant=restaurant,
         archived_at__isnull=True,
+        is_active=True,  
         category__is_system=False,
     ).order_by("id")
 

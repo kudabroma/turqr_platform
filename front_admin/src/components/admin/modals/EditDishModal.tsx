@@ -17,6 +17,7 @@ export interface DishData {
   name_en: string;
   description_tr: string;
   description_en: string;
+  is_active: boolean;
   price: number;
   image: string;
   imageFile?: File | null;
@@ -43,6 +44,7 @@ const emptyDish: DishData = {
   name_en: "",
   description_tr: "",
   description_en: "",
+  is_active: true,
   price: 0,
   image: "",
   vegan: false,
@@ -89,6 +91,7 @@ export function EditDishModal({
         name_en: dish.name_en ?? "",
         description_tr: dish.description_tr ?? "",
         description_en: dish.description_en ?? "",
+        is_active: (dish as any).is_active ?? true,
       });
     } else {
       setForm(emptyDish);
@@ -130,14 +133,14 @@ export function EditDishModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
+      {/* ✅ оставляем p-0, но добавляем внутренний “air gap” через footer wrapper */}
       <DialogContent className="sm:max-w-lg max-h-[85vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6">
-          <DialogTitle>
-            {isNew ? "Yeni Yemek Ekle" : "Yemeği Düzenle"}
-          </DialogTitle>
+          <DialogTitle>{isNew ? "Yeni Yemek Ekle" : "Yemeği Düzenle"}</DialogTitle>
         </DialogHeader>
 
-        <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
+        {/* ✅ body скроллится */}
+        <div className="px-6 pb-4 overflow-y-auto max-h-[calc(85vh-132px)]">
           <div className="space-y-4 mt-2">
             <div className="flex items-center gap-4">
               <input
@@ -211,9 +214,7 @@ export function EditDishModal({
                       <Label>İsim (TR)</Label>
                       <Input
                         value={form.name_tr}
-                        onChange={(e) =>
-                          update("name_tr", e.target.value)
-                        }
+                        onChange={(e) => update("name_tr", e.target.value)}
                       />
                     </div>
 
@@ -221,9 +222,7 @@ export function EditDishModal({
                       <Label>Açıklama (TR)</Label>
                       <Textarea
                         value={form.description_tr}
-                        onChange={(e) =>
-                          update("description_tr", e.target.value)
-                        }
+                        onChange={(e) => update("description_tr", e.target.value)}
                         rows={3}
                       />
                     </div>
@@ -234,9 +233,7 @@ export function EditDishModal({
                       <Label>İsim (EN)</Label>
                       <Input
                         value={form.name_en}
-                        onChange={(e) =>
-                          update("name_en", e.target.value)
-                        }
+                        onChange={(e) => update("name_en", e.target.value)}
                       />
                     </div>
 
@@ -244,9 +241,7 @@ export function EditDishModal({
                       <Label>Açıklama (EN)</Label>
                       <Textarea
                         value={form.description_en}
-                        onChange={(e) =>
-                          update("description_en", e.target.value)
-                        }
+                        onChange={(e) => update("description_en", e.target.value)}
                         rows={3}
                       />
                     </div>
@@ -264,9 +259,7 @@ export function EditDishModal({
                   onChange={(e) =>
                     update(
                       "_categoryId",
-                      e.target.value
-                        ? Number(e.target.value)
-                        : undefined
+                      e.target.value ? Number(e.target.value) : undefined
                     )
                   }
                 >
@@ -288,35 +281,55 @@ export function EditDishModal({
                 type="number"
                 step="0.01"
                 value={Number.isFinite(form.price) ? form.price : 0}
-                onChange={(e) =>
-                  update("price", Number(e.target.value))
-                }
+                onChange={(e) => update("price", Number(e.target.value))}
               />
+            </div>
+
+            {/* Aktif / Pasif */}
+            <div className="flex items-center justify-between border rounded-xl px-4 py-3">
+              <div>
+                <div className="font-medium text-sm">Durum</div>
+                <div className="text-xs text-muted-foreground">
+                  {form.is_active
+                    ? "Yemek aktif ve menüde görünür"
+                    : "Yemek pasif ve gizlidir"}
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => update("is_active", !form.is_active)}
+                className={`relative w-11 h-6 rounded-full transition-colors ${
+                  form.is_active ? "bg-green-500" : "bg-gray-300"
+                }`}
+              >
+                <span
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                    form.is_active ? "translate-x-5" : ""
+                  }`}
+                />
+              </button>
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t bg-background flex items-center justify-between">
-          <div>
-            {!isNew && onDelete && (
-              <Button
-                variant="destructive"
-                size="sm"
-                onClick={handleDelete}
-              >
-                Sil
-              </Button>
-            )}
-          </div>
+        {/* ✅ Footer wrapper даёт “воздух” снизу */}
+        <div className="px-6 pb-4">
+          <div className="px-4 py-3 border rounded-xl bg-background flex items-center justify-between shadow-[0_-2px_10px_rgba(0,0,0,0.06)]">
+            <div>
+              {!isNew && onDelete && (
+                <Button variant="destructive" size="sm" onClick={handleDelete}>
+                  Sil
+                </Button>
+              )}
+            </div>
 
-          <div className="flex gap-2">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-            >
-              İptal
-            </Button>
-            <Button onClick={handleSave}>Kaydet</Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => onOpenChange(false)}>
+                İptal
+              </Button>
+              <Button onClick={handleSave}>Kaydet</Button>
+            </div>
           </div>
         </div>
       </DialogContent>

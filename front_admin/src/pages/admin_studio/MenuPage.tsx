@@ -16,22 +16,23 @@ import {
 export default function MenuPage() {
   const qc = useQueryClient();
 
-  // ✅ активная категория по ID
+  // ✅ aktif kategori (ID)
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
+
   const [editingDish, setEditingDish] = useState<DishData | null>(null);
   const [showDishModal, setShowDishModal] = useState(false);
 
-  // ✅ меню (категории + блюда)
+  // ✅ Menü (kategoriler + yemekler)
   const menuQuery = useQuery({
     queryKey: ["menu"],
     queryFn: menuApi.get,
     staleTime: 10_000,
   });
 
-  // ✅ категории CRUD (для bilingual редактирования)
+  // ✅ Kategoriler CRUD (modal için)
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
     queryFn: categoriesApi.list,
@@ -41,18 +42,18 @@ export default function MenuPage() {
   const categoriesRaw = (menuQuery.data ?? []) as CategoryWithDishes[];
 
   /**
-   * ✅ system категории (Unsorted) всегда в конце.
+   * ✅ System kategoriler (Unsorted) her zaman en sonda
    */
   const categoriesRawSorted = useMemo(() => {
     return [...categoriesRaw].sort((a: any, b: any) => {
       const aSys = a?.is_system ? 1 : 0;
       const bSys = b?.is_system ? 1 : 0;
-      if (aSys !== bSys) return aSys - bSys; // system -> last
+      if (aSys !== bSys) return aSys - bSys;
       return (a?.id ?? 0) - (b?.id ?? 0);
     });
   }, [categoriesRaw]);
 
-  // ✅ список категорий для табов
+  // ✅ Tablar için kategori listesi
   const categoriesForTabs = useMemo(() => {
     return categoriesRawSorted.map((c) => ({
       id: c.id,
@@ -61,7 +62,7 @@ export default function MenuPage() {
     }));
   }, [categoriesRawSorted]);
 
-  // ✅ категории для модалки: bilingual payload
+  // ✅ Kategori modalı için bilingual payload
   const categoriesForModal = useMemo(() => {
     const source = (categoriesQuery.data ?? []) as any[];
     return [...source]
@@ -75,17 +76,18 @@ export default function MenuPage() {
         id: c.id,
         name_tr: c.name_tr ?? c.name ?? "",
         name_en: c.name_en ?? "",
+        is_system: c.is_system ?? false,
       }));
   }, [categoriesQuery.data]);
 
-  // ✅ категории для выбора в блюде (исключаем system)
+  // ✅ Yemek modalında kategori seçimi (system hariç)
   const dishCategoryOptions = useMemo(() => {
     return categoriesRawSorted
       .filter((c: any) => !c.is_system)
-      .map((c) => ({ id: c.id, name: c.name }));
+      .map((c) => ({ id: c.id, name: c.name, is_system: (c as any).is_system }));
   }, [categoriesRawSorted]);
 
-  // ✅ плоский список блюд
+  // ✅ Menüden düz yemek listesi (is_active dahil)
   const dishes: DishData[] = useMemo(() => {
     return categoriesRawSorted.flatMap((c) =>
       (c.dishes ?? []).map((d: any) => ({
@@ -95,6 +97,11 @@ export default function MenuPage() {
         name_en: d.name_en ?? "",
         description_tr: d.description_tr ?? d.description ?? "",
         description_en: d.description_en ?? "",
+
+        // ⚠️ kritik: backend is_active döndürmüyorsa default TRUE yapar -> bug oluşur
+        // bu yüzden listede gösterim için fallback tamam,
+        // ama edit açarken mutlaka dishesApi.get ile "full" çekiyoruz
+        is_active: typeof d.is_active === "boolean" ? d.is_active : true,
 
         price: typeof d.price === "string" ? Number(d.price) : d.price ?? 0,
 
@@ -111,7 +118,7 @@ export default function MenuPage() {
     );
   }, [categoriesRawSorted]);
 
-  // если активная категория исчезла — сбрасываем
+  // ✅ aktif kategori silinirse resetle
   useEffect(() => {
     if (activeCategoryId === null) return;
     const stillExists = categoriesRawSorted.some((c) => c.id === activeCategoryId);
@@ -120,10 +127,11 @@ export default function MenuPage() {
 
   const filteredDishes = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return dishes.filter((d: any) => {
+    return dishes.filter((d) => {
       const hay = `${d.name_tr ?? ""} ${d.name_en ?? ""}`.toLowerCase();
       const matchesSearch = !q || hay.includes(q);
-      const matchesCategory = activeCategoryId === null || d._categoryId === activeCategoryId;
+      const matchesCategory =
+        activeCategoryId === null || d._categoryId === activeCategoryId;
       return matchesSearch && matchesCategory;
     });
   }, [dishes, search, activeCategoryId]);
@@ -133,7 +141,7 @@ export default function MenuPage() {
       return categoriesForTabs.map((cat) => ({
         categoryId: cat.id,
         categoryName: cat.name,
-        dishes: filteredDishes.filter((d: any) => d._categoryId === cat.id),
+        dishes: filteredDishes.filter((d) => d._categoryId === cat.id),
       }));
     }
 
@@ -147,16 +155,86 @@ export default function MenuPage() {
     ];
   }, [activeCategoryId, categoriesForTabs, filteredDishes]);
 
-  // ---- блюда (CRUD) ----
+  // ---------------- CRUD: Yemekler ----------------
+
+  const openNewDish = () => {
+    // default category = seçili kategori (system değilse) yoksa ilk non-system
+    const active = activeCategoryId
+      ? categoriesRawSorted.find((c) => c.id === activeCategoryId)
+      : undefined;
+
+    let defaultCategoryId: number | undefined =
+      active && !(active as any).is_system ? active.id : undefined;
+
+    if (!defaultCategoryId) {
+      defaultCategoryId = categoriesRawSorted.find((c: any) => !c.is_system)?.id;
+    }
+
+    const defaultCategoryName =
+      defaultCategoryId
+        ? categoriesRawSorted.find((c) => c.id === defaultCategoryId)?.name
+        : undefined;
+
+    setEditingDish({
+      id: 0,
+      name_tr: "",
+      name_en: "",
+      description_tr: "",
+      description_en: "",
+      is_active: true,
+      price: 0,
+      image: "",
+      imageFile: null,
+      vegan: false,
+      spicy: false,
+      featured: false,
+      ...(defaultCategoryId ? ({ _categoryId: defaultCategoryId } as any) : {}),
+      ...(defaultCategoryName ? ({ _categoryName: defaultCategoryName } as any) : {}),
+    });
+
+    setShowDishModal(true);
+  };
+
+  const openEditDish = async (dish: DishData) => {
+    setShowDishModal(true);
+    setEditingDish(dish); // hızlı açılma için
+
+    try {
+      if (!dish.id) return;
+
+      // ✅ kritik: full dish çek (is_active burada kesin gelecek)
+      const full = await (dishesApi as any).get(dish.id);
+
+      setEditingDish({
+        id: full.id,
+        name_tr: full.name_tr ?? "",
+        name_en: full.name_en ?? "",
+        description_tr: full.description_tr ?? "",
+        description_en: full.description_en ?? "",
+        is_active: typeof full.is_active === "boolean" ? full.is_active : true,
+        price: typeof full.price === "string" ? Number(full.price) : full.price ?? 0,
+        image: full.image_url ?? full.image ?? "",
+        imageFile: null,
+        vegan: false,
+        spicy: false,
+        featured: false,
+        _categoryId: (full as any).category ?? dish._categoryId,
+        _categoryName:
+          categoriesRawSorted.find((c) => c.id === ((full as any).category ?? dish._categoryId))
+            ?.name ?? dish._categoryName,
+      });
+    } catch (e) {
+      console.error(e);
+      // burada sessiz geçebiliriz, en azından mevcut dish ile modal açık kalır
+    }
+  };
+
   const handleSaveDish = async (dish: DishData) => {
     const categoryId =
-      (dish as any)._categoryId ??
-      (editingDish as any)?._categoryId ??
-      activeCategoryId ??
-      undefined;
+      dish._categoryId ?? editingDish?._categoryId ?? activeCategoryId ?? undefined;
 
     if (!categoryId) {
-      alert("Lütfen bu yemek için bir kategori seçin.");
+      alert("Kategori seçmelisiniz.");
       return;
     }
 
@@ -166,7 +244,6 @@ export default function MenuPage() {
     }
 
     try {
-      // ✅ multipart/form-data
       if (dish.imageFile) {
         const fd = new FormData();
         fd.append("name_tr", dish.name_tr);
@@ -175,6 +252,7 @@ export default function MenuPage() {
         fd.append("description_en", dish.description_en ?? "");
         fd.append("price", String(dish.price ?? 0));
         fd.append("category", String(Number(categoryId)));
+        fd.append("is_active", dish.is_active ? "true" : "false");
         fd.append("image", dish.imageFile);
 
         if (dish.id && dish.id > 0) {
@@ -182,27 +260,22 @@ export default function MenuPage() {
         } else {
           await (dishesApi as any).createForm(fd);
         }
-
-        await qc.invalidateQueries({ queryKey: ["menu"] });
-        setShowDishModal(false);
-        setEditingDish(null);
-        return;
-      }
-
-      // ✅ JSON путь
-      const payload: any = {
-        name_tr: dish.name_tr,
-        name_en: dish.name_en ?? "",
-        description_tr: dish.description_tr ?? "",
-        description_en: dish.description_en ?? "",
-        price: String(dish.price ?? 0),
-        category: Number(categoryId),
-      };
-
-      if (dish.id && dish.id > 0) {
-        await dishesApi.update(dish.id, payload);
       } else {
-        await dishesApi.create(payload);
+        const payload: any = {
+          name_tr: dish.name_tr,
+          name_en: dish.name_en ?? "",
+          description_tr: dish.description_tr ?? "",
+          description_en: dish.description_en ?? "",
+          price: String(dish.price ?? 0),
+          category: Number(categoryId),
+          is_active: !!dish.is_active,
+        };
+
+        if (dish.id && dish.id > 0) {
+          await dishesApi.update(dish.id, payload);
+        } else {
+          await dishesApi.create(payload);
+        }
       }
 
       await qc.invalidateQueries({ queryKey: ["menu"] });
@@ -226,71 +299,7 @@ export default function MenuPage() {
     }
   };
 
-  const openNewDish = () => {
-    const active = activeCategoryId
-      ? categoriesRawSorted.find((c) => c.id === activeCategoryId)
-      : undefined;
-
-    let defaultCategoryId: number | undefined =
-      active && !(active as any).is_system ? active.id : undefined;
-
-    if (!defaultCategoryId) {
-      defaultCategoryId = categoriesRawSorted.find((c: any) => !c.is_system)?.id;
-    }
-
-    const defaultCategoryName =
-      defaultCategoryId
-        ? categoriesRawSorted.find((c) => c.id === defaultCategoryId)?.name
-        : undefined;
-
-    setEditingDish({
-      id: 0,
-      name_tr: "",
-      name_en: "",
-      description_tr: "",
-      description_en: "",
-      price: 0,
-      image: "",
-      imageFile: null,
-      vegan: false,
-      spicy: false,
-      featured: false,
-      ...(defaultCategoryId ? ({ _categoryId: defaultCategoryId } as any) : {}),
-      ...(defaultCategoryName ? ({ _categoryName: defaultCategoryName } as any) : {}),
-    });
-
-    setShowDishModal(true);
-  };
-
-  const openEditDish = async (dish: DishData) => {
-    setShowDishModal(true);
-    setEditingDish(dish);
-
-    try {
-      if (!dish.id) return;
-      const full = await (dishesApi as any).get(dish.id);
-
-      setEditingDish({
-        id: full.id,
-        name_tr: full.name_tr ?? "",
-        name_en: full.name_en ?? "",
-        description_tr: full.description_tr ?? "",
-        description_en: full.description_en ?? "",
-        price: typeof full.price === "string" ? Number(full.price) : full.price ?? 0,
-        image: full.image_url ?? full.image ?? "",
-        imageFile: null,
-        vegan: false,
-        spicy: false,
-        featured: false,
-        _categoryId: (full as any).category ?? dish._categoryId,
-        _categoryName:
-          categoriesRawSorted.find((c) => c.id === ((full as any).category ?? dish._categoryId))
-            ?.name ?? dish._categoryName,
-      });
-    } catch (e) {
-      console.error(e);
-    }
-  };
+  // ---------------- CRUD: Kategoriler ----------------
 
   const handleSaveCategories = async (payload: {
     create: { name_tr: string; name_en: string }[];
@@ -326,7 +335,8 @@ export default function MenuPage() {
     }
   };
 
-  // ---- loading/error ----
+  // ---------------- Loading / Error ----------------
+
   if (menuQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background">
@@ -349,6 +359,8 @@ export default function MenuPage() {
       </div>
     );
   }
+
+  // ---------------- UI ----------------
 
   return (
     <div className="min-h-screen bg-background">
@@ -409,6 +421,7 @@ export default function MenuPage() {
             <h3 className="text-lg font-bold text-foreground mb-3">{categoryName}</h3>
 
             <div className="grid grid-cols-2 gap-3">
+              {/* Add new dish card */}
               {activeCategoryId !== null && (
                 <button
                   onClick={openNewDish}
@@ -424,7 +437,9 @@ export default function MenuPage() {
                 return (
                   <div
                     key={dish.id}
-                    className="rounded-xl bg-card border border-border shadow-sm overflow-hidden relative group"
+                    className={`rounded-xl border border-border shadow-sm overflow-hidden relative group ${
+                      dish.is_active ? "bg-card" : "bg-muted opacity-60"
+                    }`}
                   >
                     <div className="aspect-[4/3] bg-[hsl(var(--warm-beige))]">
                       {dish.image ? (
@@ -440,6 +455,12 @@ export default function MenuPage() {
                       <span className="font-medium text-sm text-foreground">{displayName}</span>
                       <span className="font-bold text-sm text-primary">{dish.price}₺</span>
                     </div>
+
+                    {!dish.is_active && (
+                      <div className="absolute top-2 left-2 bg-destructive text-destructive-foreground text-xs px-2 py-1 rounded-full">
+                        Pasif
+                      </div>
+                    )}
 
                     <button
                       onClick={() => openEditDish(dish)}
@@ -461,6 +482,7 @@ export default function MenuPage() {
           </div>
         ))}
 
+        {/* All view: add new dish button */}
         {activeCategoryId === null && (
           <div className="mt-6">
             <button
@@ -474,6 +496,7 @@ export default function MenuPage() {
         )}
       </div>
 
+      {/* Categories modal */}
       <EditCategoriesModal
         open={showCategoriesModal}
         onOpenChange={setShowCategoriesModal}
@@ -481,13 +504,14 @@ export default function MenuPage() {
         onSave={handleSaveCategories as any}
       />
 
+      {/* Dish modal */}
       <EditDishModal
         open={showDishModal}
         onOpenChange={setShowDishModal}
         dish={editingDish}
         onSave={handleSaveDish}
         onDelete={handleDeleteDish}
-        categories={dishCategoryOptions}
+        categories={dishCategoryOptions as any}
       />
     </div>
   );

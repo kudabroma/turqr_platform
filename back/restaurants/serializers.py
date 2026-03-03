@@ -245,6 +245,7 @@ class DishSerializer(serializers.ModelSerializer):
             "price",
             "category",
             "restaurant",
+            "is_active",          # ✅ ДОБАВЬ
             # ✅ image upload + url
             "image",
             "image_url",
@@ -299,6 +300,7 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
             "category",
             "restaurant",
             # ✅ image upload + url
+            "is_active",
             "image",
             "image_url",
             # lifecycle:
@@ -360,7 +362,7 @@ class DishReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dish
-        fields = ["id", "name", "description", "price", "category", "image_url"]
+        fields = ["id", "name", "description", "price", "category", "image_url", "is_active"]
 
 
 class CategoryWithDishesSerializer(serializers.ModelSerializer):

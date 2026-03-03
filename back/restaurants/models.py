@@ -110,6 +110,7 @@ class Dish(models.Model):
     # старые поля пока оставляем (для совместимости)
     name = models.CharField(max_length=255, verbose_name="Название блюда")
     description = models.TextField(blank=True, verbose_name="Описание")
+    is_active = models.BooleanField(default=True, db_index=True, verbose_name="Активно (видно туристам)")
 
     # ✅ NEW: bilingual fields (TR + EN)
     name_tr = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (TR)")
