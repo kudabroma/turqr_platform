@@ -1,252 +1,112 @@
 from django.contrib import admin
-from django.contrib.auth.admin import UserAdmin as DjangoUserAdmin
-from django.utils.translation import gettext_lazy as _
-
-from .models import (
-    Restaurant,
-    User,
-    Category,
-    Dish,
-    Subscription,
-    PaymentHistory,
-)
+from .models import Restaurant, Category, Dish
 
 
-def _is_business_user(request):
-    u = request.user
-    return bool(
-        getattr(u, "is_authenticated", False)
-        and getattr(u, "is_staff", False)
-        and not getattr(u, "is_superuser", False)
-        and getattr(u, "restaurant", None) is not None
-    )
+# -------------------------------------------------
+# Inline Dish inside Restaurant (удобно)
+# -------------------------------------------------
 
+class DishInline(admin.TabularInline):
+    model = Dish
+    extra = 0
+    fields = ("category", "name_tr", "name_en", "price")
+    show_change_link = True
+
+
+# -------------------------------------------------
+# Restaurant Admin
+# -------------------------------------------------
 
 @admin.register(Restaurant)
 class RestaurantAdmin(admin.ModelAdmin):
-    """
-    Visible only to superusers (platform owners).
-    """
-
-    list_display = ("id", "name", "slug", "contacts", "front_template", "created_at")
-    list_display_links = ("id", "name")
+    list_display = ("id", "name", "slug", "active", "updated_at")
+    list_filter = ("active",)
     search_fields = ("name", "slug")
-    list_filter = ("created_at",)
+    prepopulated_fields = {"slug": ("name",)}
     readonly_fields = ("created_at", "updated_at")
+    ordering = ("-updated_at",)
 
-    def has_module_permission(self, request):
-        return request.user.is_superuser
+    inlines = [DishInline]  # ✅ блюда внутри ресторана
 
-    def has_view_permission(self, request, obj=None):
-        return request.user.is_superuser
+    fieldsets = (
+        ("Main", {
+            "fields": ("name", "slug", "active", "front_template")
+        }),
+        ("Description (TR/EN)", {
+            "fields": ("description_tr", "description_en")
+        }),
+        ("Contacts", {
+            "fields": ("phone", "email", "address", "contacts")
+        }),
+        ("Branding", {
+            "fields": ("logo",)
+        }),
+        ("Photos", {
+            "fields": ("photo1", "photo2", "photo3", "photo4", "photo5", "photo6")
+        }),
+        ("Timestamps", {
+            "fields": ("created_at", "updated_at")
+        }),
+    )
 
-    def has_add_permission(self, request):
-        return request.user.is_superuser
 
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-
-@admin.register(User)
-class UserAdmin(DjangoUserAdmin):
-    """
-    Users management visible only to superusers.
-    Business owners should not manage users in admin.
-    """
-
-    fieldsets = DjangoUserAdmin.fieldsets + ((_("Restaurant"), {"fields": ("restaurant",)}),)
-    add_fieldsets = DjangoUserAdmin.add_fieldsets + ((_("Restaurant"), {"fields": ("restaurant",)}),)
-    list_display = ("username", "email", "restaurant", "is_staff", "is_superuser")
-    list_filter = ("restaurant", "is_staff", "is_superuser")
-
-    def has_module_permission(self, request):
-        return request.user.is_superuser
-
-    def save_model(self, request, obj, form, change):
-        # Ensure restaurant is saved when creating user via admin
-        if not change:
-            obj.is_staff = True
-
-            # If admin add form provided a password field, ensure it's hashed
-            pwd = None
-            try:
-                pwd = form.cleaned_data.get("password1") or form.cleaned_data.get("password")
-            except Exception:
-                pwd = None
-            if pwd:
-                obj.set_password(pwd)
-
-            # Assign restaurant for business users just in case
-            if _is_business_user(request):
-                obj.restaurant = request.user.restaurant
-        else:
-            # For updates, if password appears to be raw (unlikely), hash it
-            pw = getattr(obj, "password", "") or ""
-            if pw and not pw.startswith(("pbkdf2_", "argon2$", "bcrypt_sha256$", "bcrypt$")):
-                obj.set_password(pw)
-
-        super().save_model(request, obj, form, change)
-
+# -------------------------------------------------
+# Category Admin
+# -------------------------------------------------
 
 @admin.register(Category)
 class CategoryAdmin(admin.ModelAdmin):
-    """
-    Category admin for Business Owners only.
-
-    Business owners (staff, non-superuser) can only see and edit categories for their own restaurant.
-    Superusers do NOT see this admin.
-    """
-
-    list_display = ("name", "restaurant", "created_at")
+    list_display = ("id", "restaurant", "name", "is_system")
+    list_filter = ("restaurant", "is_system")
     search_fields = ("name",)
+    ordering = ("restaurant", "id")
+    autocomplete_fields = ("restaurant",)
 
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            # hide from superuser per requirements
-            return qs.none()
-        if _is_business_user(request):
-            return qs.filter(restaurant=request.user.restaurant)
-        return qs.none()
 
-    def has_module_permission(self, request):
-        return _is_business_user(request)
-
-    def has_view_permission(self, request, obj=None):
-        if not _is_business_user(request):
-            return False
-        if obj is None:
-            return True
-        return obj.restaurant_id == request.user.restaurant_id
-
-    def has_add_permission(self, request):
-        return _is_business_user(request)
-
-    def has_change_permission(self, request, obj=None):
-        return self.has_view_permission(request, obj)
-
-    def has_delete_permission(self, request, obj=None):
-        return self.has_view_permission(request, obj)
-
-    def get_exclude(self, request, obj=None):
-        # hide restaurant field for business owners (it will be auto-assigned)
-        if _is_business_user(request):
-            return ("restaurant",)
-        return super().get_exclude(request, obj)
-
-    def save_model(self, request, obj, form, change):
-        if _is_business_user(request):
-            obj.restaurant = request.user.restaurant
-        super().save_model(request, obj, form, change)
-
+# -------------------------------------------------
+# Dish Admin
+# -------------------------------------------------
 
 @admin.register(Dish)
 class DishAdmin(admin.ModelAdmin):
-    """
-    Dish (MenuItem) admin for Business Owners only.
-    """
-
-    list_display = ("name", "price", "category", "restaurant", "created_at")
-    list_filter = ("category",)
-    search_fields = ("name",)
-
-    def get_queryset(self, request):
-        qs = super().get_queryset(request)
-        if request.user.is_superuser:
-            return qs.none()
-        if _is_business_user(request):
-            return qs.filter(restaurant=request.user.restaurant)
-        return qs.none()
-
-    def has_module_permission(self, request):
-        return _is_business_user(request)
-
-    def has_view_permission(self, request, obj=None):
-        if not _is_business_user(request):
-            return False
-        if obj is None:
-            return True
-        return obj.restaurant_id == request.user.restaurant_id
-
-    def has_add_permission(self, request):
-        return _is_business_user(request)
-
-    def has_change_permission(self, request, obj=None):
-        return self.has_view_permission(request, obj)
-
-    def has_delete_permission(self, request, obj=None):
-        return self.has_view_permission(request, obj)
-
-    def get_exclude(self, request, obj=None):
-        if _is_business_user(request):
-            return ("restaurant",)
-        return super().get_exclude(request, obj)
-
-    def save_model(self, request, obj, form, change):
-        if _is_business_user(request):
-            obj.restaurant = request.user.restaurant
-        super().save_model(request, obj, form, change)
-
-    def formfield_for_foreignkey(self, db_field, request, **kwargs):
-        if db_field.name == "category" and _is_business_user(request):
-            kwargs["queryset"] = Category.objects.filter(restaurant=request.user.restaurant)
-        return super().formfield_for_foreignkey(db_field, request, **kwargs)
-
-
-@admin.register(Subscription)
-class SubscriptionAdmin(admin.ModelAdmin):
-    """
-    Subscriptions visible only to superusers (platform owners).
-    Управление подпиской ресторана делаем здесь (status/tariff/expires_at).
-    """
-
     list_display = (
         "id",
         "restaurant",
-        "tariff",
-        "status",
-        "started_at",
-        "expires_at",
+        "category",
+        "name_tr",
+        "name_en",
+        "price",
         "updated_at",
     )
-    list_filter = ("status", "tariff")
-    search_fields = ("restaurant__name", "restaurant__slug")
-    autocomplete_fields = ("restaurant",)
-
-    def has_module_permission(self, request):
-        return request.user.is_superuser
-
-    def has_view_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-    def has_add_permission(self, request):
-        return request.user.is_superuser
-
-    def has_change_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-    def has_delete_permission(self, request, obj=None):
-        return request.user.is_superuser
-
-
-@admin.register(PaymentHistory)
-class PaymentHistoryAdmin(admin.ModelAdmin):
-    """
-    Payment history accessible only to superusers.
-    """
-
-    list_display = (
-        "id",
-        "restaurant",
-        "amount",
-        "payment_method",
-        "status",
-        "paid_at",
+    list_filter = ("restaurant", "category")
+    search_fields = (
+        "name_tr",
+        "name_en",
+        "name",
+        "description_tr",
+        "description_en",
     )
-    list_filter = ("status", "payment_method", "restaurant")
+    readonly_fields = ("created_at", "updated_at")
+    ordering = ("restaurant", "category", "id")
+    autocomplete_fields = ("restaurant", "category")
 
-    def has_module_permission(self, request):
-        return request.user.is_superuser
+    fieldsets = (
+        ("Main", {
+            "fields": ("restaurant", "category", "price", "image")
+        }),
+        ("Name (TR/EN)", {
+            "fields": ("name_tr", "name_en")
+        }),
+        ("Description (TR/EN)", {
+            "fields": ("description_tr", "description_en")
+        }),
+        ("Legacy (compat)", {
+            "fields": ("name", "description")
+        }),
+        ("Lifecycle", {
+            "fields": ("moved_to_unsorted_at", "archived_at")
+        }),
+        ("Timestamps", {
+            "fields": ("created_at", "updated_at")
+        }),
+    )

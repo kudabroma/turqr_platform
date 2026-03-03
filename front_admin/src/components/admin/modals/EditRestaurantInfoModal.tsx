@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Textarea } from "@/components/ui/textarea";
 
+import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
@@ -20,14 +20,23 @@ type Props = {
   restaurant: RestaurantMe;
 };
 
-// ✅ убрали logo
-type FormState = Pick<
-  RestaurantMe,
-  "name" | "address" | "phone" | "email" | "contacts"
->;
+type Lang = "tr" | "en";
+
+type FormState = {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  contacts: string;
+
+  description_tr: string;
+  description_en: string;
+};
 
 export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Props) {
   const qc = useQueryClient();
+
+  const [activeLang, setActiveLang] = useState<Lang>("tr");
 
   const [form, setForm] = useState<FormState>({
     name: "",
@@ -35,24 +44,32 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
     phone: "",
     email: "",
     contacts: "",
+    description_tr: "",
+    description_en: "",
   });
 
   useEffect(() => {
     if (!open) return;
+
     setForm({
       name: restaurant.name ?? "",
       address: restaurant.address ?? "",
       phone: restaurant.phone ?? "",
       email: restaurant.email ?? "",
       contacts: restaurant.contacts ?? "",
+      description_tr: (restaurant as any).description_tr ?? "",
+      description_en: (restaurant as any).description_en ?? "",
     });
+
+    setActiveLang("tr");
   }, [open, restaurant]);
 
   const update = (key: keyof FormState, value: string) =>
     setForm((f) => ({ ...f, [key]: value }));
 
   const mutation = useMutation({
-    mutationFn: (payload: Partial<RestaurantMe>) => restaurantApi.update(payload),
+    mutationFn: (payload: Partial<RestaurantMe>) =>
+      restaurantApi.update(payload),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["restaurant", "me"] });
       onOpenChange(false);
@@ -66,7 +83,8 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
       phone: form.phone,
       email: form.email,
       contacts: form.contacts,
-      // ✅ logo НЕ отправляем
+      description_tr: form.description_tr,
+      description_en: form.description_en,
     });
   };
 
@@ -114,25 +132,75 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
             />
           </div>
 
+          {/* ---------- Bilingual Description ---------- */}
+
           <div>
-            <Label htmlFor="contacts">Description (optional)</Label>
+            <Label>Description</Label>
+
+            <div className="flex gap-2 mb-2 mt-2">
+              <button
+                type="button"
+                onClick={() => setActiveLang("tr")}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  activeLang === "tr"
+                    ? "bg-primary text-white"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                TR
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setActiveLang("en")}
+                className={`px-3 py-1 rounded-full text-sm ${
+                  activeLang === "en"
+                    ? "bg-primary text-white"
+                    : "bg-muted text-muted-foreground"
+                }`}
+              >
+                EN
+              </button>
+            </div>
+
+            {activeLang === "tr" ? (
+              <Textarea
+                value={form.description_tr}
+                onChange={(e) =>
+                  update("description_tr", e.target.value)
+                }
+                placeholder="Restaurant description (Turkish)"
+                rows={4}
+              />
+            ) : (
+              <Textarea
+                value={form.description_en}
+                onChange={(e) =>
+                  update("description_en", e.target.value)
+                }
+                placeholder="Restaurant description (English)"
+                rows={4}
+              />
+            )}
+          </div>
+
+          {/* Legacy contacts (если используешь как доп. текст) */}
+          <div>
+            <Label htmlFor="contacts">Additional Contacts (optional)</Label>
             <Textarea
               id="contacts"
               value={form.contacts}
               onChange={(e) => update("contacts", e.target.value)}
-              placeholder="Description"
-              rows={4}
+              placeholder="Extra contact info"
+              rows={3}
             />
           </div>
-
-          {/* ✅ Logo input removed for now */}
 
           {mutation.isError && (
             <div className="text-sm text-red-600">
               Failed to save:{" "}
               {(() => {
                 const err: any = mutation.error;
-                // если apiClient кладёт ответ в err.data — покажем его
                 if (err?.data) return JSON.stringify(err.data);
                 return err?.message ?? "Unknown error";
               })()}

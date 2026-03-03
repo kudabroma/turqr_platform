@@ -39,6 +39,11 @@ def restaurant_is_active(restaurant: Restaurant) -> tuple[bool, str | None]:
 
 
 def get_public_restaurant_or_404(request, slug_from_url: str | None):
+    """
+    Берём slug:
+    1) из subdomain middleware: request.restaurant_slug
+    2) иначе из URL (slug_from_url)
+    """
     slug = getattr(request, "restaurant_slug", None) or slug_from_url
     if not slug:
         raise Http404("Restaurant not found")
@@ -92,7 +97,8 @@ def build_public_payload(request, restaurant: Restaurant, categories_qs):
 class PublicRestaurantView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def get(self, request, slug: str):
+    # ✅ slug optional: работает и для /public/restaurant/<slug>/ и для /public/restaurant/
+    def get(self, request, slug: str | None = None):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = get_public_categories_queryset(restaurant)
         return Response(build_public_payload(request, restaurant, categories))
@@ -101,7 +107,8 @@ class PublicRestaurantView(APIView):
 class PublicMenuView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def get(self, request, slug: str):
+    # ✅ slug optional: работает и для /public/menu/<slug>/ и для /public/menu/
+    def get(self, request, slug: str | None = None):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = get_public_categories_queryset(restaurant)
         return Response(build_public_payload(request, restaurant, categories))
@@ -110,7 +117,7 @@ class PublicMenuView(APIView):
 class PublicRestaurantStatusView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    def get(self, request, slug: str):
+    def get(self, request, slug: str | None = None):
         slug_effective = getattr(request, "restaurant_slug", None) or slug
         if not slug_effective:
             return Response({"exists": False, "active": False}, status=200)
@@ -152,4 +159,3 @@ class PublicMenuBySubdomainView(APIView):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
         categories = get_public_categories_queryset(restaurant)
         return Response(build_public_payload(request, restaurant, categories))
-        

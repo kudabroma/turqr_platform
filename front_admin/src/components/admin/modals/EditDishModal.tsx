@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Upload } from "lucide-react";
+import { Upload, Copy } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -39,8 +39,10 @@ interface EditDishModalProps {
   dish: DishData | null;
   onSave: (dish: DishData) => void;
   onDelete?: (id: number) => void;
-  categories?: { id: number; name: string }[];
+  categories?: { id: number; name: string; is_system?: boolean }[];
 }
+
+type Lang = "tr" | "en";
 
 const emptyDish: DishData = {
   name_tr: "",
@@ -63,6 +65,7 @@ export function EditDishModal({
   categories,
 }: EditDishModalProps) {
   const [form, setForm] = useState<DishData>(emptyDish);
+  const [activeLang, setActiveLang] = useState<Lang>("tr");
 
   const isNew = !dish;
 
@@ -76,7 +79,6 @@ export function EditDishModal({
     setImagePreview(url);
   }
 
-  // ✅ cleanup object URL (prevents memory leak)
   useEffect(() => {
     return () => {
       if (imagePreview) URL.revokeObjectURL(imagePreview);
@@ -98,6 +100,7 @@ export function EditDishModal({
       setForm(emptyDish);
     }
 
+    setActiveLang("tr");
     setImageFile(null);
     setImagePreview(null);
   }, [open, dish]);
@@ -109,9 +112,19 @@ export function EditDishModal({
   const update = <K extends keyof DishData>(key: K, value: DishData[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
+  const copyTrToEn = () => {
+    setForm((prev) => ({
+      ...prev,
+      name_en: prev.name_en?.trim() ? prev.name_en : prev.name_tr,
+      description_en: prev.description_en?.trim() ? prev.description_en : prev.description_tr,
+    }));
+    setActiveLang("en");
+  };
+
   const handleSave = () => {
     if (!form.name_tr.trim()) {
       alert("Name (TR) is required.");
+      setActiveLang("tr");
       return;
     }
 
@@ -132,13 +145,11 @@ export function EditDishModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* ✅ key fix: constrained modal + scrollable body + sticky footer */}
       <DialogContent className="sm:max-w-lg max-h-[85vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6">
           <DialogTitle>{isNew ? "Add New Dish" : "Edit Dish"}</DialogTitle>
         </DialogHeader>
 
-        {/* ✅ Scrollable body */}
         <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
           <div className="space-y-4 mt-2">
             {/* Photo */}
@@ -186,42 +197,89 @@ export function EditDishModal({
               </Button>
             </div>
 
-            {/* Name TR */}
+            {/* Language Tabs */}
             <div>
-              <Label>Name (TR)</Label>
-              <Input
-                value={form.name_tr}
-                onChange={(e) => update("name_tr", e.target.value)}
-              />
-            </div>
+              <div className="flex items-center justify-between">
+                <Label>Translation</Label>
 
-            {/* Name EN */}
-            <div>
-              <Label>Name (EN)</Label>
-              <Input
-                value={form.name_en}
-                onChange={(e) => update("name_en", e.target.value)}
-              />
-            </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={copyTrToEn}
+                  title="Copy TR to EN (fills empty EN fields)"
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  Copy TR → EN
+                </Button>
+              </div>
 
-            {/* Description TR */}
-            <div>
-              <Label>Description (TR)</Label>
-              <Textarea
-                value={form.description_tr}
-                onChange={(e) => update("description_tr", e.target.value)}
-                rows={2}
-              />
-            </div>
+              <div className="flex gap-2 mt-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveLang("tr")}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    activeLang === "tr"
+                      ? "bg-primary text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  TR
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLang("en")}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    activeLang === "en"
+                      ? "bg-primary text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  EN
+                </button>
+              </div>
 
-            {/* Description EN */}
-            <div>
-              <Label>Description (EN)</Label>
-              <Textarea
-                value={form.description_en}
-                onChange={(e) => update("description_en", e.target.value)}
-                rows={2}
-              />
+              <div className="mt-3 space-y-3">
+                {activeLang === "tr" ? (
+                  <>
+                    <div>
+                      <Label>Name (TR)</Label>
+                      <Input
+                        value={form.name_tr}
+                        onChange={(e) => update("name_tr", e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Description (TR)</Label>
+                      <Textarea
+                        value={form.description_tr}
+                        onChange={(e) => update("description_tr", e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div>
+                      <Label>Name (EN)</Label>
+                      <Input
+                        value={form.name_en}
+                        onChange={(e) => update("name_en", e.target.value)}
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Description (EN)</Label>
+                      <Textarea
+                        value={form.description_en}
+                        onChange={(e) => update("description_en", e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  </>
+                )}
+              </div>
             </div>
 
             {/* Category */}
@@ -255,14 +313,14 @@ export function EditDishModal({
               <Label>Price (₺)</Label>
               <Input
                 type="number"
-                value={form.price}
+                step="0.01"
+                value={Number.isFinite(form.price) ? form.price : 0}
                 onChange={(e) => update("price", Number(e.target.value))}
               />
             </div>
           </div>
         </div>
 
-        {/* ✅ Sticky footer (always visible) */}
         <div className="px-6 py-4 border-t bg-background sticky bottom-0 flex items-center justify-between">
           <div>
             {!isNew && onDelete && (

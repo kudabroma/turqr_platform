@@ -51,23 +51,17 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
     # -------- url helpers --------
 
     def _build_file_url(self, obj: Restaurant, field_name: str):
-        """
-        Возвращает абсолютный URL для ImageField/FileField.
-        Если request нет — возвращает относительный.
-        Если файла нет — None.
-        """
         request = self.context.get("request")
         f = getattr(obj, field_name, None)
         if not f:
             return None
         try:
-            url = f.url  # работает только для FileField/ImageField
+            url = f.url
         except Exception:
             return None
         return request.build_absolute_uri(url) if request else url
 
     def get_logo_url(self, obj: Restaurant):
-        # ⚠️ будет работать только если logo = ImageField/FileField
         return self._build_file_url(obj, "logo")
 
     def get_photo1_url(self, obj: Restaurant): return self._build_file_url(obj, "photo1")
@@ -87,13 +81,20 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "address",
+
+            # ✅ NEW bilingual fields
+            "description_tr",
+            "description_en",
+
             "logo",
             "logo_url",
             "front_template",
+
             # compat:
             "active",
             "plan",
             "paid_until",
+
             # photos:
             "photo1",
             "photo2",
@@ -124,6 +125,11 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "address",
+
+            # ✅ NEW bilingual fields
+            "description_tr",
+            "description_en",
+
             "front_template",
             "logo",
             "photo1",

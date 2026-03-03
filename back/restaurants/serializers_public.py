@@ -6,6 +6,9 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
     contacts = serializers.SerializerMethodField()
     logo_url = serializers.SerializerMethodField()
 
+    # ✅ NEW: bilingual public description
+    description = serializers.SerializerMethodField()
+
     photo1_url = serializers.SerializerMethodField()
     photo2_url = serializers.SerializerMethodField()
     photo3_url = serializers.SerializerMethodField()
@@ -18,6 +21,7 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         fields = [
             "slug",
             "name",
+            "description",  # ✅ добавили
             "logo",
             "logo_url",
             "phone",
@@ -31,6 +35,19 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
             "photo5_url",
             "photo6_url",
         ]
+
+    def _lang(self) -> str:
+        raw = self.context.get("lang")
+        if not raw:
+            request = self.context.get("request")
+            raw = getattr(getattr(request, "query_params", None), "get", lambda _k, _d=None: None)("lang", None) if request else None
+
+        lang = (raw or "tr").lower()
+        if lang.startswith("en"):
+            return "en"
+        if lang.startswith("ru"):
+            return "ru"  # на будущее
+        return "tr"
 
     def _file_url(self, file_field):
         if not file_field:
@@ -53,7 +70,22 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
     def get_photo5_url(self, obj: Restaurant): return self._file_url(getattr(obj, "photo5", None))
     def get_photo6_url(self, obj: Restaurant): return self._file_url(getattr(obj, "photo6", None))
 
+    def get_description(self, obj: Restaurant):
+        lang = self._lang()
+
+        desc_tr = (getattr(obj, "description_tr", "") or "").strip()
+        desc_en = (getattr(obj, "description_en", "") or "").strip()
+
+        if lang == "en":
+            return desc_en or desc_tr
+        return desc_tr or desc_en
+
     def get_contacts(self, obj: Restaurant):
+        """
+        Backward compatibility:
+        - если есть отдельные поля email/phone/address — собираем их
+        - иначе используем contacts
+        """
         parts = []
         email = (obj.email or "").strip()
         phone = (obj.phone or "").strip()
@@ -83,7 +115,18 @@ class PublicDishSerializer(serializers.ModelSerializer):
         fields = ["id", "name", "description", "price", "image_url"]
 
     def _lang(self) -> str:
-        lang = (self.context.get("lang") or "tr").lower()
+        """
+        Priority:
+        1) explicit context["lang"] (when view passes it)
+        2) request.query_params["lang"] (fallback)
+        3) default "tr"
+        """
+        raw = self.context.get("lang")
+        if not raw:
+            request = self.context.get("request")
+            raw = getattr(getattr(request, "query_params", None), "get", lambda _k, _d=None: None)("lang", None) if request else None
+
+        lang = (raw or "tr").lower()
         if lang.startswith("en"):
             return "en"
         if lang.startswith("ru"):
@@ -92,19 +135,29 @@ class PublicDishSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj: Dish):
         lang = self._lang()
-        # сейчас у тебя есть tr/en, ru позже
+
+        name_tr = (obj.name_tr or "").strip()
+        name_en = (obj.name_en or "").strip()
+        name_old = (getattr(obj, "name", "") or "").strip()
+
         if lang == "en":
-            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (getattr(obj, "name", "") or "").strip()
-        return (obj.name_tr or "").strip() or (getattr(obj, "name", "") or "").strip() or (obj.name_en or "").strip()
+            return name_en or name_tr or name_old
+        # tr default
+        return name_tr or name_old or name_en
 
     def get_description(self, obj: Dish):
         lang = self._lang()
+
+        desc_tr = (obj.description_tr or "").strip()
+        desc_en = (obj.description_en or "").strip()
+        desc_old = (getattr(obj, "description", "") or "").strip()
+
         if lang == "en":
-            return (obj.description_en or "").strip() or (obj.description_tr or "").strip() or (getattr(obj, "description", "") or "").strip()
-        return (obj.description_tr or "").strip() or (getattr(obj, "description", "") or "").strip() or (obj.description_en or "").strip()
+            return desc_en or desc_tr or desc_old
+        return desc_tr or desc_old or desc_en
 
     def get_price(self, obj: Dish):
-        # если price DecimalField -> str ок
+        # DecimalField -> string ok for frontend
         val = getattr(obj, "price", None)
         return str(val) if val is not None else "0"
 
