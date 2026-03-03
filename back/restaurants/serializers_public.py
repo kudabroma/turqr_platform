@@ -5,8 +5,6 @@ from .models import Restaurant, Category, Dish
 class PublicRestaurantSerializer(serializers.ModelSerializer):
     contacts = serializers.SerializerMethodField()
     logo_url = serializers.SerializerMethodField()
-
-    # ✅ NEW: bilingual public description
     description = serializers.SerializerMethodField()
 
     photo1_url = serializers.SerializerMethodField()
@@ -21,7 +19,7 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         fields = [
             "slug",
             "name",
-            "description",  # ✅ добавили
+            "description",
             "logo",
             "logo_url",
             "phone",
@@ -46,19 +44,17 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         if lang.startswith("en"):
             return "en"
         if lang.startswith("ru"):
-            return "ru"  # на будущее
+            return "ru"
         return "tr"
 
+    # ✅ ВАЖНО: возвращаем относительный URL (/media/...), а не абсолютный http://127.0.0.1:8000/...
     def _file_url(self, file_field):
         if not file_field:
             return None
         try:
-            url = file_field.url
+            return file_field.url  # ✅ "/media/...."
         except Exception:
             return None
-
-        request = self.context.get("request")
-        return request.build_absolute_uri(url) if request else url
 
     def get_logo_url(self, obj: Restaurant):
         return self._file_url(getattr(obj, "logo", None))
@@ -81,11 +77,6 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         return desc_tr or desc_en
 
     def get_contacts(self, obj: Restaurant):
-        """
-        Backward compatibility:
-        - если есть отдельные поля email/phone/address — собираем их
-        - иначе используем contacts
-        """
         parts = []
         email = (obj.email or "").strip()
         phone = (obj.phone or "").strip()
@@ -162,15 +153,13 @@ class PublicDishSerializer(serializers.ModelSerializer):
         return str(val) if val is not None else "0"
 
     def get_image_url(self, obj: Dish):
-        request = self.context.get("request")
         image = getattr(obj, "image", None)
         if not image:
             return None
         try:
-            url = image.url
+            return image.url  # ✅ "/media/...."
         except Exception:
             return None
-        return request.build_absolute_uri(url) if request else url
 
 
 class PublicCategorySerializer(serializers.ModelSerializer):

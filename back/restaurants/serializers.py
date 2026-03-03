@@ -10,12 +10,6 @@ User = get_user_model()
 # Restaurant: /api/restaurants/me/
 # =========================
 class RestaurantMeSerializer(serializers.ModelSerializer):
-    """
-    Ответ для /api/restaurants/me/
-    Backward compatibility для фронта:
-    active/plan/paid_until возвращаем, но они вычисляются из Subscription.
-    """
-
     active = serializers.SerializerMethodField()
     plan = serializers.SerializerMethodField()
     paid_until = serializers.SerializerMethodField()
@@ -49,27 +43,26 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
         return sub.expires_at.date().isoformat()
 
     # -------- url helpers --------
+    # ✅ ВАЖНО: возвращаем относительный URL (/media/...), чтобы работало через ngrok и на телефоне
 
-    def _build_file_url(self, obj: Restaurant, field_name: str):
-        request = self.context.get("request")
+    def _file_url(self, obj: Restaurant, field_name: str):
         f = getattr(obj, field_name, None)
         if not f:
             return None
         try:
-            url = f.url
+            return f.url  # ✅ "/media/...."
         except Exception:
             return None
-        return request.build_absolute_uri(url) if request else url
 
     def get_logo_url(self, obj: Restaurant):
-        return self._build_file_url(obj, "logo")
+        return self._file_url(obj, "logo")
 
-    def get_photo1_url(self, obj: Restaurant): return self._build_file_url(obj, "photo1")
-    def get_photo2_url(self, obj: Restaurant): return self._build_file_url(obj, "photo2")
-    def get_photo3_url(self, obj: Restaurant): return self._build_file_url(obj, "photo3")
-    def get_photo4_url(self, obj: Restaurant): return self._build_file_url(obj, "photo4")
-    def get_photo5_url(self, obj: Restaurant): return self._build_file_url(obj, "photo5")
-    def get_photo6_url(self, obj: Restaurant): return self._build_file_url(obj, "photo6")
+    def get_photo1_url(self, obj: Restaurant): return self._file_url(obj, "photo1")
+    def get_photo2_url(self, obj: Restaurant): return self._file_url(obj, "photo2")
+    def get_photo3_url(self, obj: Restaurant): return self._file_url(obj, "photo3")
+    def get_photo4_url(self, obj: Restaurant): return self._file_url(obj, "photo4")
+    def get_photo5_url(self, obj: Restaurant): return self._file_url(obj, "photo5")
+    def get_photo6_url(self, obj: Restaurant): return self._file_url(obj, "photo6")
 
     class Meta:
         model = Restaurant
@@ -82,7 +75,6 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "email",
             "address",
 
-            # ✅ NEW bilingual fields
             "description_tr",
             "description_en",
 
@@ -90,12 +82,10 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "logo_url",
             "front_template",
 
-            # compat:
             "active",
             "plan",
             "paid_until",
 
-            # photos:
             "photo1",
             "photo2",
             "photo3",
@@ -109,7 +99,6 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "photo5_url",
             "photo6_url",
         ]
-
 
 class RestaurantUpdateSerializer(serializers.ModelSerializer):
     """
@@ -211,26 +200,17 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
 # Dishes (Business / Admin)
 # =========================
 class DishSerializer(serializers.ModelSerializer):
-    """
-    Для business user: restaurant read-only (бек подставит).
-    Также отдаём lifecycle поля read-only (для UI/фильтрации), но не даём менять напрямую.
-    """
-
     restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
-
-    # ✅ URL для картинки блюда
     image_url = serializers.SerializerMethodField()
 
     def get_image_url(self, obj: Dish):
-        request = self.context.get("request")
         image = getattr(obj, "image", None)
         if not image:
             return None
         try:
-            url = image.url
+            return image.url  # ✅ "/media/...."
         except Exception:
             return None
-        return request.build_absolute_uri(url) if request else url
 
     class Meta:
         model = Dish
@@ -245,24 +225,19 @@ class DishSerializer(serializers.ModelSerializer):
             "price",
             "category",
             "restaurant",
-            "is_active",          # ✅ ДОБАВЬ
-            # ✅ image upload + url
+            "is_active",
             "image",
             "image_url",
-            # lifecycle:
             "moved_to_unsorted_at",
             "archived_at",
         ]
         read_only_fields = ["id", "restaurant", "image_url", "moved_to_unsorted_at", "archived_at"]
 
     def validate(self, attrs):
-        # Backward compatibility:
-        # если новый фронт шлёт name_tr/description_tr, а legacy name/description не шлёт
         name_tr = (attrs.get("name_tr") or "").strip()
         if name_tr and not (attrs.get("name") or "").strip():
             attrs["name"] = name_tr
 
-        # description может быть пустым, поэтому проверяем ключ
         if "description_tr" in attrs and "description" not in attrs:
             desc_tr = (attrs.get("description_tr") or "").strip()
             attrs["description"] = desc_tr
@@ -272,19 +247,16 @@ class DishSerializer(serializers.ModelSerializer):
 
 class DishSuperuserSerializer(serializers.ModelSerializer):
     restaurant = serializers.PrimaryKeyRelatedField(queryset=Restaurant.objects.all(), required=True)
-
     image_url = serializers.SerializerMethodField()
 
     def get_image_url(self, obj: Dish):
-        request = self.context.get("request")
         image = getattr(obj, "image", None)
         if not image:
             return None
         try:
-            url = image.url
+            return image.url  # ✅ "/media/...."
         except Exception:
             return None
-        return request.build_absolute_uri(url) if request else url
 
     class Meta:
         model = Dish
@@ -299,11 +271,9 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
             "price",
             "category",
             "restaurant",
-            # ✅ image upload + url
             "is_active",
             "image",
             "image_url",
-            # lifecycle:
             "moved_to_unsorted_at",
             "archived_at",
         ]
@@ -350,15 +320,13 @@ class DishReadSerializer(serializers.ModelSerializer):
         return (obj.description_tr or "").strip() or (obj.description or "").strip() or (obj.description_en or "").strip()
 
     def get_image_url(self, obj: Dish):
-        request = self.context.get("request")
         image = getattr(obj, "image", None)
         if not image:
             return None
         try:
-            url = image.url
+            return image.url  # ✅ "/media/...."
         except Exception:
             return None
-        return request.build_absolute_uri(url) if request else url
 
     class Meta:
         model = Dish

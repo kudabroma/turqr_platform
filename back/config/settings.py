@@ -34,7 +34,12 @@ SECRET_KEY = os.getenv(
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = os.getenv("DJANGO_ALLOWED_HOSTS", "").split() or []
+# --- Hosts / ngrok / local network (DEV) ---
+DJANGO_ALLOWED_HOSTS = os.getenv(
+    "DJANGO_ALLOWED_HOSTS",
+    "localhost 127.0.0.1 192.168.0.157 .ngrok-free.dev toruk.localhost turko.localhost"
+)
+ALLOWED_HOSTS = DJANGO_ALLOWED_HOSTS.split()
 
 
 # Application definition
@@ -52,6 +57,7 @@ INSTALLED_APPS = [
 
     # Local apps
     'restaurants.apps.RestaurantsConfig',
+    "corsheaders",
     ]
 
 MIDDLEWARE = [
@@ -151,11 +157,19 @@ REST_FRAMEWORK = {
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
+    "http://192.168.0.157:8081",
+    "http://192.168.0.157:8080",
+    "https://*.ngrok-free.dev",
 ]
 
 # на всякий (для dev)
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
+# Важно для ngrok/мобильного — чтобы куки нормально ходили
+CSRF_COOKIE_SAMESITE = "Lax"
+SESSION_COOKIE_SAMESITE = "Lax"
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",

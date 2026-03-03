@@ -237,7 +237,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
             raise ValidationError({"restaurant": "User has no associated restaurant."})
 
         # бизнесу запрещаем менять restaurant категории
-        serializer.save(restaurant=restaurant)
+        serializer.save(restaurant=self.request.user.restaurant)
 
     def destroy(self, request, *args, **kwargs):
         """
@@ -284,10 +284,12 @@ class DishViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        if user.is_superuser:
+
+        # superuser sees all
+        if getattr(user, "is_superuser", False):
             return Dish.objects.all()
 
-        restaurant = _get_user_restaurant(user)
+        restaurant = getattr(user, "restaurant", None)
         if not restaurant:
             return Dish.objects.none()
 
@@ -311,7 +313,7 @@ class DishViewSet(viewsets.ModelViewSet):
         if category and category.restaurant_id != restaurant.id:
             raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
 
-        serializer.save(restaurant=restaurant)
+        serializer.save(restaurant=self.request.user.restaurant)
 
     def perform_update(self, serializer):
         user = self.request.user
