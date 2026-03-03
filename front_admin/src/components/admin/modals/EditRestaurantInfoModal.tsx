@@ -28,14 +28,16 @@ type FormState = {
   phone: string;
   email: string;
   contacts: string;
-
   description_tr: string;
   description_en: string;
 };
 
-export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Props) {
+export function EditRestaurantInfoModal({
+  open,
+  onOpenChange,
+  restaurant,
+}: Props) {
   const qc = useQueryClient();
-
   const [activeLang, setActiveLang] = useState<Lang>("tr");
 
   const [form, setForm] = useState<FormState>({
@@ -90,135 +92,120 @@ export function EditRestaurantInfoModal({ open, onOpenChange, restaurant }: Prop
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Edit Restaurant Info</DialogTitle>
+      <DialogContent className="sm:max-w-lg max-h-[85vh] p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6">
+          <DialogTitle>Restoran Bilgilerini Düzenle</DialogTitle>
         </DialogHeader>
-
-        <div className="space-y-4 mt-2">
-          <div>
-            <Label htmlFor="name">Name</Label>
-            <Input
-              id="name"
-              value={form.name}
-              onChange={(e) => update("name", e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="address">Address</Label>
-            <Input
-              id="address"
-              value={form.address}
-              onChange={(e) => update("address", e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="phone">Phone</Label>
-            <Input
-              id="phone"
-              value={form.phone}
-              onChange={(e) => update("phone", e.target.value)}
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              value={form.email}
-              onChange={(e) => update("email", e.target.value)}
-            />
-          </div>
-
-          {/* ---------- Bilingual Description ---------- */}
-
-          <div>
-            <Label>Description</Label>
-
-            <div className="flex gap-2 mb-2 mt-2">
-              <button
-                type="button"
-                onClick={() => setActiveLang("tr")}
-                className={`px-3 py-1 rounded-full text-sm ${
-                  activeLang === "tr"
-                    ? "bg-primary text-white"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                TR
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setActiveLang("en")}
-                className={`px-3 py-1 rounded-full text-sm ${
-                  activeLang === "en"
-                    ? "bg-primary text-white"
-                    : "bg-muted text-muted-foreground"
-                }`}
-              >
-                EN
-              </button>
+        <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
+          <div className="space-y-4 mt-2">
+            <div>
+              <Label>İsim</Label>
+              <Input
+                value={form.name}
+                onChange={(e) => update("name", e.target.value)}
+              />
             </div>
 
-            {activeLang === "tr" ? (
-              <Textarea
-                value={form.description_tr}
-                onChange={(e) =>
-                  update("description_tr", e.target.value)
-                }
-                placeholder="Restaurant description (Turkish)"
-                rows={4}
+            <div>
+              <Label>Adres</Label>
+              <Input
+                value={form.address}
+                onChange={(e) => update("address", e.target.value)}
               />
-            ) : (
-              <Textarea
-                value={form.description_en}
-                onChange={(e) =>
-                  update("description_en", e.target.value)
-                }
-                placeholder="Restaurant description (English)"
-                rows={4}
+            </div>
+
+            <div>
+              <Label>Telefon</Label>
+              <Input
+                value={form.phone}
+                onChange={(e) => update("phone", e.target.value)}
               />
+            </div>
+
+            <div>
+              <Label>E-posta</Label>
+              <Input
+                value={form.email}
+                onChange={(e) => update("email", e.target.value)}
+              />
+            </div>
+
+            <div>
+              <Label>Açıklama</Label>
+
+              <div className="flex gap-2 mt-2 mb-2">
+                <button
+                  type="button"
+                  onClick={() => setActiveLang("tr")}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    activeLang === "tr"
+                      ? "bg-primary text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  TR
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveLang("en")}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    activeLang === "en"
+                      ? "bg-primary text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  EN
+                </button>
+              </div>
+
+              {activeLang === "tr" ? (
+                <Textarea
+                  value={form.description_tr}
+                  onChange={(e) =>
+                    update("description_tr", e.target.value)
+                  }
+                  placeholder="Restoran açıklaması (Türkçe)"
+                  rows={4}
+                />
+              ) : (
+                <Textarea
+                  value={form.description_en}
+                  onChange={(e) =>
+                    update("description_en", e.target.value)
+                  }
+                  placeholder="Restoran açıklaması (İngilizce)"
+                  rows={4}
+                />
+              )}
+          </div>
+            <div>
+              <Label>Ek İletişim Bilgileri (isteğe bağlı)</Label>
+              <Textarea
+                value={form.contacts}
+                onChange={(e) => update("contacts", e.target.value)}
+                rows={3}
+              />
+            </div>
+
+            {mutation.isError && (
+              <div className="text-sm text-red-600">
+                Kaydedilemedi.
+              </div>
             )}
-          </div>
-
-          {/* Legacy contacts (если используешь как доп. текст) */}
-          <div>
-            <Label htmlFor="contacts">Additional Contacts (optional)</Label>
-            <Textarea
-              id="contacts"
-              value={form.contacts}
-              onChange={(e) => update("contacts", e.target.value)}
-              placeholder="Extra contact info"
-              rows={3}
-            />
-          </div>
-
-          {mutation.isError && (
-            <div className="text-sm text-red-600">
-              Failed to save:{" "}
-              {(() => {
-                const err: any = mutation.error;
-                if (err?.data) return JSON.stringify(err.data);
-                return err?.message ?? "Unknown error";
-              })()}
-            </div>
-          )}
         </div>
-
-        <div className="flex justify-end gap-2 mt-4">
+        </div>
+        <div className="px-6 py-4 border-t bg-background sticky bottom-0 flex justify-end gap-2">
           <Button
             variant="outline"
             onClick={() => onOpenChange(false)}
             disabled={mutation.isPending}
           >
-            Cancel
+            İptal
           </Button>
 
           <Button onClick={handleSave} disabled={mutation.isPending}>
-            {mutation.isPending ? "Saving..." : "Save"}
+            {mutation.isPending ? "Kaydediliyor..." : "Kaydet"}
           </Button>
         </div>
       </DialogContent>

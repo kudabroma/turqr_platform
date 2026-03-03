@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Upload, Copy } from "lucide-react";
+import { Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -13,22 +13,16 @@ import { Textarea } from "@/components/ui/textarea";
 
 export interface DishData {
   id?: number;
-
   name_tr: string;
   name_en: string;
-
   description_tr: string;
   description_en: string;
-
   price: number;
-
   image: string;
   imageFile?: File | null;
-
   vegan: boolean;
   spicy: boolean;
   featured: boolean;
-
   _categoryId?: number;
   _categoryName?: string;
 }
@@ -112,24 +106,15 @@ export function EditDishModal({
   const update = <K extends keyof DishData>(key: K, value: DishData[K]) =>
     setForm((prev) => ({ ...prev, [key]: value }));
 
-  const copyTrToEn = () => {
-    setForm((prev) => ({
-      ...prev,
-      name_en: prev.name_en?.trim() ? prev.name_en : prev.name_tr,
-      description_en: prev.description_en?.trim() ? prev.description_en : prev.description_tr,
-    }));
-    setActiveLang("en");
-  };
-
   const handleSave = () => {
     if (!form.name_tr.trim()) {
-      alert("Name (TR) is required.");
+      alert("İsim (TR) zorunludur.");
       setActiveLang("tr");
       return;
     }
 
     if (!form._categoryId) {
-      alert("Select a category for this dish.");
+      alert("Kategori seçmelisiniz.");
       return;
     }
 
@@ -147,12 +132,13 @@ export function EditDishModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6">
-          <DialogTitle>{isNew ? "Add New Dish" : "Edit Dish"}</DialogTitle>
+          <DialogTitle>
+            {isNew ? "Yeni Yemek Ekle" : "Yemeği Düzenle"}
+          </DialogTitle>
         </DialogHeader>
 
         <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
           <div className="space-y-4 mt-2">
-            {/* Photo */}
             <div className="flex items-center gap-4">
               <input
                 ref={fileInputRef}
@@ -168,13 +154,6 @@ export function EditDishModal({
               <div
                 className="w-20 h-20 rounded-xl bg-muted border-2 border-dashed border-border flex items-center justify-center overflow-hidden cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
-                onDragOver={(e) => e.preventDefault()}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) acceptFile(file);
-                }}
-                title="Click to upload"
               >
                 {imagePreview || form.image ? (
                   <img
@@ -193,26 +172,12 @@ export function EditDishModal({
                 size="sm"
                 onClick={() => fileInputRef.current?.click()}
               >
-                Upload Photo
+                Fotoğraf Yükle
               </Button>
             </div>
 
-            {/* Language Tabs */}
             <div>
-              <div className="flex items-center justify-between">
-                <Label>Translation</Label>
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={copyTrToEn}
-                  title="Copy TR to EN (fills empty EN fields)"
-                >
-                  <Copy className="w-4 h-4 mr-2" />
-                  Copy TR → EN
-                </Button>
-              </div>
+              <Label>Çeviri</Label>
 
               <div className="flex gap-2 mt-2">
                 <button
@@ -243,18 +208,22 @@ export function EditDishModal({
                 {activeLang === "tr" ? (
                   <>
                     <div>
-                      <Label>Name (TR)</Label>
+                      <Label>İsim (TR)</Label>
                       <Input
                         value={form.name_tr}
-                        onChange={(e) => update("name_tr", e.target.value)}
+                        onChange={(e) =>
+                          update("name_tr", e.target.value)
+                        }
                       />
                     </div>
 
                     <div>
-                      <Label>Description (TR)</Label>
+                      <Label>Açıklama (TR)</Label>
                       <Textarea
                         value={form.description_tr}
-                        onChange={(e) => update("description_tr", e.target.value)}
+                        onChange={(e) =>
+                          update("description_tr", e.target.value)
+                        }
                         rows={3}
                       />
                     </div>
@@ -262,18 +231,22 @@ export function EditDishModal({
                 ) : (
                   <>
                     <div>
-                      <Label>Name (EN)</Label>
+                      <Label>İsim (EN)</Label>
                       <Input
                         value={form.name_en}
-                        onChange={(e) => update("name_en", e.target.value)}
+                        onChange={(e) =>
+                          update("name_en", e.target.value)
+                        }
                       />
                     </div>
 
                     <div>
-                      <Label>Description (EN)</Label>
+                      <Label>Açıklama (EN)</Label>
                       <Textarea
                         value={form.description_en}
-                        onChange={(e) => update("description_en", e.target.value)}
+                        onChange={(e) =>
+                          update("description_en", e.target.value)
+                        }
                         rows={3}
                       />
                     </div>
@@ -282,22 +255,23 @@ export function EditDishModal({
               </div>
             </div>
 
-            {/* Category */}
             {categoryOptions.length > 0 && (
               <div>
-                <Label>Category</Label>
+                <Label>Kategori</Label>
                 <select
                   className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                   value={form._categoryId ?? ""}
                   onChange={(e) =>
                     update(
                       "_categoryId",
-                      e.target.value ? Number(e.target.value) : undefined
+                      e.target.value
+                        ? Number(e.target.value)
+                        : undefined
                     )
                   }
                 >
                   <option value="" disabled>
-                    Select category…
+                    Kategori seçiniz…
                   </option>
                   {categoryOptions.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -308,33 +282,41 @@ export function EditDishModal({
               </div>
             )}
 
-            {/* Price */}
             <div>
-              <Label>Price (₺)</Label>
+              <Label>Fiyat (₺)</Label>
               <Input
                 type="number"
                 step="0.01"
                 value={Number.isFinite(form.price) ? form.price : 0}
-                onChange={(e) => update("price", Number(e.target.value))}
+                onChange={(e) =>
+                  update("price", Number(e.target.value))
+                }
               />
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t bg-background sticky bottom-0 flex items-center justify-between">
+        <div className="px-6 py-4 border-t bg-background flex items-center justify-between">
           <div>
             {!isNew && onDelete && (
-              <Button variant="destructive" size="sm" onClick={handleDelete}>
-                Delete
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleDelete}
+              >
+                Sil
               </Button>
             )}
           </div>
 
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              Cancel
+            <Button
+              variant="outline"
+              onClick={() => onOpenChange(false)}
+            >
+              İptal
             </Button>
-            <Button onClick={handleSave}>Save</Button>
+            <Button onClick={handleSave}>Kaydet</Button>
           </div>
         </div>
       </DialogContent>

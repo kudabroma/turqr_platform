@@ -8,7 +8,6 @@ import { EditDishModal, type DishData } from "@/components/admin/modals/EditDish
 
 import {
   menuApi,
-  restaurantApi,
   categoriesApi,
   type CategoryWithDishes,
   dishesApi,
@@ -17,26 +16,13 @@ import {
 export default function MenuPage() {
   const qc = useQueryClient();
 
-  // ✅ лучше хранить активную категорию по ID (а не по имени)
+  // ✅ активная категория по ID
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
   const [showCategoriesModal, setShowCategoriesModal] = useState(false);
   const [editingDish, setEditingDish] = useState<DishData | null>(null);
   const [showDishModal, setShowDishModal] = useState(false);
-
-  // ✅ ресторан (для title)
-  const restaurantQuery = useQuery({
-    queryKey: ["restaurant", "me"],
-    queryFn: restaurantApi.me,
-    staleTime: 60_000,
-  });
-
-  const headerTitle =
-    restaurantQuery.data?.name ??
-    (restaurantQuery.data?.id
-      ? `Restaurant #${restaurantQuery.data.id}`
-      : "Restaurant");
 
   // ✅ меню (категории + блюда)
   const menuQuery = useQuery({
@@ -55,7 +41,7 @@ export default function MenuPage() {
   const categoriesRaw = (menuQuery.data ?? []) as CategoryWithDishes[];
 
   /**
-   * ✅ Гарантия: system категории (Unsorted) всегда в конце.
+   * ✅ system категории (Unsorted) всегда в конце.
    */
   const categoriesRawSorted = useMemo(() => {
     return [...categoriesRaw].sort((a: any, b: any) => {
@@ -66,19 +52,18 @@ export default function MenuPage() {
     });
   }, [categoriesRaw]);
 
-  // ✅ список категорий для UI (табов)
+  // ✅ список категорий для табов
   const categoriesForTabs = useMemo(() => {
     return categoriesRawSorted.map((c) => ({
       id: c.id,
-      name: c.name, // это display name (как пришло)
+      name: c.name,
       is_system: (c as any).is_system,
     }));
   }, [categoriesRawSorted]);
 
-  // ✅ категории для модалки категорий: bilingual payload
+  // ✅ категории для модалки: bilingual payload
   const categoriesForModal = useMemo(() => {
     const source = (categoriesQuery.data ?? []) as any[];
-    // тоже сортируем: system в конец, чтобы Unsorted не был первым в модалке
     return [...source]
       .sort((a: any, b: any) => {
         const aSys = a?.is_system ? 1 : 0;
@@ -93,14 +78,14 @@ export default function MenuPage() {
       }));
   }, [categoriesQuery.data]);
 
-  // ✅ категории для выбора в модалке блюда (исключаем system)
+  // ✅ категории для выбора в блюде (исключаем system)
   const dishCategoryOptions = useMemo(() => {
     return categoriesRawSorted
       .filter((c: any) => !c.is_system)
       .map((c) => ({ id: c.id, name: c.name }));
   }, [categoriesRawSorted]);
 
-  // ✅ плоский список блюд (из menu -> DishData)
+  // ✅ плоский список блюд
   const dishes: DishData[] = useMemo(() => {
     return categoriesRawSorted.flatMap((c) =>
       (c.dishes ?? []).map((d: any) => ({
@@ -156,7 +141,7 @@ export default function MenuPage() {
     return [
       {
         categoryId: activeCategoryId,
-        categoryName: cat?.name ?? "Category",
+        categoryName: cat?.name ?? "Kategori",
         dishes: filteredDishes,
       },
     ];
@@ -171,12 +156,12 @@ export default function MenuPage() {
       undefined;
 
     if (!categoryId) {
-      alert("Select a category for this dish.");
+      alert("Lütfen bu yemek için bir kategori seçin.");
       return;
     }
 
     if (!dish.name_tr?.trim()) {
-      alert("Name (TR) is required.");
+      alert("İsim (TR) zorunludur.");
       return;
     }
 
@@ -225,7 +210,7 @@ export default function MenuPage() {
       setEditingDish(null);
     } catch (e) {
       console.error(e);
-      alert("Failed to save dish. Check console/network.");
+      alert("Yemek kaydedilemedi. Konsolu / Network'ü kontrol edin.");
     }
   };
 
@@ -237,12 +222,11 @@ export default function MenuPage() {
       setEditingDish(null);
     } catch (e) {
       console.error(e);
-      alert("Failed to delete dish. Check console/network.");
+      alert("Yemek silinemedi. Konsolu / Network'ü kontrol edin.");
     }
   };
 
   const openNewDish = () => {
-    // default category = activeCategoryId (если выбрана и не system), иначе первая не-system категория
     const active = activeCategoryId
       ? categoriesRawSorted.find((c) => c.id === activeCategoryId)
       : undefined;
@@ -308,7 +292,6 @@ export default function MenuPage() {
     }
   };
 
-  // ✅ onSave для модалки категорий (bilingual)
   const handleSaveCategories = async (payload: {
     create: { name_tr: string; name_en: string }[];
     rename: { id: number; name_tr: string; name_en: string }[];
@@ -339,7 +322,7 @@ export default function MenuPage() {
       await qc.invalidateQueries({ queryKey: ["menu"] });
     } catch (e) {
       console.error(e);
-      alert("Failed to save categories. Check console/network.");
+      alert("Kategoriler kaydedilemedi. Konsolu / Network'ü kontrol edin.");
     }
   };
 
@@ -347,8 +330,8 @@ export default function MenuPage() {
   if (menuQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background">
-        <AdminHeader title={headerTitle} showBack />
-        <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">Loading menu…</div>
+        <AdminHeader showBack />
+        <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">Menü yükleniyor…</div>
       </div>
     );
   }
@@ -356,10 +339,12 @@ export default function MenuPage() {
   if (menuQuery.isError) {
     return (
       <div className="min-h-screen bg-background">
-        <AdminHeader title={headerTitle} showBack />
+        <AdminHeader showBack />
         <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">
-          <div className="font-medium">Failed to load menu</div>
-          <div className="text-sm opacity-70">Check Network: GET /api/menu/ (should be 200)</div>
+          <div className="font-medium">Menü yüklenemedi</div>
+          <div className="text-sm opacity-70">
+            Network kontrol: GET /api/menu/ (200 olmalı)
+          </div>
         </div>
       </div>
     );
@@ -367,7 +352,7 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader title={headerTitle} showBack />
+      <AdminHeader showBack />
 
       <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">
         {/* Search */}
@@ -375,7 +360,7 @@ export default function MenuPage() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <input
             type="text"
-            placeholder="Search dishes..."
+            placeholder="Yemek ara…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full pl-10 pr-4 py-3 rounded-xl bg-muted border border-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring"
@@ -392,7 +377,7 @@ export default function MenuPage() {
                 : "bg-muted text-foreground hover:bg-border"
             }`}
           >
-            All
+            Tümü
           </button>
 
           {categoriesForTabs.map((cat) => (
@@ -412,7 +397,7 @@ export default function MenuPage() {
           <button
             onClick={() => setShowCategoriesModal(true)}
             className="p-2 rounded-full text-muted-foreground hover:bg-muted transition-colors shrink-0"
-            title="Edit Categories"
+            title="Kategorileri Düzenle"
           >
             <Settings className="h-4 w-4" />
           </button>
@@ -430,12 +415,12 @@ export default function MenuPage() {
                   className="aspect-[4/5] rounded-xl border-2 border-dashed border-border bg-muted/50 flex flex-col items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
                 >
                   <Plus className="h-8 w-8" />
-                  <span className="text-sm font-medium">Add new dish</span>
+                  <span className="text-sm font-medium">Yeni yemek ekle</span>
                 </button>
               )}
 
               {catDishes.map((dish) => {
-                const displayName = dish.name_tr || dish.name_en || "Untitled";
+                const displayName = dish.name_tr || dish.name_en || "İsimsiz";
                 return (
                   <div
                     key={dish.id}
@@ -459,6 +444,7 @@ export default function MenuPage() {
                     <button
                       onClick={() => openEditDish(dish)}
                       className="absolute top-2 right-2 bg-background/90 backdrop-blur rounded-full p-1.5 shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Düzenle"
                     >
                       <Pencil className="h-3.5 w-3.5 text-foreground" />
                     </button>
@@ -468,7 +454,7 @@ export default function MenuPage() {
 
               {catDishes.length === 0 && (
                 <div className="col-span-2 text-sm text-muted-foreground">
-                  No dishes in this category yet.
+                  Bu kategoride henüz yemek yok.
                 </div>
               )}
             </div>
@@ -482,13 +468,12 @@ export default function MenuPage() {
               className="w-full py-4 rounded-xl border-2 border-dashed border-border bg-muted/50 flex items-center justify-center gap-2 text-muted-foreground hover:border-primary hover:text-primary transition-colors"
             >
               <Plus className="h-5 w-5" />
-              <span className="font-medium">Add new dish</span>
+              <span className="font-medium">Yeni yemek ekle</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* Categories CRUD modal */}
       <EditCategoriesModal
         open={showCategoriesModal}
         onOpenChange={setShowCategoriesModal}
@@ -496,7 +481,6 @@ export default function MenuPage() {
         onSave={handleSaveCategories as any}
       />
 
-      {/* Dish modal */}
       <EditDishModal
         open={showDishModal}
         onOpenChange={setShowDishModal}

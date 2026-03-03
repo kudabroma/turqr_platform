@@ -186,7 +186,7 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
     <Dialog open={open} onOpenChange={close}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle>Edit Photos</DialogTitle>
+          <DialogTitle>Fotoğrafları Düzenle</DialogTitle>
         </DialogHeader>
 
         {/* hidden file input */}
@@ -205,7 +205,7 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
         {loading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
-            <span>Loading photos...</span>
+            <span>Fotoğraflar yükleniyor...</span>
           </div>
         ) : (
           <div className="grid grid-cols-3 gap-3 mt-2">
@@ -247,7 +247,7 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
                     className="flex flex-col items-center gap-1 text-muted-foreground hover:text-foreground transition-colors"
                   >
                     <Upload className="h-6 w-6" />
-                    <span className="text-xs">Upload</span>
+                    <span className="text-xs">Fotoğraf yükle</span>
                   </button>
                 )}
               </div>
@@ -257,16 +257,16 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
 
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => close(false)} disabled={saving}>
-            Cancel
+            Iptal
           </Button>
           <Button onClick={handleSave} disabled={saving || loading || !anyChanges}>
             {saving ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
-                Saving...
+                Kaydediliyor...
               </span>
             ) : (
-              "Save"
+              "Kaydet"
             )}
           </Button>
         </div>

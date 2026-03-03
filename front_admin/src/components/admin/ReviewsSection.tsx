@@ -8,7 +8,7 @@ const mockReviews = [
 export function ReviewsSection() {
   return (
     <div className="px-4 mt-8">
-      <h2 className="text-xl font-bold text-foreground mb-4">Reviews</h2>
+      <h2 className="text-xl font-bold text-foreground mb-4">Yorumlar</h2>
       <div className="flex gap-4 overflow-x-auto pb-2 -mx-4 px-4">
         {mockReviews.map((review) => (
           <div

@@ -69,7 +69,7 @@ export function PhotoCarousel() {
       <div className="relative overflow-hidden rounded-3xl bg-muted aspect-[16/10]">
         {restaurantQuery.isLoading ? (
           <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
-            Loading photos...
+            Fotoğraflar yükleniyor...
           </div>
         ) : hasImages ? (
           <img
@@ -79,7 +79,7 @@ export function PhotoCarousel() {
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-sm text-muted-foreground">
-            No photos yet
+            Henüz fotoğraf yok
           </div>
         )}
 

@@ -30,13 +30,13 @@ export function FeaturedDishes({ dishes, fullMenuPath = "/admin/menu" }: Props) 
   return (
     <div className="px-4 mt-8">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-foreground">Featured Dishes</h2>
+        <h2 className="text-xl font-bold text-foreground">Öne Çıkan Yemekler</h2>
 
         <button
           onClick={() => navigate(fullMenuPath)}
           className="flex items-center gap-1 text-sm font-medium text-primary hover:underline"
         >
-          Full Menu <ChevronRight className="h-4 w-4" />
+          Tam Menü <ChevronRight className="h-4 w-4" />
         </button>
       </div>
 
@@ -80,7 +80,7 @@ export function FeaturedDishes({ dishes, fullMenuPath = "/admin/menu" }: Props) 
 
         {dishes.length === 0 && (
           <div className="text-sm text-muted-foreground">
-            No featured dishes yet.
+            Henüz öne çıkan yemek yok.
           </div>
         )}
       </div>

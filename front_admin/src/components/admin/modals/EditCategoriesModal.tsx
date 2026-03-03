@@ -13,7 +13,7 @@ type Row = {
   id: number;
   name_tr: string;
   name_en: string;
-  is_system?: boolean; // ✅ реальный флаг, если есть
+  is_system?: boolean;
   _deleted?: boolean;
   _new?: boolean;
 };
@@ -21,7 +21,6 @@ type Row = {
 interface EditCategoriesModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-
   categories: {
     id: number;
     name_tr?: string;
@@ -29,7 +28,6 @@ interface EditCategoriesModalProps {
     name?: string;
     is_system?: boolean;
   }[];
-
   onSave: (payload: {
     create: { name_tr: string; name_en: string }[];
     rename: { id: number; name_tr: string; name_en: string }[];
@@ -37,7 +35,6 @@ interface EditCategoriesModalProps {
   }) => Promise<void> | void;
 }
 
-// ✅ fallback-детектор системной категории (если is_system не приходит)
 function isSystemCategoryLikeUnsorted(c: {
   name_tr?: string;
   name_en?: string;
@@ -50,7 +47,6 @@ function isSystemCategoryLikeUnsorted(c: {
   const en = (c.name_en ?? "").trim().toLowerCase();
   const any = (c.name ?? "").trim().toLowerCase();
 
-  // если хочешь — можешь расширить список (например "unsort", "other" и т.д.)
   return tr === "unsorted" || en === "unsorted" || any === "unsorted";
 }
 
@@ -63,13 +59,12 @@ export function EditCategoriesModal({
   const [rows, setRows] = useState<Row[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
-  // ✅ сортируем входные категории: system (Unsorted) всегда в конце
   const sortedCategories = useMemo(() => {
     return [...categories].sort((a, b) => {
       const aSys = isSystemCategoryLikeUnsorted(a) ? 1 : 0;
       const bSys = isSystemCategoryLikeUnsorted(b) ? 1 : 0;
 
-      if (aSys !== bSys) return aSys - bSys; // system -> last
+      if (aSys !== bSys) return aSys - bSys;
       return (a.id ?? 0) - (b.id ?? 0);
     });
   }, [categories]);
@@ -82,29 +77,32 @@ export function EditCategoriesModal({
         id: c.id,
         name_tr: c.name_tr ?? c.name ?? "",
         name_en: c.name_en ?? "",
-        is_system: isSystemCategoryLikeUnsorted(c), // ✅ проставляем даже если backend не дал
+        is_system: isSystemCategoryLikeUnsorted(c),
       }))
     );
   }, [open, sortedCategories]);
 
-  // ✅ видимые строки + сортировка (system всегда в конце, новые — внизу)
   const visibleRows = useMemo(() => {
     const v = rows.filter((r) => !r._deleted);
 
     return [...v].sort((a, b) => {
       const aNew = a._new || a.id < 0 ? 1 : 0;
       const bNew = b._new || b.id < 0 ? 1 : 0;
-      if (aNew !== bNew) return aNew - bNew; // existing first
+      if (aNew !== bNew) return aNew - bNew;
 
       const aSys = a.is_system ? 1 : 0;
       const bSys = b.is_system ? 1 : 0;
-      if (aSys !== bSys) return aSys - bSys; // system last
+      if (aSys !== bSys) return aSys - bSys;
 
       return a.id - b.id;
     });
   }, [rows]);
 
-  const updateField = (id: number, field: "name_tr" | "name_en", value: string) => {
+  const updateField = (
+    id: number,
+    field: "name_tr" | "name_en",
+    value: string
+  ) => {
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
     );
@@ -178,7 +176,7 @@ export function EditCategoriesModal({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>Edit Categories</DialogTitle>
+          <DialogTitle>Kategorileri Düzenle</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-3 mt-2 max-h-60 overflow-y-auto">
@@ -186,17 +184,21 @@ export function EditCategoriesModal({
             <div
               key={row.id}
               className="space-y-1 border p-2 rounded-lg"
-              title={row.is_system ? "System category" : undefined}
+              title={row.is_system ? "Sistem kategorisi" : undefined}
             >
               <Input
-                placeholder="Name (TR)"
+                placeholder="İsim (TR)"
                 value={row.name_tr}
-                onChange={(e) => updateField(row.id, "name_tr", e.target.value)}
+                onChange={(e) =>
+                  updateField(row.id, "name_tr", e.target.value)
+                }
               />
               <Input
-                placeholder="Name (EN)"
+                placeholder="İsim (EN)"
                 value={row.name_en}
-                onChange={(e) => updateField(row.id, "name_en", e.target.value)}
+                onChange={(e) =>
+                  updateField(row.id, "name_en", e.target.value)
+                }
               />
 
               <div className="flex justify-end">
@@ -210,7 +212,9 @@ export function EditCategoriesModal({
                   }`}
                   disabled={row.is_system}
                   title={
-                    row.is_system ? "System category cannot be deleted" : "Delete"
+                    row.is_system
+                      ? "Sistem kategorisi silinemez"
+                      : "Sil"
                   }
                 >
                   <Trash2 className="h-4 w-4" />
@@ -220,16 +224,24 @@ export function EditCategoriesModal({
           ))}
         </div>
 
-        <Button variant="outline" onClick={handleAdd} className="w-full mt-2">
-          <Plus className="h-4 w-4 mr-2" /> Add Category
+        <Button
+          variant="outline"
+          onClick={handleAdd}
+          className="w-full mt-2"
+        >
+          <Plus className="h-4 w-4 mr-2" /> Kategori Ekle
         </Button>
 
         <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
-            Cancel
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSaving}
+          >
+            İptal
           </Button>
           <Button onClick={handleSave} disabled={isSaving || !canSave}>
-            {isSaving ? "Saving..." : "Save"}
+            {isSaving ? "Kaydediliyor..." : "Kaydet"}
           </Button>
         </div>
       </DialogContent>

@@ -55,7 +55,7 @@ export default function RestaurantPreview() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader title={restaurantTitle} />
+      <AdminHeader showBack />
 
       <div className="max-w-2xl mx-auto pb-28">
         {/* ✅ теперь карусель получает реальные фото */}
@@ -63,13 +63,13 @@ export default function RestaurantPreview() {
 
 
         {restaurantQuery.isLoading ? (
-          <div className="px-4 mt-4 text-sm text-muted-foreground">Loading restaurant...</div>
+          <div className="px-4 mt-4 text-sm text-muted-foreground">Restoran yükleniyor...</div>
         ) : restaurantQuery.isError ? (
-          <div className="px-4 mt-4 text-sm text-destructive">Failed to load restaurant</div>
+          <div className="px-4 mt-4 text-sm text-destructive">Restoran yüklenemedi</div>
         ) : restaurantQuery.data ? (
           <RestaurantInfo restaurant={restaurantQuery.data} />
         ) : (
-          <div className="px-4 mt-4 text-sm text-muted-foreground">No restaurant</div>
+          <div className="px-4 mt-4 text-sm text-muted-foreground">Restoran yok</div>
         )}
 
         <ReviewsSection />
@@ -84,7 +84,7 @@ export default function RestaurantPreview() {
             onClick={() => navigate("/admin/menu")}
             className="w-full py-4 rounded-2xl bg-primary text-primary-foreground text-lg font-semibold shadow-lg hover:opacity-90 transition-opacity"
           >
-            Edit Menu
+            Menüyü Düzenle
           </button>
         </div>
       </div>
