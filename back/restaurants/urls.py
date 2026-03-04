@@ -4,8 +4,6 @@ from rest_framework.routers import DefaultRouter
 from .views_public import (
     PublicRestaurantView,
     PublicMenuView,
-    PublicRestaurantBySubdomainView,
-    PublicMenuBySubdomainView,
 )
 
 from .views import (
@@ -18,17 +16,7 @@ from .views import (
     MenuView,
     SubscriptionView,
     MeView,
-    RestaurantMeView,   # ✅ ВАЖНО: импорт отсюда
-)
-from .serializers import (
-    UserSerializer,
-    CategorySerializer,
-    DishSerializer,
-    CategoryWithDishesSerializer,
-    SubscriptionSerializer,
-    PaymentHistorySerializer,
-    RestaurantMeSerializer,
-    RestaurantUpdateSerializer,
+    RestaurantMeView,
 )
 
 router = DefaultRouter()
@@ -37,12 +25,9 @@ router.register(r"dishes", DishViewSet, basename="dish")
 router.register(r"payments", PaymentHistoryViewSet, basename="payment")
 
 urlpatterns = [
-    # Public endpoints
-    path("public/restaurants/<slug:slug>/", PublicRestaurantView.as_view(), name="public-restaurant"),
-    path("public/restaurants/<slug:slug>/menu/", PublicMenuView.as_view(), name="public-menu"),
-
-    path("public/restaurant/", PublicRestaurantBySubdomainView.as_view(), name="public-restaurant-subdomain"),
-    path("public/menu/", PublicMenuBySubdomainView.as_view(), name="public-menu-subdomain"),
+    # ✅ PUBLIC (tourists) — slug через query: ?slug=turko
+    path("public/restaurant/", PublicRestaurantView.as_view(), name="public-restaurant"),
+    path("public/menu/", PublicMenuView.as_view(), name="public-menu"),
 
     # Auth
     path("auth/register/", RegistrationView.as_view(), name="auth-register"),

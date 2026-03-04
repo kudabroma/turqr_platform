@@ -16,6 +16,9 @@ from .utils.lang import normalize_lang
 ALLOW_PUBLIC_IN_DEBUG = True
 
 
+# =====================
+# Subscription / Active checks
+# =====================
 def restaurant_is_active(restaurant: Restaurant) -> tuple[bool, str | None]:
     sub = getattr(restaurant, "subscription", None)
 
@@ -38,21 +41,51 @@ def restaurant_is_active(restaurant: Restaurant) -> tuple[bool, str | None]:
     return False, "inactive"
 
 
+# =====================
+# Helpers
+# =====================
+def _get_slug_from_request(request, slug_from_url: str | None) -> str | None:
+    """
+    Priority:
+    1) subdomain middleware: request.restaurant_slug
+    2) path param (slug_from_url)
+    3) query param ?slug=
+    """
+    return (
+        getattr(request, "restaurant_slug", None)
+        or slug_from_url
+        or request.query_params.get("slug")
+    )
+
+
 def get_public_restaurant_or_404(request, slug_from_url: str | None):
     """
     Берём slug:
     1) из subdomain middleware: request.restaurant_slug
-    2) иначе из URL (slug_from_url)
+    2) иначе из URL/path param (slug_from_url)
+    3) иначе из query param (?slug=...)
     """
-    slug = getattr(request, "restaurant_slug", None) or slug_from_url
+    slug = (
+    request.query_params.get("slug")
+    or slug_from_url
+    or getattr(request, "restaurant_slug", None)
+    )  
+
     if not slug:
-        raise Http404("Restaurant not found")
+        slug = slug_from_url
+
+    if not slug:
+        slug = getattr(request, "restaurant_slug", None)
+
+    if slug:
+        slug = slug.strip().lower()
 
     restaurant = get_object_or_404(
-        Restaurant.objects.select_related("subscription"),
-        slug=slug,
+    Restaurant.objects.select_related("subscription"),
+    slug=slug,
     )
 
+    # inactive выглядит как "не существует"
     if not restaurant.active:
         raise Http404("Restaurant not found")
 
@@ -65,16 +98,20 @@ def get_public_restaurant_or_404(request, slug_from_url: str | None):
 
 def get_public_categories_queryset(restaurant: Restaurant):
     """
-    Публичная выдача категорий:
+    Публичная выдача:
     - скрываем системные категории (Unsorted)
-    - скрываем архивные блюда
+    - скрываем archived
+    - показываем только is_active=True
     """
-    visible_dishes_qs = Dish.objects.filter(
-        restaurant=restaurant,
-        archived_at__isnull=True,
-        is_active=True,  
-        category__is_system=False,
-    ).order_by("id")
+    visible_dishes_qs = (
+        Dish.objects.filter(
+            restaurant=restaurant,
+            archived_at__isnull=True,
+            is_active=True,
+            category__is_system=False,
+        )
+        .order_by("id")
+    )
 
     return (
         Category.objects.filter(restaurant=restaurant, is_system=False)
@@ -95,20 +132,31 @@ def build_public_payload(request, restaurant: Restaurant, categories_qs):
     }
 
 
+# =====================
+# Public Views (slug via ?slug= OR /<slug>/ OR subdomain)
+# =====================
 class PublicRestaurantView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    # ✅ slug optional: работает и для /public/restaurant/<slug>/ и для /public/restaurant/
+    # supports:
+    # - /api/public/restaurant/?slug=turko
+    # - /api/public/restaurant/turko/   (if you map this url)
+    # - subdomain via middleware
     def get(self, request, slug: str | None = None):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
-        categories = get_public_categories_queryset(restaurant)
-        return Response(build_public_payload(request, restaurant, categories))
+
+        lang = normalize_lang(request.query_params.get("lang"))
+        ctx = {"request": request, "lang": lang}
+        return Response(PublicRestaurantSerializer(restaurant, context=ctx).data)
 
 
 class PublicMenuView(APIView):
     permission_classes = [permissions.AllowAny]
 
-    # ✅ slug optional: работает и для /public/menu/<slug>/ и для /public/menu/
+    # supports:
+    # - /api/public/menu/?slug=turko
+    # - /api/public/menu/turko/         (if you map this url)
+    # - subdomain via middleware
     def get(self, request, slug: str | None = None):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
         categories = get_public_categories_queryset(restaurant)
@@ -119,7 +167,7 @@ class PublicRestaurantStatusView(APIView):
     permission_classes = [permissions.AllowAny]
 
     def get(self, request, slug: str | None = None):
-        slug_effective = getattr(request, "restaurant_slug", None) or slug
+        slug_effective = _get_slug_from_request(request, slug)
         if not slug_effective:
             return Response({"exists": False, "active": False}, status=200)
 
@@ -145,11 +193,8 @@ class PublicRestaurantBySubdomainView(APIView):
 
     def get(self, request):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
-
         lang = normalize_lang(request.query_params.get("lang"))
         ctx = {"request": request, "lang": lang}
-
-        # ✅ BACKWARD COMPAT: возвращаем ПРЯМО объект ресторана, как раньше
         return Response(PublicRestaurantSerializer(restaurant, context=ctx).data)
 
 

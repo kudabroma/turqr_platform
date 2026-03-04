@@ -11,36 +11,30 @@ import { SearchBar } from "@/components/SearchBar";
 import { CategoryTabs } from "@/components/CategoryTabs";
 import { DishCard } from "@/components/DishCard";
 
-import { restaurantInfo, uiTranslations } from "@/data/menuData";
+import { restaurantInfo, uiTranslations, type MenuItem } from "@/data/menuData";
 import { dishImages } from "@/data/images";
+import type { Lang } from "@/api/public";
 
-type Lang = "en" | "ru" | "tr";
-
-type UiDish = {
-  id: string;
-  category: string; // fallback category
-  isVegan: boolean;
-  isSpicy: boolean;
-  image: string;
-  translations: Record<Lang, { name: string; description: string; category: string }>;
-  price: number;
-};
+// ✅ UiDish делаем совместимым с MenuItem, чтобы DishCard(dish: MenuItem) принимал без ошибок
+type UiDish = MenuItem;
 
 function normalizeLang(x: string | null): Lang {
   const v = (x ?? "tr").toLowerCase();
   if (v.startsWith("en")) return "en";
-  if (v.startsWith("ru")) return "ru";
   return "tr";
 }
 
+// ✅ делаем объект ровно в форме MenuItem
 function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   const id = String(input?.id ?? input?.uuid ?? input?.slug ?? "");
   const category = String(input?.category ?? fallbackCategory ?? "Other");
 
   const name = String(
-    input?.translations?.en?.name ?? input?.name ?? input?.title ?? "Без названия"
+    input?.translations?.en?.name ?? input?.name ?? input?.title ?? "Untitled"
   );
-  const description = String(input?.translations?.en?.description ?? input?.description ?? "");
+  const description = String(
+    input?.translations?.en?.description ?? input?.description ?? ""
+  );
 
   const image =
     typeof input?.image === "string"
@@ -75,17 +69,13 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
 
   const price = Number.isFinite(priceNumber) ? priceNumber : 0;
 
-  const translations: UiDish["translations"] = input?.translations?.en
+  // ✅ translations строго en+tr, ru не трогаем (public)
+  const translations: UiDish["translations"] = input?.translations
     ? {
         en: {
-          name: String(input.translations.en.name ?? name),
-          description: String(input.translations.en.description ?? description),
-          category: String(input.translations.en.category ?? category),
-        },
-        ru: {
-          name: String(input.translations.ru?.name ?? name),
-          description: String(input.translations.ru?.description ?? description),
-          category: String(input.translations.ru?.category ?? category),
+          name: String(input.translations.en?.name ?? name),
+          description: String(input.translations.en?.description ?? description),
+          category: String(input.translations.en?.category ?? category),
         },
         tr: {
           name: String(input.translations.tr?.name ?? name),
@@ -95,44 +85,53 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
       }
     : {
         en: { name, description, category },
-        ru: { name, description, category },
         tr: { name, description, category },
       };
 
-  return { id, category, isVegan, isSpicy, image, translations, price };
+  return {
+    id,
+    category,
+    price,
+    image,
+    isVegan,
+    isSpicy,
+    translations,
+  };
 }
 
 export default function MenuPage() {
   const [searchParams] = useSearchParams();
+
   const lang = normalizeLang(searchParams.get("lang"));
+  const slug = searchParams.get("slug") || ""; // ✅ SOURCE OF TRUTH
 
-  // demo fallback
-  const restaurantDemo = restaurantInfo.translations[lang];
-  // uiTranslations может быть без loading/loadError — ок, просто не используем эти ключи
+  // demo fallback (если вдруг API пустой/нет данных)
+  const restaurantDemo = (restaurantInfo as any)?.translations?.[lang];
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const ui = uiTranslations[lang];
+  const ui = (uiTranslations as any)?.[lang];
 
-  // ✅ FIX: fetchPublicMenu / fetchPublicRestaurant сейчас без аргументов (ts2554)
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeCategory, setActiveCategory] = useState("all");
+
   const menuQuery = useQuery({
-    queryKey: ["public-menu", lang],
-    queryFn: () => fetchPublicMenu(lang),
+    queryKey: ["public-menu", slug, lang],
+    queryFn: () => fetchPublicMenu(slug, lang),
+    enabled: !!slug, // ✅ GUARD: без slug не делаем запросы
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
   const restaurantQuery = useQuery({
-    queryKey: ["public-restaurant", lang],
-    queryFn: () => fetchPublicRestaurant(lang),
+    queryKey: ["public-restaurant", slug, lang],
+    queryFn: () => fetchPublicRestaurant(slug, lang),
+    enabled: !!slug, // ✅ GUARD
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
   const restaurantFromApi = restaurantQuery.data as any;
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
 
   const enhancedMenuItems: UiDish[] = useMemo(() => {
     const adaptedCategories = adaptPublicMenuToUi(menuQuery.data);
@@ -159,8 +158,7 @@ export default function MenuPage() {
     });
     return ["all", ...Array.from(set)];
   }, [enhancedMenuItems, lang]);
-  
-  // ✅ FIX: фильтрация должна сравнивать категорию текущего языка (а не dish.category)
+
   const filteredItems = useMemo(() => {
     return enhancedMenuItems.filter((dish) => {
       const t = dish.translations[lang];
@@ -189,14 +187,21 @@ export default function MenuPage() {
     return groups;
   }, [filteredItems, lang]);
 
-  const loadingText =
-    lang === "en" ? "Loading menu..." : lang === "ru" ? "Загрузка меню..." : "Menü yükleniyor...";
-  const errorText =
-    lang === "en"
-      ? "Failed to load data"
-      : lang === "ru"
-      ? "Не удалось загрузить данные"
-      : "Veri yüklenemedi";
+  const loadingText = lang === "en" ? "Loading menu..." : "Menü yükleniyor...";
+  const errorText = lang === "en" ? "Failed to load data" : "Veri yüklenemedi";
+
+  // ✅ если slug не указан — вообще не делаем запросы, показываем понятный экран
+  if (!slug) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">
+          {lang === "en"
+            ? "Missing restaurant slug in URL (?slug=...)"
+            : "URL'de restoran slug yok (?slug=...)"}
+        </p>
+      </div>
+    );
+  }
 
   if (menuQuery.isLoading || restaurantQuery.isLoading) {
     return (
@@ -223,13 +228,15 @@ export default function MenuPage() {
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-3">
               <Link
-                to="/"
+                to={`/?slug=${encodeURIComponent(slug)}&lang=${lang}`}
                 className="w-10 h-10 rounded-xl bg-card flex items-center justify-center text-foreground hover:bg-muted transition-colors"
               >
                 <ArrowLeft className="w-5 h-5" />
               </Link>
 
-              <h1 className="font-display font-semibold text-lg text-foreground">{restaurantName}</h1>
+              <h1 className="font-display font-semibold text-lg text-foreground">
+                {restaurantName}
+              </h1>
             </div>
 
             <LanguageSwitcher />
@@ -252,7 +259,9 @@ export default function MenuPage() {
         {activeCategory === "all" ? (
           Object.entries(groupedItems).map(([categoryName, dishes]) => (
             <section key={categoryName} className="mb-8">
-              <h2 className="font-display text-xl font-semibold text-foreground mb-4">{categoryName}</h2>
+              <h2 className="font-display text-xl font-semibold text-foreground mb-4">
+                {categoryName}
+              </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {dishes.map((dish) => (
                   <DishCard key={dish.id} dish={dish} />
@@ -271,9 +280,7 @@ export default function MenuPage() {
         {filteredItems.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {lang === "en" && "No dishes found"}
-              {lang === "ru" && "Блюда не найдены"}
-              {lang === "tr" && "Yemek bulunamadı"}
+              {lang === "en" ? "No dishes found" : "Yemek bulunamadı"}
             </p>
           </div>
         )}

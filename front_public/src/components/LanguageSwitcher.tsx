@@ -16,22 +16,38 @@ const LANGS: Array<{ code: Lang; label: string }> = [
 
 export function LanguageSwitcher() {
   const [searchParams] = useSearchParams();
-  const current = normalizeLang(searchParams.get("lang"));
-
   const navigate = useNavigate();
   const location = useLocation();
+
+  const current = normalizeLang(searchParams.get("lang"));
 
   const nextSearchFor = useMemo(() => {
     return (lang: Lang) => {
       const sp = new URLSearchParams(searchParams);
+
+      // ✅ меняем только язык
       sp.set("lang", lang);
+
+      // ✅ если slug существует — сохраняем его
+      const slug = searchParams.get("slug");
+      if (slug) {
+        sp.set("slug", slug);
+      }
+
       return sp.toString();
     };
   }, [searchParams]);
 
   function setLang(lang: Lang) {
     const search = nextSearchFor(lang);
-    navigate({ pathname: location.pathname, search: `?${search}` }, { replace: true });
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: search ? `?${search}` : "",
+      },
+      { replace: true }
+    );
   }
 
   return (
@@ -39,6 +55,7 @@ export function LanguageSwitcher() {
       <div className="inline-flex rounded-full bg-muted p-1">
         {LANGS.map((l) => {
           const active = l.code === current;
+
           return (
             <button
               key={l.code}

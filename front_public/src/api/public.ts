@@ -1,33 +1,37 @@
 const API_PREFIX = "/api";
 
-export type Lang = "en" | "ru" | "tr";
+export type Lang = "en" | "tr";
 
-function withLang(url: string, lang?: Lang) {
-  if (!lang) return url;
-  const encoded = encodeURIComponent(lang);
-  return `${url}?lang=${encoded}`;
+function buildUrl(path: string, slug?: string | null, lang?: Lang) {
+  const params = new URLSearchParams();
+
+  // ✅ slug добавляем только если он реально есть
+  if (slug) params.set("slug", slug);
+
+  if (lang) params.set("lang", lang);
+
+  const qs = params.toString();
+  return `${API_PREFIX}${path}${qs ? `?${qs}` : ""}`;
 }
 
-export async function fetchPublicMenu(lang?: Lang) {
-  const url = withLang(`${API_PREFIX}/public/menu/`, lang);
-
+async function getJson(url: string) {
   const res = await fetch(url);
 
   if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
+    const text = await res.text().catch(() => "");
+    throw new Error(`HTTP ${res.status} for ${url}${text ? ` | ${text}` : ""}`);
   }
 
   return res.json();
 }
 
-export async function fetchPublicRestaurant(lang?: Lang) {
-  const url = withLang(`${API_PREFIX}/public/restaurant/`, lang);
+// ✅ slug теперь опциональный: можно и с query slug, и с субдоменом (middleware)
+export async function fetchPublicMenu(slug?: string | null, lang?: Lang) {
+  const url = buildUrl("/public/menu/", slug, lang);
+  return getJson(url);
+}
 
-  const res = await fetch(url);
-
-  if (!res.ok) {
-    throw new Error(`HTTP ${res.status}`);
-  }
-
-  return res.json();
+export async function fetchPublicRestaurant(slug?: string | null, lang?: Lang) {
+  const url = buildUrl("/public/restaurant/", slug, lang);
+  return getJson(url);
 }
