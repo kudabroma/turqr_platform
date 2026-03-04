@@ -14,6 +14,7 @@ import { adaptPublicMenuToUi } from "@/api/adapters/menuAdapter";
 import { uiTranslations, reviews } from "@/data/menuData";
 import { restaurantPhotos, dishImages } from "@/data/images";
 import type { Lang } from "@/api/public";
+import { getPublicSlugFromLocation } from "@/utils/publicSlug";
 
 type UiDish = {
   id: string;
@@ -107,7 +108,7 @@ export default function PreviewPage() {
   const [searchParams] = useSearchParams();
 
   const lang = normalizeLang(searchParams.get("lang"));
-  const slug = searchParams.get("slug") || ""; // ✅ SOURCE OF TRUTH
+  const slug = getPublicSlugFromLocation(); // ✅ SOURCE OF TRUTH
 
   const ui = (uiTranslations as any)?.[lang];
 

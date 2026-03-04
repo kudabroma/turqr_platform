@@ -14,6 +14,7 @@ import { DishCard } from "@/components/DishCard";
 import { restaurantInfo, uiTranslations, type MenuItem } from "@/data/menuData";
 import { dishImages } from "@/data/images";
 import type { Lang } from "@/api/public";
+import { getPublicSlugFromLocation } from "@/utils/publicSlug";
 
 // ✅ UiDish делаем совместимым с MenuItem, чтобы DishCard(dish: MenuItem) принимал без ошибок
 type UiDish = MenuItem;
@@ -103,7 +104,7 @@ export default function MenuPage() {
   const [searchParams] = useSearchParams();
 
   const lang = normalizeLang(searchParams.get("lang"));
-  const slug = searchParams.get("slug") || ""; // ✅ SOURCE OF TRUTH
+  const slug = getPublicSlugFromLocation(); // ✅ SOURCE OF TRUTH
 
   // demo fallback (если вдруг API пустой/нет данных)
   const restaurantDemo = (restaurantInfo as any)?.translations?.[lang];
