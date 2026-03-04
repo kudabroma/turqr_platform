@@ -159,7 +159,8 @@ class UserSerializer(serializers.ModelSerializer):
 # =========================
 class CategorySerializer(serializers.ModelSerializer):
     """
-    Для business user: restaurant read-only, бек сам подставляет в perform_create.
+    Business user: restaurant read-only, бек сам подставляет в perform_create.
+    Разрешаем создавать/обновлять через name_tr без обязательного legacy name.
     """
     restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
 
@@ -167,32 +168,68 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system"]
         read_only_fields = ["id", "restaurant", "is_system"]
+        extra_kwargs = {
+            # ✅ ключевое: legacy name больше не обязателен
+            "name": {"required": False, "allow_blank": True},
+            "name_tr": {"required": False, "allow_blank": True},
+            "name_en": {"required": False, "allow_blank": True},
+        }
 
     def validate(self, attrs):
-        # Backward compatibility:
-        # если новый фронт шлёт name_tr, а старый name не шлёт -> заполним name
+        name = (attrs.get("name") or "").strip()
         name_tr = (attrs.get("name_tr") or "").strip()
-        if name_tr and not (attrs.get("name") or "").strip():
+        name_en = (attrs.get("name_en") or "").strip()
+
+        # ✅ new -> legacy
+        if name_tr and not name:
+            attrs["name"] = name
             attrs["name"] = name_tr
+            name = name_tr
+
+        # ✅ legacy -> new (чтобы не пустовало)
+        if name and not name_tr:
+            attrs["name_tr"] = name
+
+        # ✅ финальная проверка: должно быть хоть одно имя
+        final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
+        if not final_name:
+            raise serializers.ValidationError({"name": "Обязательное поле."})
+
         return attrs
 
 
 class CategorySuperuserSerializer(serializers.ModelSerializer):
     """
-    Для superuser: restaurant обязателен (он может создавать категории для любого ресторана).
+    Superuser: restaurant обязателен.
     """
     restaurant = serializers.PrimaryKeyRelatedField(queryset=Restaurant.objects.all(), required=True)
 
     class Meta:
         model = Category
         fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system"]
-        # is_system делаем read-only: системные категории создаём/контролим сервером
         read_only_fields = ["id", "is_system"]
+        extra_kwargs = {
+            "name": {"required": False, "allow_blank": True},
+            "name_tr": {"required": False, "allow_blank": True},
+            "name_en": {"required": False, "allow_blank": True},
+        }
 
     def validate(self, attrs):
+        name = (attrs.get("name") or "").strip()
         name_tr = (attrs.get("name_tr") or "").strip()
-        if name_tr and not (attrs.get("name") or "").strip():
+        name_en = (attrs.get("name_en") or "").strip()
+
+        if name_tr and not name:
             attrs["name"] = name_tr
+            name = name_tr
+
+        if name and not name_tr:
+            attrs["name_tr"] = name
+
+        final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
+        if not final_name:
+            raise serializers.ValidationError({"name": "Обязательное поле."})
+
         return attrs
 
 
@@ -200,6 +237,10 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
 # Dishes (Business / Admin)
 # =========================
 class DishSerializer(serializers.ModelSerializer):
+    """
+    Business user: restaurant read-only (бек подставит).
+    Разрешаем создавать/обновлять через name_tr/description_tr без обязательного name/description.
+    """
     restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
     image_url = serializers.SerializerMethodField()
 
@@ -208,7 +249,7 @@ class DishSerializer(serializers.ModelSerializer):
         if not image:
             return None
         try:
-            return image.url  # ✅ "/media/...."
+            return image.url  # "/media/...."
         except Exception:
             return None
 
@@ -233,19 +274,55 @@ class DishSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "restaurant", "image_url", "moved_to_unsorted_at", "archived_at"]
 
-    def validate(self, attrs):
-        name_tr = (attrs.get("name_tr") or "").strip()
-        if name_tr and not (attrs.get("name") or "").strip():
-            attrs["name"] = name_tr
+        # ✅ КЛЮЧЕВОЕ: legacy поля больше не обязательные
+        extra_kwargs = {
+            "name": {"required": False, "allow_blank": True},
+            "description": {"required": False, "allow_blank": True},
+            "name_tr": {"required": False, "allow_blank": True},
+            "name_en": {"required": False, "allow_blank": True},
+            "description_tr": {"required": False, "allow_blank": True},
+            "description_en": {"required": False, "allow_blank": True},
+        }
 
+    def validate(self, attrs):
+        # --- normalize ---
+        name = (attrs.get("name") or "").strip()
+        name_tr = (attrs.get("name_tr") or "").strip()
+        name_en = (attrs.get("name_en") or "").strip()
+
+        desc = (attrs.get("description") or "").strip()
+        desc_tr = (attrs.get("description_tr") or "").strip()
+        desc_en = (attrs.get("description_en") or "").strip()
+
+        # ✅ new -> legacy
+        if name_tr and not name:
+            attrs["name"] = name_tr
+            name = name_tr
+
+        # ✅ legacy -> new (чтобы не было пустых bilingual полей)
+        if name and not name_tr:
+            attrs["name_tr"] = name
+
+        # ✅ description: new -> legacy
         if "description_tr" in attrs and "description" not in attrs:
-            desc_tr = (attrs.get("description_tr") or "").strip()
             attrs["description"] = desc_tr
+
+        # ✅ description: legacy -> new (если пришло legacy)
+        if "description" in attrs and "description_tr" not in attrs:
+            attrs["description_tr"] = desc
+
+        # ✅ финальная проверка имени (должно быть хоть одно)
+        final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
+        if not final_name:
+            raise serializers.ValidationError({"name": "Обязательное поле."})
 
         return attrs
 
 
 class DishSuperuserSerializer(serializers.ModelSerializer):
+    """
+    Superuser может создавать блюда для любого ресторана (restaurant обязателен).
+    """
     restaurant = serializers.PrimaryKeyRelatedField(queryset=Restaurant.objects.all(), required=True)
     image_url = serializers.SerializerMethodField()
 
@@ -254,7 +331,7 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
         if not image:
             return None
         try:
-            return image.url  # ✅ "/media/...."
+            return image.url  # "/media/...."
         except Exception:
             return None
 
@@ -279,33 +356,60 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ["id", "image_url", "moved_to_unsorted_at", "archived_at"]
 
-    def validate(self, attrs):
-        name_tr = (attrs.get("name_tr") or "").strip()
-        if name_tr and not (attrs.get("name") or "").strip():
-            attrs["name"] = name_tr
+        # ✅ тоже делаем legacy поля необязательными
+        extra_kwargs = {
+            "name": {"required": False, "allow_blank": True},
+            "description": {"required": False, "allow_blank": True},
+            "name_tr": {"required": False, "allow_blank": True},
+            "name_en": {"required": False, "allow_blank": True},
+            "description_tr": {"required": False, "allow_blank": True},
+            "description_en": {"required": False, "allow_blank": True},
+        }
 
+    def validate(self, attrs):
+        name = (attrs.get("name") or "").strip()
+        name_tr = (attrs.get("name_tr") or "").strip()
+        name_en = (attrs.get("name_en") or "").strip()
+
+        desc = (attrs.get("description") or "").strip()
+        desc_tr = (attrs.get("description_tr") or "").strip()
+
+        # new -> legacy
+        if name_tr and not name:
+            attrs["name"] = name_tr
+            name = name_tr
+
+        # legacy -> new
+        if name and not name_tr:
+            attrs["name_tr"] = name
+
+        # description new -> legacy
         if "description_tr" in attrs and "description" not in attrs:
-            desc_tr = (attrs.get("description_tr") or "").strip()
             attrs["description"] = desc_tr
+
+        # description legacy -> new
+        if "description" in attrs and "description_tr" not in attrs:
+            attrs["description_tr"] = desc
+
+        # финальная проверка
+        final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
+        if not final_name:
+            raise serializers.ValidationError({"name": "Обязательное поле."})
 
         return attrs
 
 
 # =========================
-# Menu Read (Business MenuView / tourists style)
+# Menu Read (Admin menu read-only)
 # =========================
 class DishReadSerializer(serializers.ModelSerializer):
-    """
-    Read-only вариант блюда без лишних технических полей.
-    Используется в выдаче меню.
-    """
     name = serializers.SerializerMethodField()
     description = serializers.SerializerMethodField()
     image_url = serializers.SerializerMethodField()
 
     def _lang(self) -> str:
-        lang = (self.context.get("lang") or "tr").lower()
-        return "en" if lang.startswith("en") else "tr"
+        raw = (self.context.get("lang") or "tr").lower()
+        return "en" if raw.startswith("en") else "tr"
 
     def get_name(self, obj: Dish):
         lang = self._lang()
@@ -324,7 +428,7 @@ class DishReadSerializer(serializers.ModelSerializer):
         if not image:
             return None
         try:
-            return image.url  # ✅ "/media/...."
+            return image.url  # "/media/...."
         except Exception:
             return None
 
@@ -338,8 +442,8 @@ class CategoryWithDishesSerializer(serializers.ModelSerializer):
     dishes = DishReadSerializer(many=True, read_only=True)
 
     def _lang(self) -> str:
-        lang = (self.context.get("lang") or "tr").lower()
-        return "en" if lang.startswith("en") else "tr"
+        raw = (self.context.get("lang") or "tr").lower()
+        return "en" if raw.startswith("en") else "tr"
 
     def get_name(self, obj: Category):
         lang = self._lang()
