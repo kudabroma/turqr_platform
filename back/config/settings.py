@@ -12,7 +12,6 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 from pathlib import Path
 import os
-
 from dotenv import load_dotenv
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -32,13 +31,15 @@ SECRET_KEY = os.getenv(
 )
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
+
 
 # --- Hosts / ngrok / local network (DEV) ---
 DJANGO_ALLOWED_HOSTS = os.getenv(
     "DJANGO_ALLOWED_HOSTS",
     "localhost 127.0.0.1 192.168.0.157 .ngrok-free.dev toruk.localhost turko.localhost"
 )
+
 ALLOWED_HOSTS = DJANGO_ALLOWED_HOSTS.split()
 
 
@@ -53,16 +54,24 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 
     # Third-party apps
+    "corsheaders",
     'rest_framework',
     "django_extensions",
+
     # Local apps
     'restaurants.apps.RestaurantsConfig',
-    "corsheaders",
-    ]
+]
+
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    "restaurants.middleware.RestaurantSubdomainMiddleware", 
+
+    # CORS middleware должен быть максимально высоко
+    "corsheaders.middleware.CorsMiddleware",
+
+    # твой middleware для субдоменов
+    "restaurants.middleware.RestaurantSubdomainMiddleware",
+
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -71,7 +80,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+
 ROOT_URLCONF = 'config.urls'
+
 
 TEMPLATES = [
     {
@@ -87,6 +98,7 @@ TEMPLATES = [
         },
     },
 ]
+
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
@@ -139,6 +151,11 @@ USE_TZ = True
 STATIC_URL = 'static/'
 
 
+# Media files
+MEDIA_URL = "/media/"
+MEDIA_ROOT = BASE_DIR / "media"
+
+
 # Custom user model (пользователь привязан к ресторану)
 AUTH_USER_MODEL = 'restaurants.User'
 
@@ -149,11 +166,16 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': [
         'rest_framework.authentication.SessionAuthentication',
     ],
+
     # По умолчанию все API доступны только аутентифицированным пользователям
     'DEFAULT_PERMISSION_CLASSES': [
         'rest_framework.permissions.IsAuthenticated',
     ],
 }
+
+
+# --- CSRF / DEV настройки ---
+
 CSRF_TRUSTED_ORIGINS = [
     "http://localhost:8081",
     "http://127.0.0.1:8081",
@@ -164,16 +186,31 @@ CSRF_TRUSTED_ORIGINS = [
     "https://*.ngrok-free.dev",
 ]
 
-# на всякий (для dev)
 CSRF_COOKIE_SECURE = False
 SESSION_COOKIE_SECURE = False
+
 # Важно для ngrok/мобильного — чтобы куки нормально ходили
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SAMESITE = "Lax"
+
+
+# --- CORS настройки ---
+
 CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8080",
+    "http://127.0.0.1:8080",
     "http://localhost:8081",
     "http://127.0.0.1:8081",
+    "http://localhost:8082",      # ✅ добавь
+    "http://127.0.0.1:8082",
+    "http://192.168.0.157:8080",
+    "http://192.168.0.157:8081",
 ]
+
 CORS_ALLOW_CREDENTIALS = True
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+
+
+# --- Telegram (для лидов с лендинга) ---
+
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")

@@ -18,6 +18,8 @@ from .views import (
     MeView,
     RestaurantMeView,
 )
+from .lead_views import create_lead
+
 
 router = DefaultRouter()
 router.register(r"categories", CategoryViewSet, basename="category")
@@ -39,6 +41,7 @@ urlpatterns = [
     path("menu/", MenuView.as_view(), name="menu"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
     path("restaurants/me/", RestaurantMeView.as_view(), name="restaurant-me"),
+    path("lead/", create_lead),
 ]
 
 urlpatterns += router.urls

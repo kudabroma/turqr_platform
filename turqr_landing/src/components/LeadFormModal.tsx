@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageContext";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,19 +17,79 @@ interface Props {
   onOpenChange: (open: boolean) => void;
 }
 
+type LeadFormState = {
+  name: string;
+  restaurant: string;
+  city: string;
+  phone: string;
+};
+
+const INITIAL_FORM: LeadFormState = { name: "", restaurant: "", city: "", phone: "" };
+
 const LeadFormModal = ({ open, onOpenChange }: Props) => {
   const { t } = useLanguage();
-  const [submitted, setSubmitted] = useState(false);
-  const [form, setForm] = useState({ name: "", restaurant: "", city: "", phone: "" });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [submitted, setSubmitted] = useState(false);
+  const [form, setForm] = useState<LeadFormState>(INITIAL_FORM);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  // ✅ Later you should move this to env:
+  // Vite:  import.meta.env.VITE_API_BASE_URL
+  // const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+  const API_BASE = "http://localhost:8000";
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    if (isSubmitting) return;
+
+    setError(null);
+    setIsSubmitting(true);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/lead/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        // ✅ we do NOT send cookies/credentials from landing
+        body: JSON.stringify({
+          name: form.name.trim(),
+          restaurant: form.restaurant.trim(),
+          city: form.city.trim(),
+          phone: form.phone.trim(),
+        }),
+      });
+
+      if (!res.ok) {
+        let msg = `Request failed (${res.status})`;
+        try {
+          const data = await res.json();
+          msg = data?.detail || msg;
+        } catch {
+          // ignore
+        }
+        throw new Error(msg);
+      }
+
+      setSubmitted(true);
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = (v: boolean) => {
     onOpenChange(v);
-    if (!v) setTimeout(() => { setSubmitted(false); setForm({ name: "", restaurant: "", city: "", phone: "" }); }, 300);
+    if (!v) {
+      // reset after modal close animation
+      setTimeout(() => {
+        setSubmitted(false);
+        setIsSubmitting(false);
+        setError(null);
+        setForm(INITIAL_FORM);
+      }, 300);
+    }
   };
 
   return (
@@ -42,25 +108,61 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
               <DialogTitle className="font-display text-xl">{t.form.title}</DialogTitle>
               <DialogDescription>{t.form.subtitle}</DialogDescription>
             </DialogHeader>
+
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
               <div className="space-y-1.5">
                 <Label htmlFor="modal-name">{t.form.name}</Label>
-                <Input id="modal-name" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
+                <Input
+                  id="modal-name"
+                  required
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                />
               </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="modal-restaurant">{t.form.restaurant}</Label>
-                <Input id="modal-restaurant" required value={form.restaurant} onChange={(e) => setForm({ ...form, restaurant: e.target.value })} />
+                <Input
+                  id="modal-restaurant"
+                  required
+                  value={form.restaurant}
+                  onChange={(e) => setForm({ ...form, restaurant: e.target.value })}
+                />
               </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="modal-city">{t.form.city}</Label>
-                <Input id="modal-city" required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} />
+                <Input
+                  id="modal-city"
+                  required
+                  value={form.city}
+                  onChange={(e) => setForm({ ...form, city: e.target.value })}
+                />
               </div>
+
               <div className="space-y-1.5">
                 <Label htmlFor="modal-phone">{t.form.phone}</Label>
-                <Input id="modal-phone" required type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
+                <Input
+                  id="modal-phone"
+                  required
+                  type="tel"
+                  value={form.phone}
+                  onChange={(e) => setForm({ ...form, phone: e.target.value })}
+                />
               </div>
-              <Button type="submit" className="gradient-primary text-primary-foreground rounded-full font-semibold mt-2 hover:opacity-90 transition-opacity">
-                {t.form.submit}
+
+              {error && (
+                <div className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg p-3">
+                  {error}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                disabled={isSubmitting}
+                className="gradient-primary text-primary-foreground rounded-full font-semibold mt-2 hover:opacity-90 transition-opacity disabled:opacity-60"
+              >
+                {isSubmitting ? "Sending..." : t.form.submit}
               </Button>
             </form>
           </>
