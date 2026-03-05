@@ -10,14 +10,18 @@ import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SearchBar } from "@/components/SearchBar";
 import { CategoryTabs } from "@/components/CategoryTabs";
 import { DishCard } from "@/components/DishCard";
+import { DishDetailsModal } from "@/components/DishDetailsModal";
 
 import { restaurantInfo, uiTranslations, type MenuItem } from "@/data/menuData";
 import { dishImages } from "@/data/images";
 import type { Lang } from "@/api/public";
 import { getPublicSlugFromLocation } from "@/utils/publicSlug";
 
-// ✅ UiDish делаем совместимым с MenuItem, чтобы DishCard(dish: MenuItem) принимал без ошибок
-type UiDish = MenuItem;
+// ✅ UiDish делаем совместимым с MenuItem
+type UiDish = MenuItem & {
+  // ✅ одно поле “из чего сделано / состав”
+  ingredients?: string;
+};
 
 function normalizeLang(x: string | null): Lang {
   const v = (x ?? "tr").toLowerCase();
@@ -25,7 +29,7 @@ function normalizeLang(x: string | null): Lang {
   return "tr";
 }
 
-// ✅ делаем объект ровно в форме MenuItem
+// ✅ делаем объект ровно в форме MenuItem (+ ingredients optional)
 function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   const id = String(input?.id ?? input?.uuid ?? input?.slug ?? "");
   const category = String(input?.category ?? fallbackCategory ?? "Other");
@@ -70,7 +74,16 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
 
   const price = Number.isFinite(priceNumber) ? priceNumber : 0;
 
-  // ✅ translations строго en+tr, ru не трогаем (public)
+  // ✅ одно поле “из чего сделано / состав” (если нет в API — будет "")
+  const ingredients = String(
+    input?.ingredients ??
+      input?.composition ??
+      input?.details ??
+      input?.contents ??
+      ""
+  ).trim();
+
+  // ✅ translations строго en+tr (public)
   const translations: UiDish["translations"] = input?.translations
     ? {
         en: {
@@ -97,6 +110,7 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
     isVegan,
     isSpicy,
     translations,
+    ingredients: ingredients || undefined,
   };
 }
 
@@ -104,7 +118,7 @@ export default function MenuPage() {
   const [searchParams] = useSearchParams();
 
   const lang = normalizeLang(searchParams.get("lang"));
-  const slug = getPublicSlugFromLocation(); // ✅ SOURCE OF TRUTH
+  const slug = getPublicSlugFromLocation(); // ✅ query slug OR subdomain slug
 
   // demo fallback (если вдруг API пустой/нет данных)
   const restaurantDemo = (restaurantInfo as any)?.translations?.[lang];
@@ -114,10 +128,14 @@ export default function MenuPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
 
+  // ✅ модалка деталей блюда
+  const [selectedDish, setSelectedDish] = useState<UiDish | null>(null);
+  const [dishOpen, setDishOpen] = useState(false);
+
   const menuQuery = useQuery({
     queryKey: ["public-menu", slug, lang],
     queryFn: () => fetchPublicMenu(slug, lang),
-    enabled: !!slug, // ✅ GUARD: без slug не делаем запросы
+    enabled: !!slug,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -126,7 +144,7 @@ export default function MenuPage() {
   const restaurantQuery = useQuery({
     queryKey: ["public-restaurant", slug, lang],
     queryFn: () => fetchPublicRestaurant(slug, lang),
-    enabled: !!slug, // ✅ GUARD
+    enabled: !!slug,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -191,7 +209,6 @@ export default function MenuPage() {
   const loadingText = lang === "en" ? "Loading menu..." : "Menü yükleniyor...";
   const errorText = lang === "en" ? "Failed to load data" : "Veri yüklenemedi";
 
-  // ✅ если slug не указан — вообще не делаем запросы, показываем понятный экран
   if (!slug) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -265,7 +282,14 @@ export default function MenuPage() {
               </h2>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {dishes.map((dish) => (
-                  <DishCard key={dish.id} dish={dish} />
+                  <DishCard
+                    key={dish.id}
+                    dish={dish}
+                    onClick={() => {
+                      setSelectedDish(dish);
+                      setDishOpen(true);
+                    }}
+                  />
                 ))}
               </div>
             </section>
@@ -273,7 +297,14 @@ export default function MenuPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             {filteredItems.map((dish) => (
-              <DishCard key={dish.id} dish={dish} />
+              <DishCard
+                key={dish.id}
+                dish={dish}
+                onClick={() => {
+                  setSelectedDish(dish);
+                  setDishOpen(true);
+                }}
+              />
             ))}
           </div>
         )}
@@ -286,6 +317,17 @@ export default function MenuPage() {
           </div>
         )}
       </main>
+
+      {/* ✅ модалка деталей блюда */}
+      <DishDetailsModal
+        open={dishOpen}
+        onOpenChange={(v) => {
+          setDishOpen(v);
+          if (!v) setSelectedDish(null);
+        }}
+        dish={selectedDish}
+        lang={lang}
+      />
     </div>
   );
 }

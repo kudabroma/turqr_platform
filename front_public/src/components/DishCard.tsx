@@ -5,6 +5,7 @@ import { Flame, Leaf } from "lucide-react";
 interface DishCardProps {
   dish: MenuItem;
   variant?: "full" | "compact";
+  onClick?: () => void; // ✅ добавили
 }
 
 function pickTranslation<T extends Record<string, any>>(
@@ -23,16 +24,32 @@ function pickTranslation<T extends Record<string, any>>(
   );
 }
 
-export function DishCard({ dish, variant = "full" }: DishCardProps) {
+export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
   const { language } = useLanguage(); // ожидаем "en" | "tr"
   const lang: "en" | "tr" = language === "en" ? "en" : "tr";
 
   const t = pickTranslation(dish.translations as any, lang);
   const ui = pickTranslation(uiTranslations as any, lang);
 
+  const interactiveProps = onClick
+    ? {
+        role: "button" as const,
+        tabIndex: 0,
+        onClick,
+        onKeyDown: (e: React.KeyboardEvent<HTMLDivElement>) => {
+          if (e.key === "Enter" || e.key === " ") onClick();
+        },
+      }
+    : {};
+
   if (variant === "compact") {
     return (
-      <div className="dish-card flex gap-3 p-3">
+      <div
+        className={`dish-card flex gap-3 p-3 ${
+          onClick ? "cursor-pointer" : ""
+        }`}
+        {...interactiveProps}
+      >
         <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
           {dish.image ? (
             <img
@@ -64,7 +81,10 @@ export function DishCard({ dish, variant = "full" }: DishCardProps) {
   }
 
   return (
-    <div className="dish-card animate-fade-in">
+    <div
+      className={`dish-card animate-fade-in ${onClick ? "cursor-pointer" : ""}`}
+      {...interactiveProps}
+    >
       <div className="aspect-[4/3] overflow-hidden bg-muted">
         {dish.image ? (
           <img
