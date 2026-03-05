@@ -55,7 +55,7 @@ export default function RestaurantPreview() {
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminHeader showBack />
+      <AdminHeader/>
 
       <div className="max-w-2xl mx-auto pb-28">
         {/* ✅ теперь карусель получает реальные фото */}

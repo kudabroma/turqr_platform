@@ -98,9 +98,6 @@ export default function MenuPage() {
         description_tr: d.description_tr ?? d.description ?? "",
         description_en: d.description_en ?? "",
 
-        // ⚠️ kritik: backend is_active döndürmüyorsa default TRUE yapar -> bug oluşur
-        // bu yüzden listede gösterim için fallback tamam,
-        // ama edit açarken mutlaka dishesApi.get ile "full" çekiyoruz
         is_active: typeof d.is_active === "boolean" ? d.is_active : true,
 
         price: typeof d.price === "string" ? Number(d.price) : d.price ?? 0,
@@ -158,7 +155,6 @@ export default function MenuPage() {
   // ---------------- CRUD: Yemekler ----------------
 
   const openNewDish = () => {
-    // default category = seçili kategori (system değilse) yoksa ilk non-system
     const active = activeCategoryId
       ? categoriesRawSorted.find((c) => c.id === activeCategoryId)
       : undefined;
@@ -197,12 +193,10 @@ export default function MenuPage() {
 
   const openEditDish = async (dish: DishData) => {
     setShowDishModal(true);
-    setEditingDish(dish); // hızlı açılma için
+    setEditingDish(dish);
 
     try {
       if (!dish.id) return;
-
-      // ✅ kritik: full dish çek (is_active burada kesin gelecek)
       const full = await (dishesApi as any).get(dish.id);
 
       setEditingDish({
@@ -225,7 +219,6 @@ export default function MenuPage() {
       });
     } catch (e) {
       console.error(e);
-      // burada sessiz geçebiliriz, en azından mevcut dish ile modal açık kalır
     }
   };
 
@@ -379,40 +372,46 @@ export default function MenuPage() {
           />
         </div>
 
-        {/* Categories */}
-        <div className="flex items-center gap-2 mb-2 overflow-x-auto pb-2">
-          <button
-            onClick={() => setActiveCategoryId(null)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-              activeCategoryId === null
-                ? "bg-primary text-primary-foreground"
-                : "bg-muted text-foreground hover:bg-border"
-            }`}
-          >
-            Tümü
-          </button>
-
-          {categoriesForTabs.map((cat) => (
+        {/* ✅ Categories: Settings + Tümü FIXED LEFT, categories scroll */}
+        <div className="flex items-center gap-2 mb-2">
+          {/* fixed-left buttons */}
+          <div className="flex items-center gap-2 shrink-0">
             <button
-              key={cat.id}
-              onClick={() => setActiveCategoryId(cat.id)}
+              onClick={() => setShowCategoriesModal(true)}
+              className="p-2 rounded-full text-muted-foreground hover:bg-muted transition-colors"
+              title="Kategorileri Düzenle"
+            >
+              <Settings className="h-4 w-4" />
+            </button>
+
+            <button
+              onClick={() => setActiveCategoryId(null)}
               className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-                activeCategoryId === cat.id
+                activeCategoryId === null
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-foreground hover:bg-border"
               }`}
             >
-              {cat.name}
+              Tümü
             </button>
-          ))}
+          </div>
 
-          <button
-            onClick={() => setShowCategoriesModal(true)}
-            className="p-2 rounded-full text-muted-foreground hover:bg-muted transition-colors shrink-0"
-            title="Kategorileri Düzenle"
-          >
-            <Settings className="h-4 w-4" />
-          </button>
+          {/* scrollable categories */}
+          <div className="flex items-center gap-2 overflow-x-auto pb-2 min-w-0 flex-1">
+            {categoriesForTabs.map((cat) => (
+              <button
+                key={cat.id}
+                onClick={() => setActiveCategoryId(cat.id)}
+                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                  activeCategoryId === cat.id
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-foreground hover:bg-border"
+                }`}
+              >
+                {cat.name}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Dishes grouped */}

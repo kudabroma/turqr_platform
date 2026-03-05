@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { ArrowLeft } from "lucide-react";
+import { Home } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { fetchPublicMenu, fetchPublicRestaurant } from "@/api/public";
@@ -249,7 +249,7 @@ export default function MenuPage() {
                 to={`/?slug=${encodeURIComponent(slug)}&lang=${lang}`}
                 className="w-10 h-10 rounded-xl bg-card flex items-center justify-center text-foreground hover:bg-muted transition-colors"
               >
-                <ArrowLeft className="w-5 h-5" />
+                <Home className="w-5 h-5" />
               </Link>
 
               <h1 className="font-display font-semibold text-lg text-foreground">
