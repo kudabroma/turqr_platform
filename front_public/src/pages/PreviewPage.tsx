@@ -74,17 +74,14 @@ function isRestaurantOpenNow(workingHours?: string | null): boolean {
   const now = new Date();
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  // обычный режим: 09:00-23:00
   if (openMinutes < closeMinutes) {
     return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
   }
 
-  // ночной режим: 18:00-03:00
   if (openMinutes > closeMinutes) {
     return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
   }
 
-  // одинаковое время считаем закрытым
   return false;
 }
 
@@ -339,13 +336,15 @@ export default function PreviewPage() {
           </div>
 
           {restaurantDescription && (
-            <p className="text-muted-foreground mb-4">{restaurantDescription}</p>
+            <p className="mb-4 text-[15px] leading-7 text-muted-foreground indent-6 max-w-prose whitespace-pre-line">
+              {restaurantDescription}
+            </p>
           )}
 
           <div className="space-y-2">
             {(address || phone || email || otherContactsParsed.length > 0) && (
               <div className="flex items-start gap-3">
-                <MapPin className="w-5 h-5 text-primary mt-0.5" />
+                <MapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
                 <div className="text-foreground text-sm space-y-1">
                   {address && <div>{address}</div>}
                   {!address && phone && <div>📞 {phone}</div>}
@@ -357,7 +356,7 @@ export default function PreviewPage() {
             )}
 
             <div className="flex items-center gap-3">
-              <Clock className="w-5 h-5 text-primary" />
+              <Clock className="w-5 h-5 text-primary shrink-0" />
               <div className="flex items-center gap-2">
                 <span className="text-foreground text-sm">
                   {restaurantWorkingHours || "-"}
