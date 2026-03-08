@@ -31,34 +31,73 @@ function normalizeLang(x: unknown): Lang {
   if (v.startsWith("en")) return "en";
   return "tr";
 }
-function isRestaurantOpen(workingHours?: string): boolean {
+
+function parseTimeToMinutes(value: string): number | null {
+  const normalized = value.trim().replace(".", ":");
+  const match = /^(\d{1,2}):(\d{2})$/.exec(normalized);
+
+  if (!match) return null;
+
+  const hours = Number(match[1]);
+  const minutes = Number(match[2]);
+
+  if (
+    !Number.isInteger(hours) ||
+    !Number.isInteger(minutes) ||
+    hours < 0 ||
+    hours > 23 ||
+    minutes < 0 ||
+    minutes > 59
+  ) {
+    return null;
+  }
+
+  return hours * 60 + minutes;
+}
+
+function isRestaurantOpenNow(workingHours?: string | null): boolean {
   if (!workingHours) return false;
 
-  const parts = workingHours.split("-");
+  const normalized = workingHours
+    .trim()
+    .replace(/\s+/g, "")
+    .replace(/\./g, ":");
+
+  const parts = normalized.split("-");
   if (parts.length !== 2) return false;
 
-  const [openStr, closeStr] = parts;
+  const openMinutes = parseTimeToMinutes(parts[0]);
+  const closeMinutes = parseTimeToMinutes(parts[1]);
+
+  if (openMinutes === null || closeMinutes === null) return false;
 
   const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
-  const [openH, openM] = openStr.split(":").map(Number);
-  const [closeH, closeM] = closeStr.split(":").map(Number);
+  // обычный режим: 09:00-23:00
+  if (openMinutes < closeMinutes) {
+    return currentMinutes >= openMinutes && currentMinutes < closeMinutes;
+  }
 
-  const openTime = new Date();
-  openTime.setHours(openH, openM, 0, 0);
+  // ночной режим: 18:00-03:00
+  if (openMinutes > closeMinutes) {
+    return currentMinutes >= openMinutes || currentMinutes < closeMinutes;
+  }
 
-  const closeTime = new Date();
-  closeTime.setHours(closeH, closeM, 0, 0);
-
-  return now >= openTime && now <= closeTime;
+  // одинаковое время считаем закрытым
+  return false;
 }
 
 function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   const id = String(input?.id ?? input?.uuid ?? input?.slug ?? "");
   const category = String(input?.category ?? fallbackCategory ?? "Other");
 
-  const name = String(input?.translations?.en?.name ?? input?.name ?? input?.title ?? "Untitled");
-  const description = String(input?.translations?.en?.description ?? input?.description ?? "");
+  const name = String(
+    input?.translations?.en?.name ?? input?.name ?? input?.title ?? "Untitled"
+  );
+  const description = String(
+    input?.translations?.en?.description ?? input?.description ?? ""
+  );
 
   const image =
     typeof input?.image_url === "string"
@@ -131,7 +170,6 @@ export default function PreviewPage() {
   const slug = getPublicSlugFromLocation();
 
   const ui = (uiTranslations as any)?.[lang];
-
   const menuLink = `/menu?slug=${encodeURIComponent(slug)}&lang=${lang}`;
 
   const restaurantQuery = useQuery({
@@ -206,7 +244,9 @@ export default function PreviewPage() {
   if (restaurantQuery.isLoading || menuQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">{lang === "en" ? "Loading..." : "Yükleniyor..."}</p>
+        <p className="text-muted-foreground">
+          {lang === "en" ? "Loading..." : "Yükleniyor..."}
+        </p>
       </div>
     );
   }
@@ -227,7 +267,9 @@ export default function PreviewPage() {
   const restaurantWorkingHours = String(
     restaurantFromApi?.working_hours ?? restaurantFromApi?.hours ?? ""
   ).trim();
-  const isOpen = isRestaurantOpen(restaurantWorkingHours);
+
+  const isOpenNow = isRestaurantOpenNow(restaurantWorkingHours);
+
   const phoneFromApi = String(restaurantFromApi?.phone ?? "").trim();
   const emailFromApi = String(restaurantFromApi?.email ?? "").trim();
   const addressFromApi = String(restaurantFromApi?.address ?? "").trim();
@@ -240,7 +282,9 @@ export default function PreviewPage() {
 
   const emailParsed = contactsLines.find((x) => x.includes("@")) ?? "";
   const phoneParsed = contactsLines.find((x) => /[0-9]{6,}/.test(x)) ?? "";
-  const otherContactsParsed = contactsLines.filter((x) => x !== emailParsed && x !== phoneParsed);
+  const otherContactsParsed = contactsLines.filter(
+    (x) => x !== emailParsed && x !== phoneParsed
+  );
 
   const phone = phoneFromApi || phoneParsed;
   const email = emailFromApi || emailParsed;
@@ -306,7 +350,8 @@ export default function PreviewPage() {
                   {address && <div>{address}</div>}
                   {!address && phone && <div>📞 {phone}</div>}
                   {!address && email && <div>✉️ {email}</div>}
-                  {!address && otherContactsParsed.map((x) => <div key={x}>{x}</div>)}
+                  {!address &&
+                    otherContactsParsed.map((x) => <div key={x}>{x}</div>)}
                 </div>
               </div>
             )}
@@ -319,12 +364,12 @@ export default function PreviewPage() {
                 </span>
                 <span
                   className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                    isOpen
+                    isOpenNow
                       ? "bg-green-100 text-green-700"
                       : "bg-red-100 text-red-700"
                   }`}
                 >
-                  {isOpen
+                  {isOpenNow
                     ? lang === "en"
                       ? "Open"
                       : "Açık"
@@ -361,7 +406,8 @@ export default function PreviewPage() {
         <section className="mt-8">
           <div className="flex items-center justify-between mb-4">
             <h3 className="font-display text-xl font-semibold text-foreground">
-              {ui?.featuredDishes ?? (lang === "en" ? "Featured Dishes" : "Öne Çıkanlar")}
+              {ui?.featuredDishes ??
+                (lang === "en" ? "Featured Dishes" : "Öne Çıkanlar")}
             </h3>
             <Link
               to={menuLink}
