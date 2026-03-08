@@ -16,7 +16,6 @@ import {
 export default function MenuPage() {
   const qc = useQueryClient();
 
-  // ✅ aktif kategori (ID)
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
   const [search, setSearch] = useState("");
@@ -25,14 +24,12 @@ export default function MenuPage() {
   const [editingDish, setEditingDish] = useState<DishData | null>(null);
   const [showDishModal, setShowDishModal] = useState(false);
 
-  // ✅ Menü (kategoriler + yemekler)
   const menuQuery = useQuery({
     queryKey: ["menu"],
     queryFn: menuApi.get,
     staleTime: 10_000,
   });
 
-  // ✅ Kategoriler CRUD (modal için)
   const categoriesQuery = useQuery({
     queryKey: ["categories"],
     queryFn: categoriesApi.list,
@@ -42,34 +39,51 @@ export default function MenuPage() {
   const categoriesRaw = (menuQuery.data ?? []) as CategoryWithDishes[];
 
   /**
-   * ✅ System kategoriler (Unsorted) her zaman en sonda
+   * ✅ Admin menü kategorileri:
+   * - normal kategoriler önce
+   * - Unsorted/system en sonda
+   * - asıl sıralama sort_order üzerinden
    */
   const categoriesRawSorted = useMemo(() => {
     return [...categoriesRaw].sort((a: any, b: any) => {
       const aSys = a?.is_system ? 1 : 0;
       const bSys = b?.is_system ? 1 : 0;
       if (aSys !== bSys) return aSys - bSys;
+
+      const aOrder = typeof a?.sort_order === "number" ? a.sort_order : 0;
+      const bOrder = typeof b?.sort_order === "number" ? b.sort_order : 0;
+      if (aOrder !== bOrder) return aOrder - bOrder;
+
       return (a?.id ?? 0) - (b?.id ?? 0);
     });
   }, [categoriesRaw]);
 
-  // ✅ Tablar için kategori listesi
   const categoriesForTabs = useMemo(() => {
-    return categoriesRawSorted.map((c) => ({
+    return categoriesRawSorted.map((c: any) => ({
       id: c.id,
       name: c.name,
-      is_system: (c as any).is_system,
+      is_system: c.is_system,
+      sort_order: c.sort_order ?? 0,
     }));
   }, [categoriesRawSorted]);
 
-  // ✅ Kategori modalı için bilingual payload
+  /**
+   * ✅ Modal için categories query kullanıyoruz,
+   * ama sırayı artık sort_order'a göre veriyoruz
+   */
   const categoriesForModal = useMemo(() => {
     const source = (categoriesQuery.data ?? []) as any[];
+
     return [...source]
       .sort((a: any, b: any) => {
         const aSys = a?.is_system ? 1 : 0;
         const bSys = b?.is_system ? 1 : 0;
         if (aSys !== bSys) return aSys - bSys;
+
+        const aOrder = typeof a?.sort_order === "number" ? a.sort_order : 0;
+        const bOrder = typeof b?.sort_order === "number" ? b.sort_order : 0;
+        if (aOrder !== bOrder) return aOrder - bOrder;
+
         return (a?.id ?? 0) - (b?.id ?? 0);
       })
       .map((c) => ({
@@ -77,17 +91,21 @@ export default function MenuPage() {
         name_tr: c.name_tr ?? c.name ?? "",
         name_en: c.name_en ?? "",
         is_system: c.is_system ?? false,
+        sort_order: c.sort_order ?? 0,
       }));
   }, [categoriesQuery.data]);
 
-  // ✅ Yemek modalında kategori seçimi (system hariç)
   const dishCategoryOptions = useMemo(() => {
     return categoriesRawSorted
       .filter((c: any) => !c.is_system)
-      .map((c) => ({ id: c.id, name: c.name, is_system: (c as any).is_system }));
+      .map((c: any) => ({
+        id: c.id,
+        name: c.name,
+        is_system: c.is_system,
+        sort_order: c.sort_order ?? 0,
+      }));
   }, [categoriesRawSorted]);
 
-  // ✅ Menüden düz yemek listesi (is_active dahil)
   const dishes: DishData[] = useMemo(() => {
     return categoriesRawSorted.flatMap((c) =>
       (c.dishes ?? []).map((d: any) => ({
@@ -115,7 +133,6 @@ export default function MenuPage() {
     );
   }, [categoriesRawSorted]);
 
-  // ✅ aktif kategori silinirse resetle
   useEffect(() => {
     if (activeCategoryId === null) return;
     const stillExists = categoriesRawSorted.some((c) => c.id === activeCategoryId);
@@ -124,15 +141,21 @@ export default function MenuPage() {
 
   const filteredDishes = useMemo(() => {
     const q = search.trim().toLowerCase();
+
     return dishes.filter((d) => {
       const hay = `${d.name_tr ?? ""} ${d.name_en ?? ""}`.toLowerCase();
       const matchesSearch = !q || hay.includes(q);
       const matchesCategory =
         activeCategoryId === null || d._categoryId === activeCategoryId;
+
       return matchesSearch && matchesCategory;
     });
   }, [dishes, search, activeCategoryId]);
 
+  /**
+   * ✅ Bölümleri backend sırasına göre kuruyoruz
+   * Böylece admin ekranda da reorder anında görünür
+   */
   const groupedByCategory = useMemo(() => {
     if (activeCategoryId === null) {
       return categoriesForTabs.map((cat) => ({
@@ -143,6 +166,7 @@ export default function MenuPage() {
     }
 
     const cat = categoriesForTabs.find((c) => c.id === activeCategoryId);
+
     return [
       {
         categoryId: activeCategoryId,
@@ -298,12 +322,16 @@ export default function MenuPage() {
     create: { name_tr: string; name_en: string }[];
     rename: { id: number; name_tr: string; name_en: string }[];
     delete: { id: number }[];
+    reorder: { id: number; sort_order: number }[];
   }) => {
     try {
       if (payload.create.length) {
         await Promise.all(
           payload.create.map((c) =>
-            categoriesApi.create({ name_tr: c.name_tr, name_en: c.name_en ?? "" } as any)
+            categoriesApi.create({
+              name_tr: c.name_tr,
+              name_en: c.name_en ?? "",
+            } as any)
           )
         );
       }
@@ -311,13 +339,22 @@ export default function MenuPage() {
       if (payload.rename.length) {
         await Promise.all(
           payload.rename.map((c) =>
-            categoriesApi.update(c.id, { name_tr: c.name_tr, name_en: c.name_en ?? "" } as any)
+            categoriesApi.update(c.id, {
+              name_tr: c.name_tr,
+              name_en: c.name_en ?? "",
+            } as any)
           )
         );
       }
 
       if (payload.delete.length) {
-        await Promise.all(payload.delete.map((c) => categoriesApi.delete(c.id)));
+        await Promise.all(
+          payload.delete.map((c) => categoriesApi.delete(c.id))
+        );
+      }
+
+      if (payload.reorder.length) {
+        await categoriesApi.reorder(payload.reorder);
       }
 
       await qc.invalidateQueries({ queryKey: ["categories"] });

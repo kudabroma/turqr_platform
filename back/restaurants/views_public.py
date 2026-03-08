@@ -103,6 +103,7 @@ def get_public_categories_queryset(restaurant: Restaurant):
     - скрываем archived
     - показываем только is_active=True
     """
+
     visible_dishes_qs = (
         Dish.objects.filter(
             restaurant=restaurant,
@@ -114,8 +115,11 @@ def get_public_categories_queryset(restaurant: Restaurant):
     )
 
     return (
-        Category.objects.filter(restaurant=restaurant, is_system=False)
-        .order_by("id")
+        Category.objects.filter(
+            restaurant=restaurant,
+            is_system=False
+        )
+        .order_by("sort_order", "id")
         .prefetch_related(Prefetch("dishes", queryset=visible_dishes_qs))
     )
 

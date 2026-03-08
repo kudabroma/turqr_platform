@@ -1,7 +1,7 @@
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.db import transaction
 from django.utils import timezone
-
+from rest_framework.decorators import action
 from rest_framework import permissions, serializers, status, viewsets
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
@@ -204,17 +204,51 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+
         if user.is_superuser:
-            return Category.objects.all()
+            return Category.objects.all().order_by("sort_order", "id")
 
         restaurant = _get_user_restaurant(user)
         if not restaurant:
             return Category.objects.none()
 
-        return Category.objects.filter(restaurant=restaurant)
+        return Category.objects.filter(
+            restaurant=restaurant
+        ).order_by("sort_order", "id")
 
     def perform_create(self, serializer):
         user = self.request.user
+
+        if user.is_superuser:
+            serializer.save()
+            return
+
+        restaurant = _get_user_restaurant(user)
+        if not restaurant:
+            raise ValidationError({"restaurant": "User has no associated restaurant."})
+
+        # ставим новую категорию в конец списка (перед Unsorted)
+        last = Category.objects.filter(
+            restaurant=restaurant,
+            is_system=False
+        ).order_by("-sort_order").first()
+
+        next_order = (last.sort_order + 1) if last else 0
+
+        serializer.save(
+            restaurant=restaurant,
+            sort_order=next_order
+        )
+
+    def perform_update(self, serializer):
+        category = self.get_object()
+
+        # 🚫 system category нельзя менять
+        if category.is_system:
+            raise ValidationError({"detail": "System category cannot be modified."})
+
+        user = self.request.user
+
         if user.is_superuser:
             serializer.save()
             return
@@ -225,32 +259,14 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
         serializer.save(restaurant=restaurant)
 
-    def perform_update(self, serializer):
-        category = self.get_object()
-
-        # 🚫 system category нельзя менять (чтобы Unsorted не переименовали)
-        if category.is_system:
-            raise ValidationError({"detail": "System category cannot be modified."})
-
-        user = self.request.user
-        if user.is_superuser:
-            serializer.save()
-            return
-
-        restaurant = _get_user_restaurant(user)
-        if not restaurant:
-            raise ValidationError({"restaurant": "User has no associated restaurant."})
-
-        # бизнесу запрещаем менять restaurant категории
-        serializer.save(restaurant=self.request.user.restaurant)
-
     def destroy(self, request, *args, **kwargs):
         """
         DELETE category:
         - system category нельзя удалять
-        - блюда переносим в Unsorted + ставим moved_to_unsorted_at
+        - блюда переносим в Unsorted
         - категорию удаляем
         """
+
         category = self.get_object()
 
         if category.is_system:
@@ -265,7 +281,43 @@ class CategoryViewSet(viewsets.ModelViewSet):
         )
 
         category.delete()
+
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=False, methods=["post"])
+    def reorder(self, request):
+        """
+        Меняет порядок категорий (drag & drop)
+        """
+
+        restaurant = _get_user_restaurant(request.user)
+        if not restaurant:
+            raise ValidationError({"restaurant": "User has no associated restaurant."})
+        items = request.data.get("items", [])
+
+        for item in items:
+            Category.objects.filter(
+                id=item["id"],
+                restaurant=restaurant,
+                is_system=False
+            ).update(sort_order=item["sort_order"])
+
+        # гарантируем что Unsorted всегда последняя
+        unsorted = Category.objects.filter(
+            restaurant=restaurant,
+            is_system=True
+        ).first()
+
+        if unsorted:
+            last = Category.objects.filter(
+                restaurant=restaurant,
+                is_system=False
+            ).order_by("-sort_order").first()
+
+            unsorted.sort_order = (last.sort_order + 1) if last else 0
+            unsorted.save()
+
+        return Response({"status": "ok"})
 
 
 # =====================

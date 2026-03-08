@@ -167,10 +167,17 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system"]
-        read_only_fields = ["id", "restaurant", "is_system"]
+        fields = [
+            "id",
+            "name",
+            "name_tr",
+            "name_en",
+            "restaurant",
+            "is_system",
+            "sort_order",
+        ]
+        read_only_fields = ["id", "restaurant", "is_system", "sort_order"]
         extra_kwargs = {
-            # ✅ ключевое: legacy name больше не обязателен
             "name": {"required": False, "allow_blank": True},
             "name_tr": {"required": False, "allow_blank": True},
             "name_en": {"required": False, "allow_blank": True},
@@ -181,18 +188,21 @@ class CategorySerializer(serializers.ModelSerializer):
         name_tr = (attrs.get("name_tr") or "").strip()
         name_en = (attrs.get("name_en") or "").strip()
 
-        # ✅ new -> legacy
+        # new -> legacy
         if name_tr and not name:
-            attrs["name"] = name
             attrs["name"] = name_tr
             name = name_tr
 
-        # ✅ legacy -> new (чтобы не пустовало)
+        # legacy -> new
         if name and not name_tr:
             attrs["name_tr"] = name
 
-        # ✅ финальная проверка: должно быть хоть одно имя
-        final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
+        final_name = (
+            (attrs.get("name") or "").strip()
+            or (attrs.get("name_tr") or "").strip()
+            or name_en
+        )
+
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
 
@@ -203,12 +213,23 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
     """
     Superuser: restaurant обязателен.
     """
-    restaurant = serializers.PrimaryKeyRelatedField(queryset=Restaurant.objects.all(), required=True)
+    restaurant = serializers.PrimaryKeyRelatedField(
+        queryset=Restaurant.objects.all(),
+        required=True,
+    )
 
     class Meta:
         model = Category
-        fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system"]
-        read_only_fields = ["id", "is_system"]
+        fields = [
+            "id",
+            "name",
+            "name_tr",
+            "name_en",
+            "restaurant",
+            "is_system",
+            "sort_order",
+        ]
+        read_only_fields = ["id", "is_system", "sort_order"]
         extra_kwargs = {
             "name": {"required": False, "allow_blank": True},
             "name_tr": {"required": False, "allow_blank": True},
@@ -227,7 +248,12 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
         if name and not name_tr:
             attrs["name_tr"] = name
 
-        final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
+        final_name = (
+            (attrs.get("name") or "").strip()
+            or (attrs.get("name_tr") or "").strip()
+            or name_en
+        )
+
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
 
@@ -448,13 +474,29 @@ class CategoryWithDishesSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj: Category):
         lang = self._lang()
+
         if lang == "en":
-            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
-        return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
+            return (
+                (obj.name_en or "").strip()
+                or (obj.name_tr or "").strip()
+                or (obj.name or "").strip()
+            )
+
+        return (
+            (obj.name_tr or "").strip()
+            or (obj.name or "").strip()
+            or (obj.name_en or "").strip()
+        )
 
     class Meta:
         model = Category
-        fields = ["id", "name", "is_system", "dishes"]
+        fields = [
+            "id",
+            "name",
+            "is_system",
+            "sort_order",
+            "dishes",
+        ]
 
 
 # =========================

@@ -167,10 +167,10 @@ export const categoriesApi = {
       body: data,
     }),
 
-/**
- * PATCH /categories/:id/
- * передавай name_tr/name_en
- */
+  /**
+   * PATCH /categories/:id/
+   * передавай name_tr/name_en
+   */
   update: (id: number, data: UpdateCategoryData) =>
     apiClient<Category>(`/categories/${id}/`, {
       method: "PATCH",
@@ -180,6 +180,16 @@ export const categoriesApi = {
   delete: (id: number) =>
     apiClient<void>(`/categories/${id}/`, {
       method: "DELETE",
+    }),
+
+  /**
+   * POST /categories/reorder/
+   * сохраняет новый порядок категорий
+   */
+  reorder: (items: { id: number; sort_order: number }[]) =>
+    apiClient<void>("/categories/reorder/", {
+      method: "POST",
+      body: { items },
     }),
 };
 

@@ -97,6 +97,7 @@ class Category(models.Model):
         related_name="categories",
         verbose_name="Ресторан",
     )
+    sort_order = models.PositiveIntegerField(default=0, db_index=True)
 
     # ✅ NEW: system flag (Unsorted etc.)
     is_system = models.BooleanField(default=False, verbose_name="Системная категория")

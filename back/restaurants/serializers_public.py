@@ -169,7 +169,7 @@ class PublicCategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ("id", "name", "dishes")
+        fields = ("id", "name","sort_order", "dishes")
 
     def _lang(self) -> str:
         lang = (self.context.get("lang") or "tr").lower()
