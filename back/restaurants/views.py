@@ -8,7 +8,12 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Case, When, Value, IntegerField
+from django.http import HttpResponse
+from django.conf import settings
+import io
+import qrcode
 
+from .qr.generator import compose_qr_template
 from .models import Restaurant, Category, Dish, PaymentHistory
 from .serializers import (
     UserSerializer,
@@ -496,3 +501,62 @@ class SubscriptionView(APIView):
 
         serializer = SubscriptionSerializer(subscription)
         return Response(serializer.data)
+    # =====================
+# QR Admin Endpoints
+# =====================
+
+class AdminQrPngView(APIView):
+    """
+    GET /api/admin/qr/png/
+    Возвращает обычный QR код меню ресторана
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        restaurant = getattr(request.user, "restaurant", None)
+
+        if not restaurant:
+            return Response(
+                {"detail": "User has no restaurant."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        slug = restaurant.slug
+
+        menu_url = f"https://{slug}.turqr.com/menu"
+
+        qr = qrcode.make(menu_url)
+
+        buffer = io.BytesIO()
+        qr.save(buffer, format="PNG")
+        buffer.seek(0)
+
+        return HttpResponse(buffer.getvalue(), content_type="image/png")
+
+
+class AdminQrTableStickerView(APIView):
+    """
+    GET /api/admin/qr/table-sticker/
+    Возвращает sticker PNG
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        restaurant = getattr(request.user, "restaurant", None)
+
+        if not restaurant:
+            return Response(
+                {"detail": "User has no restaurant."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        slug = restaurant.slug
+
+        image = compose_qr_template(slug)
+
+        response = HttpResponse(image.getvalue(), content_type="image/png")
+        response["Content-Disposition"] = f'attachment; filename="turqr-{slug}-sticker.png"'
+
+        return response
