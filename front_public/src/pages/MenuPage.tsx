@@ -19,8 +19,13 @@ import { getPublicSlugFromLocation } from "@/utils/publicSlug";
 
 // ✅ UiDish делаем совместимым с MenuItem
 type UiDish = MenuItem & {
-  // ✅ одно поле “из чего сделано / состав”
   ingredients?: string;
+  categoryId?: number | null;
+};
+
+type CategoryOption = {
+  id: number | null;
+  label: string;
 };
 
 function normalizeLang(x: string | null): Lang {
@@ -30,7 +35,11 @@ function normalizeLang(x: string | null): Lang {
 }
 
 // ✅ делаем объект ровно в форме MenuItem (+ ingredients optional)
-function ensureDishShape(input: any, fallbackCategory: string): UiDish {
+function ensureDishShape(
+  input: any,
+  fallbackCategory: string,
+  fallbackCategoryId?: number | null
+): UiDish {
   const id = String(input?.id ?? input?.uuid ?? input?.slug ?? "");
   const category = String(input?.category ?? fallbackCategory ?? "Other");
 
@@ -74,7 +83,6 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
 
   const price = Number.isFinite(priceNumber) ? priceNumber : 0;
 
-  // ✅ одно поле “из чего сделано / состав” (если нет в API — будет "")
   const ingredients = String(
     input?.ingredients ??
       input?.composition ??
@@ -83,7 +91,19 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
       ""
   ).trim();
 
-  // ✅ translations строго en+tr (public)
+  const categoryIdRaw =
+    input?.categoryId ??
+    input?.category_id ??
+    input?.category?.id ??
+    fallbackCategoryId;
+
+  const categoryId =
+    typeof categoryIdRaw === "number"
+      ? categoryIdRaw
+      : typeof categoryIdRaw === "string" && categoryIdRaw.trim() !== ""
+      ? Number(categoryIdRaw)
+      : null;
+
   const translations: UiDish["translations"] = input?.translations
     ? {
         en: {
@@ -105,6 +125,7 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   return {
     id,
     category,
+    categoryId: Number.isFinite(categoryId as number) ? categoryId : null,
     price,
     image,
     isVegan,
@@ -118,17 +139,15 @@ export default function MenuPage() {
   const [searchParams] = useSearchParams();
 
   const lang = normalizeLang(searchParams.get("lang"));
-  const slug = getPublicSlugFromLocation(); // ✅ query slug OR subdomain slug
+  const slug = getPublicSlugFromLocation();
 
-  // demo fallback (если вдруг API пустой/нет данных)
   const restaurantDemo = (restaurantInfo as any)?.translations?.[lang];
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const ui = (uiTranslations as any)?.[lang];
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [activeCategory, setActiveCategory] = useState("all");
+  const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
 
-  // ✅ модалка деталей блюда
   const [selectedDish, setSelectedDish] = useState<UiDish | null>(null);
   const [dishOpen, setDishOpen] = useState(false);
 
@@ -158,51 +177,92 @@ export default function MenuPage() {
     const dishesRaw: any[] = [];
     adaptedCategories.forEach((cat: any) => {
       const catName = String(cat?.name ?? "Other");
+      const catIdRaw = cat?.id;
+      const catId =
+        typeof catIdRaw === "number"
+          ? catIdRaw
+          : typeof catIdRaw === "string" && catIdRaw.trim() !== ""
+          ? Number(catIdRaw)
+          : null;
+
       const arr = Array.isArray(cat?.dishes) ? cat.dishes : [];
-      arr.forEach((d: any) => dishesRaw.push({ ...d, category: catName }));
+      arr.forEach((d: any) =>
+        dishesRaw.push({
+          ...d,
+          category: catName,
+          categoryId:
+            d?.categoryId ?? d?.category_id ?? d?.category?.id ?? catId ?? null,
+        })
+      );
     });
 
     return dishesRaw
       .filter((d) => d && typeof d === "object")
-      .map((d) => ensureDishShape(d, String(d?.category ?? "Other")))
+      .map((d) =>
+        ensureDishShape(
+          d,
+          String(d?.category ?? "Other"),
+          d?.categoryId ?? d?.category_id ?? null
+        )
+      )
       .map((dish) => ({ ...dish, image: dishImages[dish.id] || dish.image || "" }))
       .filter((dish) => dish.id);
   }, [menuQuery.data]);
 
-  const categoryOptions = useMemo(() => {
-    const set = new Set<string>();
+  const categoryOptions = useMemo<CategoryOption[]>(() => {
+    const map = new Map<number, string>();
+
     enhancedMenuItems.forEach((d) => {
-      const cat = d.translations[lang]?.category || d.category;
-      if (cat) set.add(cat);
+      const id = d.categoryId;
+      const label = d.translations?.[lang]?.category || d.category;
+
+      if (id != null && label && !map.has(id)) {
+        map.set(id, label);
+      }
     });
-    return ["all", ...Array.from(set)];
+
+    return [
+      {
+        id: null,
+        label: lang === "en" ? "All" : "Tümü",
+      },
+      ...Array.from(map.entries()).map(([id, label]) => ({
+        id,
+        label,
+      })),
+    ];
   }, [enhancedMenuItems, lang]);
 
   const filteredItems = useMemo(() => {
     return enhancedMenuItems.filter((dish) => {
-      const t = dish.translations[lang];
-      const catForLang = t?.category || dish.category;
-
-      if (activeCategory !== "all" && catForLang !== activeCategory) return false;
+      if (activeCategoryId !== null && dish.categoryId !== activeCategoryId) {
+        return false;
+      }
 
       if (searchQuery) {
         const query = searchQuery.toLowerCase();
+        const t = dish.translations[lang];
         const name = (t?.name ?? "").toLowerCase();
         const desc = (t?.description ?? "").toLowerCase();
+
         if (!name.includes(query) && !desc.includes(query)) return false;
       }
 
       return true;
     });
-  }, [enhancedMenuItems, lang, activeCategory, searchQuery]);
+  }, [enhancedMenuItems, lang, activeCategoryId, searchQuery]);
 
   const groupedItems = useMemo(() => {
     const groups: { [key: string]: UiDish[] } = {};
+
     filteredItems.forEach((dish) => {
-      const categoryName = dish.translations[lang]?.category ?? dish.category ?? "Other";
+      const categoryName =
+        dish.translations[lang]?.category ?? dish.category ?? "Other";
+
       if (!groups[categoryName]) groups[categoryName] = [];
       groups[categoryName].push(dish);
     });
+
     return groups;
   }, [filteredItems, lang]);
 
@@ -260,12 +320,16 @@ export default function MenuPage() {
             <LanguageSwitcher />
           </div>
 
-          <SearchBar value={searchQuery} onChange={setSearchQuery} />
+          <SearchBar
+            value={searchQuery}
+            onChange={setSearchQuery}
+            placeholder={lang === "tr" ? "Yemek ara..." : "Search dishes..."}
+          />
 
           <div className="mt-3">
             <CategoryTabs
-              activeCategory={activeCategory}
-              onCategoryChange={setActiveCategory}
+              activeCategoryId={activeCategoryId}
+              onCategoryChange={setActiveCategoryId}
               categories={categoryOptions}
               lang={lang}
             />
@@ -274,7 +338,7 @@ export default function MenuPage() {
       </header>
 
       <main className="container max-w-lg mx-auto px-4 py-6">
-        {activeCategory === "all" ? (
+        {activeCategoryId === null ? (
           Object.entries(groupedItems).map(([categoryName, dishes]) => (
             <section key={categoryName} className="mb-8">
               <h2 className="font-display text-xl font-semibold text-foreground mb-4">
@@ -318,7 +382,6 @@ export default function MenuPage() {
         )}
       </main>
 
-      {/* ✅ модалка деталей блюда */}
       <DishDetailsModal
         open={dishOpen}
         onOpenChange={(v) => {

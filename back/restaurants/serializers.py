@@ -74,6 +74,7 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "address",
+            "working_hours",
 
             "description_tr",
             "description_en",
@@ -114,7 +115,7 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "address",
-
+            "working_hours",
             # ✅ NEW bilingual fields
             "description_tr",
             "description_en",

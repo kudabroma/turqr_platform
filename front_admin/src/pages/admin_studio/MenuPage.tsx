@@ -358,7 +358,6 @@ export default function MenuPage() {
   return (
     <div className="min-h-screen bg-background">
       <AdminHeader showBack />
-
       <div className="max-w-2xl mx-auto px-4 pt-4 pb-8">
         {/* Search */}
         <div className="relative mb-4">

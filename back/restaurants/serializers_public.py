@@ -25,6 +25,7 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
             "phone",
             "email",
             "address",
+            "working_hours",
             "contacts",
             "photo1_url",
             "photo2_url",

@@ -28,6 +28,7 @@ type FormState = {
   phone: string;
   email: string;
   contacts: string;
+  working_hours: string;
   description_tr: string;
   description_en: string;
 };
@@ -46,6 +47,7 @@ export function EditRestaurantInfoModal({
     phone: "",
     email: "",
     contacts: "",
+    working_hours: "",
     description_tr: "",
     description_en: "",
   });
@@ -59,6 +61,7 @@ export function EditRestaurantInfoModal({
       phone: restaurant.phone ?? "",
       email: restaurant.email ?? "",
       contacts: restaurant.contacts ?? "",
+      working_hours: (restaurant as any).working_hours ?? "",
       description_tr: (restaurant as any).description_tr ?? "",
       description_en: (restaurant as any).description_en ?? "",
     });
@@ -70,8 +73,7 @@ export function EditRestaurantInfoModal({
     setForm((f) => ({ ...f, [key]: value }));
 
   const mutation = useMutation({
-    mutationFn: (payload: Partial<RestaurantMe>) =>
-      restaurantApi.update(payload),
+    mutationFn: (payload: Partial<RestaurantMe>) => restaurantApi.update(payload),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["restaurant", "me"] });
       onOpenChange(false);
@@ -85,9 +87,10 @@ export function EditRestaurantInfoModal({
       phone: form.phone,
       email: form.email,
       contacts: form.contacts,
+      working_hours: form.working_hours,
       description_tr: form.description_tr,
       description_en: form.description_en,
-    });
+    } as Partial<RestaurantMe>);
   };
 
   return (
@@ -96,6 +99,7 @@ export function EditRestaurantInfoModal({
         <DialogHeader className="px-6 pt-6">
           <DialogTitle>Restoran Bilgilerini Düzenle</DialogTitle>
         </DialogHeader>
+
         <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
           <div className="space-y-4 mt-2">
             <div>
@@ -131,6 +135,15 @@ export function EditRestaurantInfoModal({
             </div>
 
             <div>
+              <Label>Çalışma Saatleri</Label>
+              <Input
+                value={form.working_hours}
+                onChange={(e) => update("working_hours", e.target.value)}
+                placeholder="09:00 - 23:00"
+              />
+            </div>
+
+            <div>
               <Label>Açıklama</Label>
 
               <div className="flex gap-2 mt-2 mb-2">
@@ -162,23 +175,20 @@ export function EditRestaurantInfoModal({
               {activeLang === "tr" ? (
                 <Textarea
                   value={form.description_tr}
-                  onChange={(e) =>
-                    update("description_tr", e.target.value)
-                  }
+                  onChange={(e) => update("description_tr", e.target.value)}
                   placeholder="Restoran açıklaması (Türkçe)"
                   rows={4}
                 />
               ) : (
                 <Textarea
                   value={form.description_en}
-                  onChange={(e) =>
-                    update("description_en", e.target.value)
-                  }
+                  onChange={(e) => update("description_en", e.target.value)}
                   placeholder="Restoran açıklaması (İngilizce)"
                   rows={4}
                 />
               )}
-          </div>
+            </div>
+
             <div>
               <Label>Ek İletişim Bilgileri (isteğe bağlı)</Label>
               <Textarea
@@ -189,12 +199,11 @@ export function EditRestaurantInfoModal({
             </div>
 
             {mutation.isError && (
-              <div className="text-sm text-red-600">
-                Kaydedilemedi.
-              </div>
+              <div className="text-sm text-red-600">Kaydedilemedi.</div>
             )}
+          </div>
         </div>
-        </div>
+
         <div className="px-6 py-4 border-t bg-background sticky bottom-0 flex justify-end gap-2">
           <Button
             variant="outline"

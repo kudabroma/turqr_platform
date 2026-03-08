@@ -25,6 +25,13 @@ class Restaurant(models.Model):
     email = models.EmailField(blank=True, default="", verbose_name="Email")
     address = models.TextField(blank=True, default="", verbose_name="Адрес")
 
+    working_hours = models.CharField(
+        max_length=120,
+        blank=True,
+        default="",
+        verbose_name="Часы работы"
+    )
+
     # ✅ Фото ресторана
     photo1 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
     photo2 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)

@@ -31,6 +31,27 @@ function normalizeLang(x: unknown): Lang {
   if (v.startsWith("en")) return "en";
   return "tr";
 }
+function isRestaurantOpen(workingHours?: string): boolean {
+  if (!workingHours) return false;
+
+  const parts = workingHours.split("-");
+  if (parts.length !== 2) return false;
+
+  const [openStr, closeStr] = parts;
+
+  const now = new Date();
+
+  const [openH, openM] = openStr.split(":").map(Number);
+  const [closeH, closeM] = closeStr.split(":").map(Number);
+
+  const openTime = new Date();
+  openTime.setHours(openH, openM, 0, 0);
+
+  const closeTime = new Date();
+  closeTime.setHours(closeH, closeM, 0, 0);
+
+  return now >= openTime && now <= closeTime;
+}
 
 function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   const id = String(input?.id ?? input?.uuid ?? input?.slug ?? "");
@@ -72,7 +93,6 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
 
   const price = Number.isFinite(priceNumber) ? priceNumber : 0;
 
-  // ✅ только public языки en/tr
   const translations: UiDish["translations"] = input?.translations
     ? {
         en: {
@@ -108,17 +128,16 @@ export default function PreviewPage() {
   const [searchParams] = useSearchParams();
 
   const lang = normalizeLang(searchParams.get("lang"));
-  const slug = getPublicSlugFromLocation(); // ✅ SOURCE OF TRUTH
+  const slug = getPublicSlugFromLocation();
 
   const ui = (uiTranslations as any)?.[lang];
 
-  // ✅ важно: menuLink теперь всегда сохраняет slug+lang
   const menuLink = `/menu?slug=${encodeURIComponent(slug)}&lang=${lang}`;
 
   const restaurantQuery = useQuery({
     queryKey: ["public-restaurant", slug, lang],
     queryFn: () => fetchPublicRestaurant(slug, lang),
-    enabled: !!slug, // ✅ guard
+    enabled: !!slug,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -127,7 +146,7 @@ export default function PreviewPage() {
   const menuQuery = useQuery({
     queryKey: ["public-menu", slug, lang],
     queryFn: () => fetchPublicMenu(slug, lang),
-    enabled: !!slug, // ✅ guard
+    enabled: !!slug,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
@@ -172,7 +191,6 @@ export default function PreviewPage() {
     return dishes.slice(0, 3);
   }, [menuQuery.data]);
 
-  // ✅ если slug не указан — понятный экран, запросы не идут
   if (!slug) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -206,8 +224,10 @@ export default function PreviewPage() {
   const restaurantName = String(restaurantFromApi?.name ?? "Restaurant");
   const restaurantDescription = String(restaurantFromApi?.description ?? "");
   const restaurantAddress = String(restaurantFromApi?.address ?? "");
-  const restaurantHours = String(restaurantFromApi?.hours ?? "");
-
+  const restaurantWorkingHours = String(
+    restaurantFromApi?.working_hours ?? restaurantFromApi?.hours ?? ""
+  ).trim();
+  const isOpen = isRestaurantOpen(restaurantWorkingHours);
   const phoneFromApi = String(restaurantFromApi?.phone ?? "").trim();
   const emailFromApi = String(restaurantFromApi?.email ?? "").trim();
   const addressFromApi = String(restaurantFromApi?.address ?? "").trim();
@@ -237,12 +257,14 @@ export default function PreviewPage() {
             <img
               src={platformLogo}
               alt={platformName}
-              className="w-9 h-9 rounded-xl object-contain bg-card"
+              className="w-9 h-9 rounded-xl object-contain"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
-            <span className="font-display font-semibold text-lg text-foreground">{platformName}</span>
+            <span className="font-display font-semibold text-lg text-foreground">
+              {platformName}
+            </span>
           </div>
 
           <LanguageSwitcher />
@@ -256,7 +278,9 @@ export default function PreviewPage() {
 
         <section className="mt-6 animate-fade-in">
           <div className="mb-2">
-            <h2 className="font-display text-2xl font-bold text-foreground">{restaurantName}</h2>
+            <h2 className="font-display text-2xl font-bold text-foreground">
+              {restaurantName}
+            </h2>
           </div>
 
           <div className="flex items-center gap-2 text-muted-foreground mb-3">
@@ -265,10 +289,14 @@ export default function PreviewPage() {
                 <Star key={i} className="w-4 h-4 fill-accent text-accent" />
               ))}
             </div>
-            <span className="text-sm">4.8 (127 {String(ui?.reviews ?? "Reviews").toLowerCase()})</span>
+            <span className="text-sm">
+              4.8 (127 {String(ui?.reviews ?? "Reviews").toLowerCase()})
+            </span>
           </div>
 
-          {restaurantDescription && <p className="text-muted-foreground mb-4">{restaurantDescription}</p>}
+          {restaurantDescription && (
+            <p className="text-muted-foreground mb-4">{restaurantDescription}</p>
+          )}
 
           <div className="space-y-2">
             {(address || phone || email || otherContactsParsed.length > 0) && (
@@ -286,9 +314,23 @@ export default function PreviewPage() {
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-primary" />
               <div className="flex items-center gap-2">
-                <span className="text-foreground text-sm">{restaurantHours || "-"}</span>
-                <span className="px-2 py-0.5 rounded-full bg-secondary/20 text-secondary text-xs font-medium">
-                  {ui?.openNow ?? (lang === "en" ? "Open Now" : "Açık")}
+                <span className="text-foreground text-sm">
+                  {restaurantWorkingHours || "-"}
+                </span>
+                <span
+                  className={`px-2 py-0.5 rounded-full text-xs font-medium ${
+                    isOpen
+                      ? "bg-green-100 text-green-700"
+                      : "bg-red-100 text-red-700"
+                  }`}
+                >
+                  {isOpen
+                    ? lang === "en"
+                      ? "Open"
+                      : "Açık"
+                    : lang === "en"
+                    ? "Closed"
+                    : "Kapalı"}
                 </span>
               </div>
             </div>
@@ -321,7 +363,10 @@ export default function PreviewPage() {
             <h3 className="font-display text-xl font-semibold text-foreground">
               {ui?.featuredDishes ?? (lang === "en" ? "Featured Dishes" : "Öne Çıkanlar")}
             </h3>
-            <Link to={menuLink} className="flex items-center gap-1 text-primary text-sm font-medium hover:underline">
+            <Link
+              to={menuLink}
+              className="flex items-center gap-1 text-primary text-sm font-medium hover:underline"
+            >
               {ui?.fullMenu ?? (lang === "en" ? "Full Menu" : "Tam Menü")}
               <ChevronRight className="w-4 h-4" />
             </Link>
@@ -337,7 +382,10 @@ export default function PreviewPage() {
 
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-background/80 backdrop-blur-lg border-t border-border">
         <div className="container max-w-lg mx-auto">
-          <Link to={menuLink} className="block w-full py-4 rounded-xl btn-primary text-center font-semibold text-lg">
+          <Link
+            to={menuLink}
+            className="block w-full py-4 rounded-xl btn-primary text-center font-semibold text-lg"
+          >
             {ui?.viewMenu ?? (lang === "en" ? "View Menu" : "Menüyü Görüntüle")}
           </Link>
         </div>

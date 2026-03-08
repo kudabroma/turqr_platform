@@ -31,12 +31,11 @@ export function AdminHeader({ showBack }: Props) {
             <img
               src="/platform/Turlogo.png"
               alt="TurQR"
-              className="h-7 w-7 object-contain shrink-0"
+              className="h-8 w-auto object-contain shrink-0"
               onError={(e) => {
                 e.currentTarget.style.display = "none";
               }}
             />
-            <div className="font-semibold truncate">TurQR</div>
           </div>
         </div>
 
