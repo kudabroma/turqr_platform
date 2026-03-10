@@ -102,7 +102,7 @@ function SortableRow({
     <div
       ref={setNodeRef}
       style={style}
-      className="rounded-2xl border border-orange-300 bg-orange-100 p-3"
+      className="rounded-2xl border border-gray-200 bg-gray-100 p-3"
     >
       <div className="flex gap-3 items-stretch">
         <div
@@ -133,7 +133,7 @@ function SortableRow({
         <button
           type="button"
           onClick={() => handleDelete(row.id)}
-          className="w-14 shrink-0 rounded-xl border border-orange-300 bg-white flex items-center justify-center transition-colors text-destructive hover:bg-red-50"
+          className="w-14 shrink-0 rounded-xl border border-gray-200 bg-white flex items-center justify-center transition-colors text-destructive hover:bg-red-50"
           title="Sil"
         >
           <Trash2 className="h-5 w-5" />
@@ -262,14 +262,14 @@ export function EditCategoriesModal({
           id: r.id,
           sort_order: index,
         }));
-        await onSave({
+
+      await onSave({
         create,
         rename,
         delete: del,
         reorder,
       });
 
-      // ✅ те самые 2 строки
       await qc.invalidateQueries({ queryKey: ["menu"] });
       await qc.invalidateQueries({ queryKey: ["categories"] });
 
@@ -316,9 +316,8 @@ export function EditCategoriesModal({
           </DndContext>
 
           <Button
-            variant="outline"
             onClick={handleAdd}
-            className="w-full mt-5 h-12 rounded-xl text-lg font-medium"
+            className="w-full mt-5 h-12 rounded-xl text-lg font-medium bg-orange-500 hover:bg-orange-600 text-white border-0"
           >
             <Plus className="h-5 w-5 mr-2" />
             Kategori Ekle

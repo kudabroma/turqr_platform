@@ -14,6 +14,9 @@ import {
 } from "@/api/endpoints";
 
 export default function MenuPage() {
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, []);
   const qc = useQueryClient();
 
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);

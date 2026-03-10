@@ -39,7 +39,11 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         raw = self.context.get("lang")
         if not raw:
             request = self.context.get("request")
-            raw = getattr(getattr(request, "query_params", None), "get", lambda _k, _d=None: None)("lang", None) if request else None
+            raw = getattr(
+                getattr(request, "query_params", None),
+                "get",
+                lambda _k, _d=None: None
+            )("lang", None) if request else None
 
         lang = (raw or "tr").lower()
         if lang.startswith("en"):
@@ -48,24 +52,35 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
             return "ru"
         return "tr"
 
-    # ✅ ВАЖНО: возвращаем относительный URL (/media/...), а не абсолютный http://127.0.0.1:8000/...
+    # ✅ возвращаем относительный URL
     def _file_url(self, file_field):
         if not file_field:
             return None
         try:
-            return file_field.url  # ✅ "/media/...."
+            return file_field.url
         except Exception:
             return None
 
     def get_logo_url(self, obj: Restaurant):
         return self._file_url(getattr(obj, "logo", None))
 
-    def get_photo1_url(self, obj: Restaurant): return self._file_url(getattr(obj, "photo1", None))
-    def get_photo2_url(self, obj: Restaurant): return self._file_url(getattr(obj, "photo2", None))
-    def get_photo3_url(self, obj: Restaurant): return self._file_url(getattr(obj, "photo3", None))
-    def get_photo4_url(self, obj: Restaurant): return self._file_url(getattr(obj, "photo4", None))
-    def get_photo5_url(self, obj: Restaurant): return self._file_url(getattr(obj, "photo5", None))
-    def get_photo6_url(self, obj: Restaurant): return self._file_url(getattr(obj, "photo6", None))
+    def get_photo1_url(self, obj: Restaurant):
+        return self._file_url(getattr(obj, "photo1", None))
+
+    def get_photo2_url(self, obj: Restaurant):
+        return self._file_url(getattr(obj, "photo2", None))
+
+    def get_photo3_url(self, obj: Restaurant):
+        return self._file_url(getattr(obj, "photo3", None))
+
+    def get_photo4_url(self, obj: Restaurant):
+        return self._file_url(getattr(obj, "photo4", None))
+
+    def get_photo5_url(self, obj: Restaurant):
+        return self._file_url(getattr(obj, "photo5", None))
+
+    def get_photo6_url(self, obj: Restaurant):
+        return self._file_url(getattr(obj, "photo6", None))
 
     def get_description(self, obj: Restaurant):
         lang = self._lang()
@@ -78,6 +93,12 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         return desc_tr or desc_en
 
     def get_contacts(self, obj: Restaurant):
+        # ✅ сначала берем то, что ресторан реально ввел в поле contacts
+        raw_contacts = (getattr(obj, "contacts", "") or "").strip()
+        if raw_contacts:
+            return raw_contacts
+
+        # ✅ fallback только для старых ресторанов, где contacts пустой
         parts = []
         email = (obj.email or "").strip()
         phone = (obj.phone or "").strip()
@@ -90,10 +111,7 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         if address:
             parts.append(address)
 
-        if parts:
-            return "\n".join(parts)
-
-        return (obj.contacts or "").strip()
+        return "\n".join(parts)
 
 
 class PublicDishSerializer(serializers.ModelSerializer):

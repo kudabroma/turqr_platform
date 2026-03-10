@@ -5,7 +5,7 @@ import { Flame, Leaf } from "lucide-react";
 interface DishCardProps {
   dish: MenuItem;
   variant?: "full" | "compact";
-  onClick?: () => void; // ✅ добавили
+  onClick?: () => void;
 }
 
 function pickTranslation<T extends Record<string, any>>(
@@ -14,7 +14,6 @@ function pickTranslation<T extends Record<string, any>>(
 ): T {
   if (!translations) return {} as T;
 
-  // ✅ fallback: lang -> en -> tr -> first available
   return (
     translations[lang] ??
     translations.en ??
@@ -25,7 +24,7 @@ function pickTranslation<T extends Record<string, any>>(
 }
 
 export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
-  const { language } = useLanguage(); // ожидаем "en" | "tr"
+  const { language } = useLanguage();
   const lang: "en" | "tr" = language === "en" ? "en" : "tr";
 
   const t = pickTranslation(dish.translations as any, lang);
@@ -45,12 +44,10 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
   if (variant === "compact") {
     return (
       <div
-        className={`dish-card flex gap-3 p-3 ${
-          onClick ? "cursor-pointer" : ""
-        }`}
+        className={`flex gap-3 py-3 ${onClick ? "cursor-pointer" : ""}`}
         {...interactiveProps}
       >
-        <div className="w-20 h-20 rounded-lg overflow-hidden flex-shrink-0 bg-muted">
+        <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-muted">
           {dish.image ? (
             <img
               src={dish.image}
@@ -63,16 +60,17 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
         </div>
 
         <div className="flex-1 min-w-0">
-          <div className="flex items-start justify-between gap-2">
-            <h4 className="font-display font-semibold text-foreground truncate">
+          <div className="flex items-start justify-between gap-3">
+            <h4 className="font-sans font-semibold text-foreground truncate">
               {t.name}
             </h4>
-            <span className="price-tag whitespace-nowrap">
+            <span className="whitespace-nowrap font-semibold text-primary">
               {dish.price}
               {ui.currency}
             </span>
           </div>
-          <p className="text-sm text-muted-foreground line-clamp-2 mt-1">
+
+          <p className="mt-1 text-sm text-muted-foreground line-clamp-2 overflow-hidden text-ellipsis">
             {t.description}
           </p>
         </div>
@@ -82,50 +80,54 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
 
   return (
     <div
-      className={`dish-card animate-fade-in ${onClick ? "cursor-pointer" : ""}`}
+      className={`py-5 border-b border-border ${onClick ? "cursor-pointer" : ""}`}
       {...interactiveProps}
     >
-      <div className="aspect-[4/3] overflow-hidden bg-muted">
-        {dish.image ? (
-          <img
-            src={dish.image}
-            alt={t.name ?? ""}
-            className="w-full h-full object-cover"
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20" />
-        )}
-      </div>
-
-      <div className="p-4">
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <h3 className="font-display font-semibold text-lg text-foreground">
-            {t.name}
-          </h3>
-          <span className="price-tag text-lg whitespace-nowrap">
-            {dish.price}
-            {ui.currency}
-          </span>
+      <div className="flex items-start gap-4">
+        <div className="w-36 h-36 rounded-3xl overflow-hidden flex-shrink-0 bg-muted">
+          {dish.image ? (
+            <img
+              src={dish.image}
+              alt={t.name ?? ""}
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20" />
+          )}
         </div>
 
-        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-          {t.description}
-        </p>
+        <div className="flex-1 min-w-0 h-36 flex flex-col">
+          <h3 className="font-sans text-[20px] leading-tight font-semibold text-foreground">
+            {t.name}
+          </h3>
 
-        <div className="flex items-center gap-2">
-          {dish.isVegan && (
-            <span className="filter-badge filter-badge-vegan">
-              <Leaf className="w-3 h-3" />
-              {ui.vegan}
-            </span>
+          <p className="mt-3 text-base leading-8 text-muted-foreground line-clamp-2 overflow-hidden text-ellipsis">
+            {t.description}
+          </p>
+
+          {(dish.isVegan || dish.isSpicy) && (
+            <div className="mt-3 flex items-center gap-2 flex-wrap">
+              {dish.isVegan && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-700">
+                  <Leaf className="w-3 h-3" />
+                  {ui.vegan}
+                </span>
+              )}
+
+              {dish.isSpicy && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2.5 py-1 text-xs font-medium text-red-700">
+                  <Flame className="w-3 h-3" />
+                  {ui.spicy}
+                </span>
+              )}
+            </div>
           )}
 
-          {dish.isSpicy && (
-            <span className="filter-badge filter-badge-spicy">
-              <Flame className="w-3 h-3" />
-              {ui.spicy}
+          <div className="mt-auto">
+            <span className="text-[18px] font-semibold text-primary">
+              {dish.price} {ui.currency}
             </span>
-          )}
+          </div>
         </div>
       </div>
     </div>

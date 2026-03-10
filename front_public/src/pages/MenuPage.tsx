@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Home } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -17,7 +17,6 @@ import { dishImages } from "@/data/images";
 import type { Lang } from "@/api/public";
 import { getPublicSlugFromLocation } from "@/utils/publicSlug";
 
-// ✅ UiDish делаем совместимым с MenuItem
 type UiDish = MenuItem & {
   ingredients?: string;
   categoryId?: number | null;
@@ -34,7 +33,6 @@ function normalizeLang(x: string | null): Lang {
   return "tr";
 }
 
-// ✅ делаем объект ровно в форме MenuItem (+ ingredients optional)
 function ensureDishShape(
   input: any,
   fallbackCategory: string,
@@ -136,6 +134,9 @@ function ensureDishShape(
 }
 
 export default function MenuPage() {
+  useEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, []);
   const [searchParams] = useSearchParams();
 
   const lang = normalizeLang(searchParams.get("lang"));
@@ -297,22 +298,23 @@ export default function MenuPage() {
     );
   }
 
-  const restaurantName = restaurantFromApi?.name ?? restaurantDemo?.name ?? "Restaurant";
+  const restaurantName =
+    restaurantFromApi?.name ?? restaurantDemo?.name ?? "Restaurant";
 
   return (
     <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
+      <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border shadow-sm">
         <div className="container max-w-lg mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3 min-w-0">
               <Link
                 to={`/?slug=${encodeURIComponent(slug)}&lang=${lang}`}
-                className="w-10 h-10 rounded-xl bg-card flex items-center justify-center text-foreground hover:bg-muted transition-colors"
+                className="w-10 h-10 shrink-0 rounded-xl bg-primary flex items-center justify-center text-white hover:bg-primary/90 transition-colors"
               >
                 <Home className="w-5 h-5" />
               </Link>
 
-              <h1 className="font-display font-semibold text-lg text-foreground">
+              <h1 className="font-sans font-semibold text-lg text-foreground truncate">
                 {restaurantName}
               </h1>
             </div>
@@ -320,13 +322,15 @@ export default function MenuPage() {
             <LanguageSwitcher />
           </div>
 
-          <SearchBar
-            value={searchQuery}
-            onChange={setSearchQuery}
-            placeholder={lang === "tr" ? "Yemek ara..." : "Search dishes..."}
-          />
+          <div className="mt-4">
+            <SearchBar
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder={lang === "tr" ? "Yemek ara..." : "Search dishes..."}
+            />
+          </div>
 
-          <div className="mt-3">
+          <div className="mt-3 border-t border-border pt-3">
             <CategoryTabs
               activeCategoryId={activeCategoryId}
               onCategoryChange={setActiveCategoryId}
@@ -337,18 +341,20 @@ export default function MenuPage() {
         </div>
       </header>
 
-      <main className="container max-w-lg mx-auto px-4 py-6">
+      <main className="container max-w-lg mx-auto px-4 pt-5 pb-6">
         {activeCategoryId === null ? (
           Object.entries(groupedItems).map(([categoryName, dishes]) => (
             <section key={categoryName} className="mb-8">
-              <h2 className="font-display text-xl font-semibold text-foreground mb-4">
+              <h2 className="font-sans text-[20px] font-semibold text-foreground mb-3">
                 {categoryName}
               </h2>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+
+              <div className="flex flex-col">
                 {dishes.map((dish) => (
                   <DishCard
                     key={dish.id}
                     dish={dish}
+                    variant="full"
                     onClick={() => {
                       setSelectedDish(dish);
                       setDishOpen(true);
@@ -359,11 +365,12 @@ export default function MenuPage() {
             </section>
           ))
         ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex flex-col">
             {filteredItems.map((dish) => (
               <DishCard
                 key={dish.id}
                 dish={dish}
+                variant="full"
                 onClick={() => {
                   setSelectedDish(dish);
                   setDishOpen(true);

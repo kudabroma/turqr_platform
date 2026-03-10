@@ -55,7 +55,6 @@ export function DishDetailsModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      {/* ✅ flex-col + max-h: фото фикс, низ скролл */}
       <DialogContent className="sm:max-w-lg w-[calc(100vw-24px)] max-h-[88vh] p-0 overflow-hidden rounded-3xl flex flex-col">
         {/* TOP: фото + X */}
         <div className="relative bg-background">
@@ -86,19 +85,16 @@ export function DishDetailsModal({
           </div>
         </div>
 
-        {/* BOTTOM: скроллится */}
+        {/* BOTTOM */}
         <div className="px-6 pb-6 overflow-auto flex-1">
-          <div className="flex items-start justify-between gap-3">
-            <h2 className="font-display text-3xl font-semibold text-foreground leading-tight">
+          <div className="flex items-baseline justify-between gap-3">
+            <h2 className="font-sans text-3xl font-semibold text-foreground leading-tight">
               {t?.name ?? "Dish"}
             </h2>
 
-            <div className="shrink-0">
-              <span className="text-2xl font-semibold text-foreground">
-                {dish.price}
-                {ui?.currency ?? "₺"}
-              </span>
-            </div>
+            <span className="text-2xl font-semibold text-orange-500 leading-none">
+              {dish.price}{ui?.currency ?? "₺"}
+            </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 mt-4">
@@ -116,16 +112,11 @@ export function DishDetailsModal({
             )}
           </div>
 
-          <div className="mt-6 space-y-5">
+          <div className="mt-5 space-y-5">
             {description && (
-              <div>
-                <h4 className="text-sm font-semibold text-foreground">
-                  {lang === "en" ? "Description" : "Açıklama"}
-                </h4>
-                <p className="text-base text-muted-foreground mt-2 whitespace-pre-line leading-relaxed">
-                  {description}
-                </p>
-              </div>
+              <p className="text-base text-muted-foreground whitespace-pre-line leading-8">
+                {description}
+              </p>
             )}
 
             {ingredients && (
@@ -133,7 +124,7 @@ export function DishDetailsModal({
                 <h4 className="text-sm font-semibold text-foreground">
                   {lang === "en" ? "Ingredients" : "İçindekiler"}
                 </h4>
-                <p className="text-base text-muted-foreground mt-2 whitespace-pre-line leading-relaxed">
+                <p className="text-base text-muted-foreground mt-2 whitespace-pre-line leading-8">
                   {ingredients}
                 </p>
               </div>
@@ -146,7 +137,6 @@ export function DishDetailsModal({
             )}
           </div>
 
-          {/* небольшой “air gap” внизу чтобы скролл не упирался */}
           <div className="h-4" />
         </div>
       </DialogContent>

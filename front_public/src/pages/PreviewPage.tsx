@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
-import { MapPin, Clock, Star, ChevronRight } from "lucide-react";
+import { MapPin, Clock, Star, ChevronRight, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
@@ -272,20 +272,25 @@ export default function PreviewPage() {
   const addressFromApi = String(restaurantFromApi?.address ?? "").trim();
 
   const contactsRaw = String(restaurantFromApi?.contacts ?? "");
+
   const contactsLines = contactsRaw
     .split(/\r?\n/)
     .map((s) => s.trim())
     .filter(Boolean);
 
-  const emailParsed = contactsLines.find((x) => x.includes("@")) ?? "";
-  const phoneParsed = contactsLines.find((x) => /[0-9]{6,}/.test(x)) ?? "";
-  const otherContactsParsed = contactsLines.filter(
-    (x) => x !== emailParsed && x !== phoneParsed
-  );
-
-  const phone = phoneFromApi || phoneParsed;
-  const email = emailFromApi || emailParsed;
+  // телефон и email берем только из основных полей
+  const phone = phoneFromApi;
+  const email = emailFromApi;
   const address = addressFromApi || restaurantAddress;
+
+  // всё что написано в "Ek İletişim Bilgileri"
+  // считаем дополнительной информацией
+  const otherContactsParsed = contactsLines.filter(
+    (x) =>
+      x !== phone &&
+      x !== email &&
+      x !== address
+  );
 
   const platformName = "TurQR";
   const platformLogo = "/platform/Turlogo.png";
@@ -298,14 +303,11 @@ export default function PreviewPage() {
             <img
               src={platformLogo}
               alt={platformName}
-              className="w-9 h-9 rounded-xl object-contain"
+              className="w-auto h-10 object-contain"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
-            <span className="font-display font-semibold text-lg text-foreground">
-              {platformName}
-            </span>
           </div>
 
           <LanguageSwitcher />
@@ -319,7 +321,7 @@ export default function PreviewPage() {
 
         <section className="mt-6 animate-fade-in">
           <div className="mb-2">
-            <h2 className="font-display text-2xl font-bold text-foreground">
+            <h2 className="font-sans text-2xl font-bold text-foreground">
               {restaurantName}
             </h2>
           </div>
@@ -336,28 +338,24 @@ export default function PreviewPage() {
           </div>
 
           {restaurantDescription && (
-            <p className="mb-4 text-[15px] leading-7 text-muted-foreground indent-6 max-w-prose whitespace-pre-line">
+            <p className="mb-4 mt-6 text-[15px] leading-7 text-muted-foreground max-w-prose whitespace-pre-line">
               {restaurantDescription}
             </p>
           )}
 
-          <div className="space-y-2">
-            {(address || phone || email || otherContactsParsed.length > 0) && (
+          <div className="mt-6 space-y-4">
+            {address && (
               <div className="flex items-start gap-3">
                 <MapPin className="w-5 h-5 text-primary mt-0.5 shrink-0" />
-                <div className="text-foreground text-sm space-y-1">
-                  {address && <div>{address}</div>}
-                  {!address && phone && <div>📞 {phone}</div>}
-                  {!address && email && <div>✉️ {email}</div>}
-                  {!address &&
-                    otherContactsParsed.map((x) => <div key={x}>{x}</div>)}
+                <div className="text-foreground text-sm leading-6">
+                  {address}
                 </div>
               </div>
             )}
 
             <div className="flex items-center gap-3">
               <Clock className="w-5 h-5 text-primary shrink-0" />
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-foreground text-sm">
                   {restaurantWorkingHours || "-"}
                 </span>
@@ -379,20 +377,39 @@ export default function PreviewPage() {
               </div>
             </div>
 
-            {address && (phone || email || otherContactsParsed.length > 0) && (
-              <div className="mt-2 text-sm text-muted-foreground space-y-1">
-                {phone && <div>📞 {phone}</div>}
-                {email && <div>✉️ {email}</div>}
-                {otherContactsParsed.map((x) => (
-                  <div key={x}>{x}</div>
+            {(phone || email || otherContactsParsed.length > 0) && (
+              <div className="space-y-3 text-sm text-foreground">
+
+                {phone && (
+                  <div className="flex items-start gap-3">
+                    <span className="w-5 shrink-0 text-primary">📞</span>
+                    <span className="leading-6">{phone}</span>
+                  </div>
+                )}
+
+                {email && (
+                  <div className="flex items-start gap-3">
+                    <span className="w-5 shrink-0 text-primary">✉️</span>
+                    <span className="leading-6">{email}</span>
+                  </div>
+                )}
+
+                {otherContactsParsed
+                  .filter((x) => x !== address)
+                  .map((x) => (
+                    <div key={x} className="flex items-start gap-3">
+                      <Info className="w-5 h-5 text-primary mt-0.5 shrink-0" />
+                      <span className="leading-6">{x}</span>
+                    </div>
                 ))}
+
               </div>
             )}
           </div>
         </section>
 
         <section className="mt-8">
-          <h3 className="font-display text-xl font-semibold text-foreground mb-4">
+          <h3 className="font-sans text-xl font-semibold text-foreground mb-4 mt-8">
             {ui?.reviews ?? (lang === "en" ? "Reviews" : "Yorumlar")}
           </h3>
           <div className="flex gap-3 overflow-x-auto pb-2 -mx-4 px-4 scrollbar-hide">
@@ -403,8 +420,8 @@ export default function PreviewPage() {
         </section>
 
         <section className="mt-8">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-display text-xl font-semibold text-foreground">
+          <div className="flex items-center justify-between mb-4 mt-8">
+            <h3 className="font-sans text-xl font-semibold text-foreground">
               {ui?.featuredDishes ??
                 (lang === "en" ? "Featured Dishes" : "Öne Çıkanlar")}
             </h3>
