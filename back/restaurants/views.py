@@ -13,7 +13,7 @@ from django.conf import settings
 import io
 import qrcode
 
-from .qr.generator import compose_qr_template
+from .qr.generator import compose_qr_template, build_menu_url, generate_qr_png_bytes
 from .models import Restaurant, Category, Dish, PaymentHistory
 from .serializers import (
     UserSerializer,
@@ -560,7 +560,7 @@ class SubscriptionView(APIView):
 class AdminQrPngView(APIView):
     """
     GET /api/admin/qr/png/
-    Возвращает обычный QR код меню ресторана
+    Возвращает styled QR код меню ресторана
     """
 
     permission_classes = [permissions.IsAuthenticated]
@@ -574,17 +574,12 @@ class AdminQrPngView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        slug = restaurant.slug
+        menu_url = build_menu_url(restaurant.slug)
+        image = generate_qr_png_bytes(menu_url, size=512)
 
-        menu_url = f"https://{slug}.turqr.com/menu"
-
-        qr = qrcode.make(menu_url)
-
-        buffer = io.BytesIO()
-        qr.save(buffer, format="PNG")
-        buffer.seek(0)
-
-        return HttpResponse(buffer.getvalue(), content_type="image/png")
+        response = HttpResponse(image.getvalue(), content_type="image/png")
+        response["Content-Disposition"] = f'inline; filename="turqr-{restaurant.slug}-qr.png"'
+        return response
 
 
 class AdminQrTableStickerView(APIView):
