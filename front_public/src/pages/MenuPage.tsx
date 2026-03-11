@@ -268,7 +268,7 @@ export default function MenuPage() {
   }, [filteredItems, lang]);
 
   const loadingText = lang === "en" ? "Loading menu..." : "Menü yükleniyor...";
-  const errorText = lang === "en" ? "Failed to load data" : "Veri yüklenemedi";
+  const errorText = lang === "en" ? "Failed to load data" : "Menü şu anda yüklenemiyor. Lütfen tekrar deneyin.";
 
   if (!slug) {
     return (

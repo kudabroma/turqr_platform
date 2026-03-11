@@ -19,6 +19,7 @@ from .views import (
     RestaurantMeView,
     AdminQrPngView,
     AdminQrTableStickerView,
+    AdminQrMenuA5DownloadView
 )
 from .lead_views import create_lead
 
@@ -48,6 +49,7 @@ urlpatterns = [
     # QR
     path("admin/qr/png/", AdminQrPngView.as_view()),
     path("admin/qr/table-sticker/", AdminQrTableStickerView.as_view()),
+    path("admin/qr/menu-a5/", AdminQrMenuA5DownloadView.as_view(), name="admin-qr-menu-a5"),
 ]
 
 urlpatterns += router.urls

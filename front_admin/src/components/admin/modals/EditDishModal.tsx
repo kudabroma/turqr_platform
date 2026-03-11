@@ -50,6 +50,7 @@ const emptyDish: DishData = {
   vegan: false,
   spicy: false,
   featured: false,
+  _categoryId: undefined,
 };
 
 export function EditDishModal({
@@ -62,6 +63,9 @@ export function EditDishModal({
 }: EditDishModalProps) {
   const [form, setForm] = useState<DishData>(emptyDish);
   const [activeLang, setActiveLang] = useState<Lang>("tr");
+
+  const [nameTrError, setNameTrError] = useState("");
+  const [categoryError, setCategoryError] = useState("");
 
   const isNew = !dish;
 
@@ -92,6 +96,7 @@ export function EditDishModal({
         description_tr: dish.description_tr ?? "",
         description_en: dish.description_en ?? "",
         is_active: (dish as any).is_active ?? true,
+        _categoryId: dish._categoryId ?? undefined,
       });
     } else {
       setForm(emptyDish);
@@ -100,26 +105,47 @@ export function EditDishModal({
     setActiveLang("tr");
     setImageFile(null);
     setImagePreview(null);
+
+    // сброс ошибок при открытии
+    setNameTrError("");
+    setCategoryError("");
   }, [open, dish]);
 
   const categoryOptions = useMemo(() => {
     return (categories ?? []).filter((c: any) => !c?.is_system);
   }, [categories]);
 
-  const update = <K extends keyof DishData>(key: K, value: DishData[K]) =>
+  const update = <K extends keyof DishData>(key: K, value: DishData[K]) => {
     setForm((prev) => ({ ...prev, [key]: value }));
 
+    if (key === "name_tr" && String(value).trim()) {
+      setNameTrError("");
+    }
+
+    if (key === "_categoryId" && value) {
+      setCategoryError("");
+    }
+  };
+
   const handleSave = () => {
+    let hasError = false;
+
     if (!form.name_tr.trim()) {
-      alert("İsim (TR) zorunludur.");
+      setNameTrError("İsim (TR) zorunludur.");
       setActiveLang("tr");
-      return;
+      hasError = true;
+    } else {
+      setNameTrError("");
     }
 
     if (!form._categoryId) {
-      alert("Kategori seçmelisiniz.");
-      return;
+      setCategoryError("Kategori seçmelisiniz.");
+      hasError = true;
+    } else {
+      setCategoryError("");
     }
+
+    if (hasError) return;
 
     onSave({ ...form, imageFile });
     onOpenChange(false);
@@ -138,7 +164,6 @@ export function EditDishModal({
           <DialogTitle>{isNew ? "Yeni Yemek Ekle" : "Yemeği Düzenle"}</DialogTitle>
         </DialogHeader>
 
-        {/* body скроллится */}
         <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
           <div className="space-y-4 mt-2">
             <div className="flex items-center gap-4">
@@ -214,7 +239,11 @@ export function EditDishModal({
                       <Input
                         value={form.name_tr}
                         onChange={(e) => update("name_tr", e.target.value)}
+                        className={nameTrError ? "border-red-500 focus-visible:ring-red-500" : ""}
                       />
+                      {nameTrError ? (
+                        <p className="mt-2 text-sm text-red-500">{nameTrError}</p>
+                      ) : null}
                     </div>
 
                     <div>
@@ -253,7 +282,9 @@ export function EditDishModal({
               <div>
                 <Label>Kategori</Label>
                 <select
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  className={`w-full rounded-md border bg-background px-3 py-2 text-sm ${
+                    categoryError ? "border-red-500" : "border-border"
+                  }`}
                   value={form._categoryId ?? ""}
                   onChange={(e) =>
                     update(
@@ -262,8 +293,8 @@ export function EditDishModal({
                     )
                   }
                 >
-                  <option value="" disabled>
-                    Kategori seçiniz…
+                  <option value="">
+                    Kategori seçiniz...
                   </option>
                   {categoryOptions.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -271,6 +302,21 @@ export function EditDishModal({
                     </option>
                   ))}
                 </select>
+
+                {categoryError ? (
+                  <p className="mt-2 text-sm text-red-500">{categoryError}</p>
+                ) : null}
+              </div>
+            )}
+
+            {categoryOptions.length === 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
+                <p className="text-sm font-medium text-amber-900">
+                  Önce kategori oluşturmalısınız.
+                </p>
+                <p className="mt-1 text-sm text-amber-800">
+                  Yemek eklemek için en az bir kategori gerekli.
+                </p>
               </div>
             )}
 
@@ -284,7 +330,6 @@ export function EditDishModal({
               />
             </div>
 
-            {/* Aktif / Pasif */}
             <div className="flex items-center justify-between border rounded-xl px-4 py-3">
               <div>
                 <div className="font-medium text-sm">Durum</div>
@@ -312,7 +357,6 @@ export function EditDishModal({
           </div>
         </div>
 
-        {/* Footer как в RestaurantInfo: без отдельной карточки */}
         <div className="px-6 py-1 border-t bg-background flex items-center justify-between">
           <div>
             {!isNew && onDelete && (

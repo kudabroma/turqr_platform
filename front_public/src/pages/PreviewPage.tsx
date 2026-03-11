@@ -252,7 +252,7 @@ export default function PreviewPage() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <p className="text-muted-foreground">
-          {lang === "en" ? "Failed to load data" : "Veri yüklenemedi"}
+          {lang === "en" ? "Failed to load data" : "Menü şu anda yüklenemiyor. Lütfen tekrar deneyin."}
         </p>
       </div>
     );

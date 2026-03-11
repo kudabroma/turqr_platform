@@ -1,5 +1,6 @@
 from django.contrib.auth import authenticate, login, logout, get_user_model
 from django.db import transaction
+from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
 from rest_framework.decorators import action
 from rest_framework import permissions, serializers, status, viewsets
@@ -12,7 +13,7 @@ from django.http import HttpResponse
 from django.conf import settings
 import io
 import qrcode
-
+from django.http import FileResponse
 from .qr.generator import compose_qr_template, build_menu_url, generate_qr_png_bytes
 from .models import Restaurant, Category, Dish, PaymentHistory
 from .serializers import (
@@ -607,3 +608,22 @@ class AdminQrTableStickerView(APIView):
         response["Content-Disposition"] = f'attachment; filename="turqr-{slug}-sticker.png"'
 
         return response
+class AdminQrMenuA5DownloadView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, *args, **kwargs):
+        restaurant = request.user.restaurant
+        slug = restaurant.slug
+
+        file_obj = compose_qr_template(
+            slug,
+            "menu_a5_v1",
+            restaurant_name=restaurant.name,
+        )
+
+        return FileResponse(
+            file_obj,
+            as_attachment=True,
+            filename=f"{slug}_menu_a5.pdf",
+            content_type="application/pdf",
+        )

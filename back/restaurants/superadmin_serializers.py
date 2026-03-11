@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
+from django.db import transaction
 from django.utils import timezone
+from datetime import timedelta
 
 from rest_framework import serializers
 
@@ -149,16 +151,20 @@ class SuperAdminBusinessUserSerializer(serializers.ModelSerializer):
         }
 
 class SuperAdminBusinessUserCreateSerializer(serializers.Serializer):
-    """
-    Создание бизнес-пользователя для ресторана.
-    Предполагаем, что у User есть связь restaurant (FK/OneToOne) -> Restaurant.
-    """
-    email = serializers.EmailField()
+    username = serializers.CharField(max_length=150)
     password = serializers.CharField(write_only=True, min_length=8)
     first_name = serializers.CharField(required=False, allow_blank=True)
     last_name = serializers.CharField(required=False, allow_blank=True)
     is_active = serializers.BooleanField(required=False, default=True)
     restaurant_id = serializers.IntegerField()
+
+    def validate_username(self, value: str):
+        username = value.strip()
+        if not username:
+            raise serializers.ValidationError("Username is required.")
+        if User.objects.filter(username__iexact=username).exists():
+            raise serializers.ValidationError("User with this username already exists.")
+        return username
 
     def validate_password(self, value: str):
         validate_password(value)
@@ -169,33 +175,56 @@ class SuperAdminBusinessUserCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Restaurant not found.")
         return value
 
+    @transaction.atomic
     def create(self, validated_data):
-        email = validated_data["email"].strip().lower()
+        username = validated_data["username"].strip()
         password = validated_data["password"]
         restaurant = Restaurant.objects.get(id=validated_data["restaurant_id"])
 
         user = User(
-            email=email,
-            username=email if hasattr(User, "username") else None,  # на случай дефолт User
-            first_name=validated_data.get("first_name", ""),
-            last_name=validated_data.get("last_name", ""),
+            username=username,
+            first_name=validated_data.get("first_name", "").strip(),
+            last_name=validated_data.get("last_name", "").strip(),
             is_active=validated_data.get("is_active", True),
         )
 
-        # Если у модели нет username — убираем
-        if not hasattr(user, "username"):
-            user.__dict__.pop("username", None)
+        # если поле email существует в модели, просто оставляем пустым
+        if hasattr(user, "email"):
+            user.email = ""
 
         user.set_password(password)
         user.save()
 
-        # Привязка к ресторану (если поле есть)
         if hasattr(user, "restaurant"):
-            setattr(user, "restaurant", restaurant)
+            user.restaurant = restaurant
             user.save(update_fields=["restaurant"])
 
-        return user
+        if hasattr(restaurant, "active") and not restaurant.active:
+            restaurant.active = True
+            restaurant.save(update_fields=["active"])
 
+        subscription, _created = Subscription.objects.get_or_create(
+            restaurant=restaurant,
+            defaults={
+                "plan": "trial",
+                "status": "active",
+            },
+        )
+
+        updated_fields = []
+
+        if hasattr(subscription, "status") and subscription.status != "active":
+            subscription.status = "active"
+            updated_fields.append("status")
+
+        if hasattr(subscription, "plan") and not getattr(subscription, "plan", None):
+            subscription.plan = "trial"
+            updated_fields.append("plan")
+
+        if updated_fields:
+            subscription.save(update_fields=updated_fields)
+
+        return user
 
 class SuperAdminBusinessUserPatchSerializer(serializers.Serializer):
     """
@@ -244,7 +273,7 @@ class SuperAdminSubscriptionSerializer(serializers.ModelSerializer):
             "restaurant",
             "plan",
             "status",
-            "expires_at ",
+            "paid_until",
             "created_at",
             "updated_at",
         ]
@@ -266,7 +295,6 @@ class SuperAdminSubscriptionPatchSerializer(serializers.ModelSerializer):
         fields = [
             "plan",
             "status",
-            "paid_until",
         ]
 
 

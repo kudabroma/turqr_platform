@@ -17,6 +17,7 @@ export default function MenuPage() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
+
   const qc = useQueryClient();
 
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
@@ -113,23 +114,17 @@ export default function MenuPage() {
     return categoriesRawSorted.flatMap((c) =>
       (c.dishes ?? []).map((d: any) => ({
         id: d.id,
-
         name_tr: d.name_tr ?? d.name ?? "",
         name_en: d.name_en ?? "",
         description_tr: d.description_tr ?? d.description ?? "",
         description_en: d.description_en ?? "",
-
         is_active: typeof d.is_active === "boolean" ? d.is_active : true,
-
         price: typeof d.price === "string" ? Number(d.price) : d.price ?? 0,
-
         image: d.image_url ?? d.image ?? "",
         imageFile: null,
-
         vegan: false,
         spicy: false,
         featured: false,
-
         _categoryName: c.name,
         _categoryId: c.id,
       }))
@@ -155,10 +150,6 @@ export default function MenuPage() {
     });
   }, [dishes, search, activeCategoryId]);
 
-  /**
-   * ✅ Bölümleri backend sırasına göre kuruyoruz
-   * Böylece admin ekranda da reorder anında görünür
-   */
   const groupedByCategory = useMemo(() => {
     if (activeCategoryId === null) {
       return categoriesForTabs.map((cat) => ({
@@ -178,8 +169,6 @@ export default function MenuPage() {
       },
     ];
   }, [activeCategoryId, categoriesForTabs, filteredDishes]);
-
-  // ---------------- CRUD: Yemekler ----------------
 
   const openNewDish = () => {
     const active = activeCategoryId
@@ -319,8 +308,6 @@ export default function MenuPage() {
     }
   };
 
-  // ---------------- CRUD: Kategoriler ----------------
-
   const handleSaveCategories = async (payload: {
     create: { name_tr: string; name_en: string }[];
     rename: { id: number; name_tr: string; name_en: string }[];
@@ -351,9 +338,7 @@ export default function MenuPage() {
       }
 
       if (payload.delete.length) {
-        await Promise.all(
-          payload.delete.map((c) => categoriesApi.delete(c.id))
-        );
+        await Promise.all(payload.delete.map((c) => categoriesApi.delete(c.id)));
       }
 
       if (payload.reorder.length) {
@@ -367,8 +352,6 @@ export default function MenuPage() {
       alert("Kategoriler kaydedilemedi. Konsolu / Network'ü kontrol edin.");
     }
   };
-
-  // ---------------- Loading / Error ----------------
 
   if (menuQuery.isLoading) {
     return (
@@ -393,8 +376,6 @@ export default function MenuPage() {
     );
   }
 
-  // ---------------- UI ----------------
-
   return (
     <div className="min-h-screen bg-background">
       <AdminHeader showBack />
@@ -411,21 +392,20 @@ export default function MenuPage() {
           />
         </div>
 
-        {/* ✅ Categories: Settings + Tümü FIXED LEFT, categories scroll */}
+        {/* ✅ Categories: fixed alignment */}
         <div className="flex items-center gap-2 mb-2">
-          {/* fixed-left buttons */}
           <div className="flex items-center gap-2 shrink-0">
             <button
               onClick={() => setShowCategoriesModal(true)}
-              className="p-2 rounded-full text-muted-foreground hover:bg-muted transition-colors"
+              className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-border transition-colors"
               title="Kategorileri Düzenle"
             >
-              <Settings className="h-4 w-4" />
+              <Settings className="h-5 w-5" />
             </button>
 
             <button
               onClick={() => setActiveCategoryId(null)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`inline-flex h-14 items-center justify-center px-5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                 activeCategoryId === null
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-foreground hover:bg-border"
@@ -435,13 +415,12 @@ export default function MenuPage() {
             </button>
           </div>
 
-          {/* scrollable categories */}
-          <div className="flex items-center gap-2 overflow-x-auto pb-2 min-w-0 flex-1">
+          <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1">
             {categoriesForTabs.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategoryId(cat.id)}
-                className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                className={`inline-flex h-14 items-center justify-center px-5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                   activeCategoryId === cat.id
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground hover:bg-border"
@@ -453,13 +432,11 @@ export default function MenuPage() {
           </div>
         </div>
 
-        {/* Dishes grouped */}
         {groupedByCategory.map(({ categoryId, categoryName, dishes: catDishes }) => (
           <div key={categoryId} className="mt-6">
             <h3 className="text-lg font-bold text-foreground mb-3">{categoryName}</h3>
 
             <div className="grid grid-cols-2 gap-3">
-              {/* Add new dish card */}
               {activeCategoryId !== null && (
                 <button
                   onClick={openNewDish}
@@ -520,7 +497,6 @@ export default function MenuPage() {
           </div>
         ))}
 
-        {/* All view: add new dish button */}
         {activeCategoryId === null && (
           <div className="mt-6">
             <button
@@ -534,7 +510,6 @@ export default function MenuPage() {
         )}
       </div>
 
-      {/* Categories modal */}
       <EditCategoriesModal
         open={showCategoriesModal}
         onOpenChange={setShowCategoriesModal}
@@ -542,7 +517,6 @@ export default function MenuPage() {
         onSave={handleSaveCategories as any}
       />
 
-      {/* Dish modal */}
       <EditDishModal
         open={showDishModal}
         onOpenChange={setShowDishModal}

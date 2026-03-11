@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createRestaurant,
@@ -39,7 +39,17 @@ function toSlug(input: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-// Пока ты в dev: можно так. Потом заменишь на https://{slug}.turqr.com
+function normalizeSlug(input: string) {
+  return input
+    .trim()
+    .toLowerCase()
+    .replace(/['"]/g, "")
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+// Пока ты в dev: потом заменишь на https://{slug}.turqr.com
 function publicUrl(slug: string) {
   return `http://${slug}.localhost:8080`;
 }
@@ -60,7 +70,6 @@ export default function RestaurantsPage() {
     queryFn: getRestaurants,
   });
 
-  // CREATE
   const createMut = useMutation({
     mutationFn: (payload: CreateRestaurantPayload) => createRestaurant(payload),
     onSuccess: async () => {
@@ -76,7 +85,6 @@ export default function RestaurantsPage() {
     },
   });
 
-  // TOGGLE ACTIVE
   const toggleMut = useMutation({
     mutationFn: (id: number) => toggleRestaurantActive(id),
     onSuccess: async () => {
@@ -92,7 +100,6 @@ export default function RestaurantsPage() {
     },
   });
 
-  // DELETE (hard delete)
   const deleteMut = useMutation({
     mutationFn: (id: number) => deleteRestaurant(id),
     onSuccess: async () => {
@@ -108,19 +115,42 @@ export default function RestaurantsPage() {
     },
   });
 
-  // Create modal
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
-  const slug = useMemo(() => toSlug(name), [name]);
+  const [slug, setSlug] = useState("");
+  const [slugTouched, setSlugTouched] = useState(false);
 
-  // Delete confirm modal
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Restaurant | null>(null);
 
+  useEffect(() => {
+    if (!slugTouched) {
+      setSlug(toSlug(name));
+    }
+  }, [name, slugTouched]);
+
+  useEffect(() => {
+    if (!open) {
+      setName("");
+      setSlug("");
+      setSlugTouched(false);
+    }
+  }, [open]);
+
   const onCreate = async () => {
-    if (!name.trim() || !slug) return;
-    await createMut.mutateAsync({ name: name.trim(), slug });
+    const cleanName = name.trim();
+    const cleanSlug = normalizeSlug(slug);
+
+    if (!cleanName || !cleanSlug) return;
+
+    await createMut.mutateAsync({
+      name: cleanName,
+      slug: cleanSlug,
+    });
+
     setName("");
+    setSlug("");
+    setSlugTouched(false);
     setOpen(false);
   };
 
@@ -130,7 +160,6 @@ export default function RestaurantsPage() {
     toast({ title: "Copied", description: url });
   };
 
-  // Подстрой если у тебя другой url для Django admin:
   const openDjangoAdmin = (id: number) => {
     window.open(`/admin/restaurants/restaurant/${id}/change/`, "_blank");
   };
@@ -146,6 +175,8 @@ export default function RestaurantsPage() {
     setDeleteOpen(false);
     setDeleteTarget(null);
   };
+
+  const canCreate = !!name.trim() && !!normalizeSlug(slug);
 
   if (isLoading) return null;
 
@@ -230,7 +261,6 @@ export default function RestaurantsPage() {
                       Django admin
                     </Button>
 
-                    {/* ✅ Toggle Active button (next to Delete) */}
                     <Button
                       variant={r.active ? "secondary" : "outline"}
                       size="sm"
@@ -280,8 +310,15 @@ export default function RestaurantsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>Slug (auto)</Label>
-              <Input value={slug} readOnly />
+              <Label>Slug</Label>
+              <Input
+                value={slug}
+                onChange={(e) => {
+                  setSlugTouched(true);
+                  setSlug(normalizeSlug(e.target.value));
+                }}
+                placeholder="turko"
+              />
               <p className="text-xs text-muted-foreground">
                 Public URL: {slug ? publicUrl(slug) : "—"}
               </p>
@@ -292,7 +329,7 @@ export default function RestaurantsPage() {
             <Button variant="outline" onClick={() => setOpen(false)}>
               Cancel
             </Button>
-            <Button onClick={onCreate} disabled={!name.trim() || createMut.isPending}>
+            <Button onClick={onCreate} disabled={!canCreate || createMut.isPending}>
               {createMut.isPending ? "Creating..." : "Create"}
             </Button>
           </DialogFooter>
