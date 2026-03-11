@@ -6,10 +6,11 @@ import TrustSection from "@/components/TrustSection";
 import LeadFormSection from "@/components/LeadFormSection";
 import FAQSection from "@/components/FAQSection";
 import Footer from "@/components/Footer";
+import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 
 const Index = () => {
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
       <Header />
       <HeroSection />
       <HowItWorks />
@@ -18,6 +19,9 @@ const Index = () => {
       <LeadFormSection />
       <FAQSection />
       <Footer />
+
+      {/* Floating WhatsApp */}
+      <FloatingWhatsApp />
     </div>
   );
 };
