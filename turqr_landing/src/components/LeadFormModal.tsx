@@ -35,9 +35,6 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // ✅ Later you should move this to env:
-  // Vite:  import.meta.env.VITE_API_BASE_URL
-  // const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
   const API_BASE = "http://localhost:8000";
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -51,7 +48,6 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
       const res = await fetch(`${API_BASE}/api/lead/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        // ✅ we do NOT send cookies/credentials from landing
         body: JSON.stringify({
           name: form.name.trim(),
           restaurant: form.restaurant.trim(),
@@ -82,7 +78,6 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
   const handleClose = (v: boolean) => {
     onOpenChange(v);
     if (!v) {
-      // reset after modal close animation
       setTimeout(() => {
         setSubmitted(false);
         setIsSubmitting(false);
@@ -104,9 +99,13 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
           </div>
         ) : (
           <>
-            <DialogHeader>
-              <DialogTitle className="font-display text-xl">{t.form.title}</DialogTitle>
-              <DialogDescription>{t.form.subtitle}</DialogDescription>
+            <DialogHeader className="space-y-6 mb-2">
+              <DialogTitle className="text-[32px] font-semibold tracking-tight leading-[1.1] text-foreground">
+                {t.form.title}
+              </DialogTitle>
+              <DialogDescription className="text-base leading-relaxed text-muted-foreground">
+                {t.form.subtitle}
+              </DialogDescription>
             </DialogHeader>
 
             <form onSubmit={handleSubmit} className="flex flex-col gap-4 mt-2">
@@ -172,4 +171,4 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
   );
 };
 
-export default LeadFormModal;
+export default LeadFormModal; 

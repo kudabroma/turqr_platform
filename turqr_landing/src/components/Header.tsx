@@ -18,12 +18,11 @@ const Header = () => {
 
   return (
     <>
-      <header className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-lg border-b border-border">
-        <div className="container flex items-center justify-between h-16">
-
+      <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/60 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/65 shadow-sm">
+        <div className="container flex items-center justify-between h-[72px]">
           {/* LEFT — Logo + Language */}
-          <div className="flex items-center gap-4">
-            <a href="#">
+          <div className="flex items-center gap-4 lg:gap-5">
+            <a href="#" className="shrink-0">
               <img
                 src="/Turlogo.png"
                 alt="TurQR"
@@ -41,12 +40,12 @@ const Header = () => {
           </div>
 
           {/* CENTER nav */}
-          <nav className="hidden md:flex items-center gap-8">
+          <nav className="hidden md:flex items-center gap-10 lg:gap-14 xl:gap-16">
             {navLinks.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors after:absolute after:left-0 after:-bottom-1 after:h-[1.5px] after:w-0 after:bg-primary after:transition-all after:duration-300 hover:after:w-full"
               >
                 {l.label}
               </a>
@@ -54,17 +53,17 @@ const Header = () => {
           </nav>
 
           {/* RIGHT */}
-          <div className="hidden md:flex items-center gap-10">
+          <div className="hidden md:flex items-center gap-12">
             <a
               href="https://app.turqr.com"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
             >
               {t.nav.login}
             </a>
 
             <Button
               onClick={() => setFormOpen(true)}
-              className="gradient-primary text-primary-foreground rounded-full px-6 text-sm font-semibold hover:opacity-90 transition-opacity"
+              className="gradient-primary text-primary-foreground rounded-full px-6 h-11 text-sm font-semibold hover:opacity-90 transition-opacity shadow-soft"
             >
               {t.nav.cta}
             </Button>
@@ -74,6 +73,7 @@ const Header = () => {
           <button
             className="md:hidden text-foreground"
             onClick={() => setMobileOpen(!mobileOpen)}
+            aria-label={mobileOpen ? "Close menu" : "Open menu"}
           >
             {mobileOpen ? (
               <X className="w-6 h-6" />
@@ -85,13 +85,11 @@ const Header = () => {
 
         {/* Mobile menu */}
         {mobileOpen && (
-          <div className="md:hidden bg-background border-b border-border pb-4">
-            <nav className="container flex flex-col gap-3">
-
-              {/* Language on mobile */}
+          <div className="md:hidden border-t border-border/60 bg-background/95 backdrop-blur-xl">
+            <nav className="container flex flex-col gap-1 py-4">
               <button
                 onClick={() => setLang(lang === "en" ? "tr" : "en")}
-                className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground py-1"
+                className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground py-2"
               >
                 <Globe className="w-4 h-4" />
                 {lang === "en" ? "TR" : "EN"}
@@ -102,7 +100,7 @@ const Header = () => {
                   key={l.href}
                   href={l.href}
                   onClick={() => setMobileOpen(false)}
-                  className="text-sm font-medium text-muted-foreground py-1"
+                  className="text-sm font-medium text-muted-foreground py-2"
                 >
                   {l.label}
                 </a>
@@ -110,7 +108,7 @@ const Header = () => {
 
               <a
                 href="https://app.turqr.com"
-                className="text-sm font-medium text-muted-foreground pt-2"
+                className="text-sm font-medium text-muted-foreground py-2"
               >
                 {t.nav.login}
               </a>
@@ -120,7 +118,7 @@ const Header = () => {
                   setFormOpen(true);
                   setMobileOpen(false);
                 }}
-                className="gradient-primary text-primary-foreground rounded-full text-sm font-semibold mt-1"
+                className="gradient-primary text-primary-foreground rounded-full text-sm font-semibold mt-3 h-11"
               >
                 {t.nav.cta}
               </Button>
