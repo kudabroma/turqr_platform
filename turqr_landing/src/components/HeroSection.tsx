@@ -8,6 +8,17 @@ const HeroSection = () => {
   const { t } = useLanguage();
   const [formOpen, setFormOpen] = useState(false);
 
+  const title = t.hero.title;
+
+  const accentMatch =
+    title.match(/in 2 hours/i) ||
+    title.match(/2 saat içinde alın/i) ||
+    title.match(/2 saat içinde hazır/i) ||
+    title.match(/2 saat içinde/i);
+
+  const accentText = accentMatch?.[0] ?? "";
+  const beforeAccent = accentText ? title.replace(accentText, "").trim() : title;
+
   return (
     <>
       <section className="relative pt-28 pb-20 md:pt-36 md:pb-28 overflow-hidden gradient-hero">
@@ -26,7 +37,12 @@ const HeroSection = () => {
             {/* Text */}
             <div className="flex flex-col gap-6 max-w-xl">
               <h1 className="text-4xl md:text-5xl lg:text-6xl font-display font-bold leading-tight text-foreground">
-                {t.hero.title}
+                {beforeAccent}{" "}
+                {accentText && (
+                  <span className="text-[#e64a19] font-extrabold">
+                    {accentText}
+                  </span>
+                )}
               </h1>
 
               <p className="text-lg text-muted-foreground leading-relaxed">

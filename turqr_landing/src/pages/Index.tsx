@@ -7,12 +7,13 @@ import LeadFormSection from "@/components/LeadFormSection";
 import FAQSection from "@/components/FAQSection";
 import Footer from "@/components/Footer";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
-
+import VisualMenuSection from "@/components/VisualMenuSection";
 const Index = () => {
   return (
     <div className="min-h-screen bg-background relative">
       <Header />
       <HeroSection />
+      <VisualMenuSection />
       <HowItWorks />
       <Features />
       <TrustSection />

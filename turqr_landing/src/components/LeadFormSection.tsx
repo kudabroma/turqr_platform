@@ -27,9 +27,19 @@ const LeadFormSection = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Потом вынеси в env:
-  // const API_BASE = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
   const API_BASE = "http://localhost:8000";
+
+  const formTitle = t.form.title;
+
+  const accentMatch =
+    formTitle.match(/QR menu/i) ||
+    formTitle.match(/online QR menu/i) ||
+    formTitle.match(/QR menü/i) ||
+    formTitle.match(/QR menünüz/i) ||
+    formTitle.match(/çevrimiçi QR menü/i);
+
+  const accentText = accentMatch?.[0] ?? "";
+  const beforeAccent = accentText ? formTitle.replace(accentText, "").trim() : formTitle;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -89,9 +99,15 @@ const LeadFormSection = () => {
     <section id="contact" className="py-20 md:py-28 gradient-warm">
       <div className="container max-w-lg">
         <div className="text-center mb-8">
-          <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground">
-            {t.form.title}
+          <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground leading-tight">
+            {beforeAccent}{" "}
+            {accentText && (
+              <span className="text-[#e64a19] font-extrabold">
+                {accentText}
+              </span>
+            )}
           </h2>
+
           <p className="text-muted-foreground mt-3">{t.form.subtitle}</p>
         </div>
 

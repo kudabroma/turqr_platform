@@ -10,6 +10,7 @@ const Header = () => {
   const [formOpen, setFormOpen] = useState(false);
 
   const navLinks = [
+    { label: t.visualMenu.eyebrow, href: "#visual-menu" },
     { label: t.nav.howItWorks, href: "#how-it-works" },
     { label: t.nav.features, href: "#features" },
     { label: t.nav.faq, href: "#faq" },
@@ -40,12 +41,12 @@ const Header = () => {
           </div>
 
           {/* CENTER nav */}
-          <nav className="hidden md:flex items-center gap-10 lg:gap-14 xl:gap-16">
+          <nav className="hidden md:flex items-center gap-8 lg:gap-10 xl:gap-12">
             {navLinks.map((l) => (
               <a
                 key={l.href}
                 href={l.href}
-                className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors after:absolute after:left-0 after:-bottom-1 after:h-[1.5px] after:w-0 after:bg-primary after:transition-all after:duration-300 hover:after:w-full"
+                className="relative text-sm font-medium text-muted-foreground hover:text-foreground transition-colors after:absolute after:left-0 after:-bottom-1 after:h-[1.5px] after:w-0 after:bg-primary after:transition-all after:duration-300 hover:after:w-full whitespace-nowrap"
               >
                 {l.label}
               </a>
