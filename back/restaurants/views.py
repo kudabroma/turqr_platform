@@ -617,7 +617,7 @@ class AdminQrMenuA5DownloadView(APIView):
 
         file_obj = compose_qr_template(
             slug,
-            "menu_a5_v1",
+            "menu_a5_v2",
             restaurant_name=restaurant.name,
         )
 

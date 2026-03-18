@@ -22,6 +22,7 @@ const Features = () => {
         <div className="text-center mb-14">
           <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground">
             {t.features.title}
+            <span className="text-primary">{t.features.titleHighlight}</span>
           </h2>
           <p className="text-muted-foreground mt-3 text-lg">
             {t.features.subtitle}

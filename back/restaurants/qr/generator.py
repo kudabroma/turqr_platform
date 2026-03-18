@@ -94,14 +94,12 @@ def _draw_restaurant_name(
     if not text:
         return image
 
-    text = text.upper()
-
-    text_x = int(template.get("restaurant_name_x", 0))
-    text_y = int(template.get("restaurant_name_y", 0))
-    max_width = int(template.get("restaurant_name_max_width", 600))
-    start_font_size = int(template.get("restaurant_name_font_size", 96))
-    min_font_size = int(template.get("restaurant_name_min_font_size", 36))
-    text_fill = template.get("restaurant_name_color", (17, 17, 17))
+    max_width = int(template.get("restaurant_name_max_width", image.size[0] - 200))
+    start_font_size = int(template.get("restaurant_name_font_size", 72))
+    min_font_size = int(template.get("restaurant_name_min_font_size", 28))
+    text_fill = template.get("restaurant_name_color", (255, 255, 255))
+    text_y = int(template.get("restaurant_name_y", 80))
+    centered = bool(template.get("restaurant_name_centered", False))
 
     font = _fit_text_to_width(
         draw=draw,
@@ -112,6 +110,15 @@ def _draw_restaurant_name(
         min_size=min_font_size,
     )
 
+    bbox = draw.textbbox((0, 0), text, font=font)
+    text_width = bbox[2] - bbox[0]
+
+    if centered:
+        image_width = image.size[0]
+        text_x = (image_width - text_width) // 2
+    else:
+        text_x = int(template.get("restaurant_name_x", 0))
+
     draw.text(
         (text_x, text_y),
         text,
@@ -120,6 +127,38 @@ def _draw_restaurant_name(
     )
 
     return image
+
+
+def _draw_background_panel(
+    image: Image.Image,
+    template: dict,
+) -> Image.Image:
+    if not template.get("draw_background_panel"):
+        return image
+
+    panel_x = int(template.get("panel_x", 0))
+    panel_y = int(template.get("panel_y", 0))
+    panel_w = int(template.get("panel_width", image.size[0]))
+    panel_h = int(template.get("panel_height", image.size[1]))
+    panel_radius = int(template.get("panel_radius", 0))
+    panel_color = template.get("panel_color", (255, 255, 255, 255))
+
+    panel = Image.new("RGBA", image.size, (0, 0, 0, 0))
+    draw = ImageDraw.Draw(panel)
+
+    if panel_radius > 0:
+        draw.rounded_rectangle(
+            (panel_x, panel_y, panel_x + panel_w, panel_y + panel_h),
+            radius=panel_radius,
+            fill=panel_color,
+        )
+    else:
+        draw.rectangle(
+            (panel_x, panel_y, panel_x + panel_w, panel_y + panel_h),
+            fill=panel_color,
+        )
+
+    return Image.alpha_composite(image, panel)
 
 
 def compose_qr_template(
@@ -138,31 +177,76 @@ def compose_qr_template(
     qr_size = int(template["qr_size"])
     output_format = template.get("output_format", "PNG").upper()
     layer_order = template.get("layer_order", "qr_under_overlay")
+    canvas_color = template.get("canvas_color", (255, 255, 255, 255))
 
     if not background_path.exists():
         raise FileNotFoundError(f"Background template not found: {background_path}")
 
     menu_url = build_menu_url(slug)
 
-    background = Image.open(background_path).convert("RGBA")
-    width, height = background.size
+    overlay = Image.open(background_path).convert("RGBA")
+
+    canvas_size = template.get("canvas_size")
+    if canvas_size:
+        width, height = int(canvas_size[0]), int(canvas_size[1])
+        if overlay.size != (width, height):
+            overlay = overlay.resize((width, height), Image.Resampling.LANCZOS)
+    else:
+        width, height = overlay.size
 
     qr_image = generate_qr_pil_image(menu_url)
-    qr_image = qr_image.resize(
-        (qr_size, qr_size),
-        Image.Resampling.LANCZOS,
-    )
+    qr_image = qr_image.resize((qr_size, qr_size), Image.Resampling.LANCZOS)
+
+    qr_padding = int(template.get("qr_padding", 0))
+    qr_bg_color = template.get("qr_background_color", (255, 255, 255, 255))
+    qr_bg_radius = int(template.get("qr_background_radius", 0))
 
     if layer_order == "qr_under_overlay":
-        # sticker: white canvas -> QR -> overlay on top
-        canvas = Image.new("RGBA", (width, height), (255, 255, 255, 255))
-        canvas.paste(qr_image, (qr_x, qr_y), qr_image)
-        result = Image.alpha_composite(canvas, background)
+        canvas = Image.new("RGBA", (width, height), canvas_color)
+
+        # Большая белая панель внутри A5
+        canvas = _draw_background_panel(canvas, template)
+
+        # Белая подложка именно под QR
+        if qr_padding > 0:
+            qr_bg_size = qr_size + qr_padding * 2
+            qr_bg = Image.new("RGBA", (qr_bg_size, qr_bg_size), (0, 0, 0, 0))
+
+            if qr_bg_radius > 0:
+                qr_bg_draw = ImageDraw.Draw(qr_bg)
+                qr_bg_draw.rounded_rectangle(
+                    (0, 0, qr_bg_size - 1, qr_bg_size - 1),
+                    radius=qr_bg_radius,
+                    fill=qr_bg_color,
+                )
+            else:
+                qr_bg = Image.new("RGBA", (qr_bg_size, qr_bg_size), qr_bg_color)
+
+            canvas.alpha_composite(qr_bg, (qr_x - qr_padding, qr_y - qr_padding))
+
+        canvas.alpha_composite(qr_image, (qr_x, qr_y))
+        result = Image.alpha_composite(canvas, overlay)
 
     elif layer_order == "qr_over_background":
-        # A5: background -> QR on top
-        result = background.copy()
-        result.paste(qr_image, (qr_x, qr_y), qr_image)
+        result = overlay.copy()
+
+        if qr_padding > 0:
+            qr_bg_size = qr_size + qr_padding * 2
+            qr_bg = Image.new("RGBA", (qr_bg_size, qr_bg_size), (0, 0, 0, 0))
+
+            if qr_bg_radius > 0:
+                qr_bg_draw = ImageDraw.Draw(qr_bg)
+                qr_bg_draw.rounded_rectangle(
+                    (0, 0, qr_bg_size - 1, qr_bg_size - 1),
+                    radius=qr_bg_radius,
+                    fill=qr_bg_color,
+                )
+            else:
+                qr_bg = Image.new("RGBA", (qr_bg_size, qr_bg_size), qr_bg_color)
+
+            result.alpha_composite(qr_bg, (qr_x - qr_padding, qr_y - qr_padding))
+
+        result.alpha_composite(qr_image, (qr_x, qr_y))
 
     else:
         raise ValueError(f"Unsupported layer_order: {layer_order}")
@@ -180,13 +264,17 @@ def compose_qr_template(
         result.save(output, format="PNG")
 
     elif output_format == "PDF":
-        rgb_image = Image.new("RGB", result.size, (255, 255, 255))
-        if result.mode == "RGBA":
-            rgb_image.paste(result, mask=result.getchannel("A"))
-        else:
-            rgb_image = result.convert("RGB")
+        pdf_background_color = template.get("pdf_background_color", (255, 255, 255))
 
-        rgb_image.save(output, format="PDF", resolution=300)
+        # FIX: Use alpha_composite onto a solid RGBA base, then convert to RGB.
+        # The old paste(result, mask=alpha_channel) approach left transparent
+        # regions unfilled when canvas_color was dark, causing black bleed in the PDF.
+        rgb_base = Image.new("RGBA", result.size, (*pdf_background_color, 255))
+        rgb_base.alpha_composite(result)
+        rgb_image = rgb_base.convert("RGB")
+
+        pdf_resolution = int(template.get("pdf_resolution", 300))
+        rgb_image.save(output, format="PDF", resolution=pdf_resolution)
 
     else:
         raise ValueError(f"Unsupported output format: {output_format}")

@@ -12,7 +12,7 @@ const t = {
     },
     hero: {
       title: "Get your QR menu for your restaurant in 2 hours",
-      subtitle: "Launch a modern QR menu in hours. Simple for guests, efficient for your business.",
+      subtitle: "No printing. No outdated prices. Simple for guests, efficient for your business.",
       cta: "Get QR menu for my restaurant",
       whatsapp: "Contact us on WhatsApp",
     },
@@ -36,7 +36,8 @@ const t = {
       step3desc: "Place your QR code and let guests scan.",
     },
     features: {
-      title: "Everything You Need",
+      title: "Why 50+ restaurants ",
+      titleHighlight: "chose TurQR",
       subtitle: "Simple tools for your menu.",
       f1: "Multilingual Menu",
       f1desc: "More languages, more guests ",
@@ -90,7 +91,7 @@ const t = {
     },
     hero: {
       title: "Restoranınız için QR menünüzü 2 saat içinde alın",
-      subtitle: "Modern bir QR menüyü saatler içinde yayına alın. Misafirler için kolay, işletmeniz için verimlidir.",
+      subtitle: "Baskı yok. Eski fiyat yok. Misafirler için kolay, işletmeniz için verimli.",
       cta: "Restoranım için QR menü al",
       whatsapp: "WhatsApp ile iletişime geçin",
     },
@@ -114,7 +115,8 @@ const t = {
       step3desc: "QR kodunuzu yerleştirin, misafirler tarasın.",
     },
     features: {
-      title: "İhtiyacınız Olan Her Şey",
+      title: "50'den fazla restoran neden ",
+      titleHighlight: "TurQR'ı seçti?",
       subtitle: "Menünüz için basit araçlar.",
       f1: "Çok Dilli Menü",
       f1desc: "Daha fazla dil, daha fazla misafir",
