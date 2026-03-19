@@ -71,7 +71,7 @@ QR_TEMPLATES = {
         # название ресторана
         "draw_restaurant_name": True,
         "restaurant_name_centered": True,
-        "restaurant_name_y": 140,
+        "restaurant_name_y": 150,
         "restaurant_name_max_width": 1380,
         "restaurant_name_font_size": 160,
         "restaurant_name_min_font_size": 42,

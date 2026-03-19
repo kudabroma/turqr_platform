@@ -7,6 +7,7 @@ const t = {
       howItWorks: "How It Works",
       faq: "FAQ",
       pricing: "Pricing",
+      whyTrust: "Clear Pricing",
       contact: "Contact",
       login: "Log in",
       cta: "Get QR Menu",
@@ -21,7 +22,7 @@ const t = {
       eyebrow: "Why clear prices build trust",
       title: "Tourists choose faster when prices are clear and up to date",
       titleHighlight: "clear and up to date",
-      description:"According to the European Tourist Association, 7 out of 10 tourists will not go to a restaurant without seeing current dish prices. Tourists are more likely to trust a menu when prices are clear and up to date. Clear visuals and current pricing make dishes easier to understand, reduce hesitation, and help guests decide with more confidence.",
+      description: "According to a US Foods survey, 83% of tourists check a restaurant's menu online before visiting. Without current prices visible, most tourists will simply choose another restaurant. Clear visuals and up-to-date pricing help guests decide to visit your restaurant.",      
       point1: "Easier to choose",
       point2: "Better for tourists",
       point3: "More confidence to order",
@@ -60,7 +61,8 @@ const t = {
       per_month: "mo",
       recommended: "Most Popular",
       coming_soon: "Coming Soon",
-    
+      basic_f6: "We fill your menu for you — once, free",
+      discount_until: "Offer ends Apr 30",
       // Печатное меню
       print_label: "Traditional",
       print_title: "Printed Menu",
@@ -125,6 +127,7 @@ const t = {
       howItWorks: "Nasıl Çalışır",
       pricing: "Fiyatlar",
       faq: "SSS",
+      whyTrust: "Şeffaf Fiyatlar",
       contact: "İletişim",
       login: "Giriş Yap",
       cta: "QR Menü Al",
@@ -139,7 +142,7 @@ const t = {
       eyebrow: "Açık fiyatlar neden güven oluşturur",
       title: "Turistler, fiyatlar açık ve güncel olduğunda daha hızlı seçim yapar.",
       titleHighlight: "açık ve güncel",
-      description:"Avrupa Turist Derneği’ne göre, 10 turistten 7’si yemeklerin güncel fiyatlarını görmeden bir restorana gitmez. Fiyatlar açık ve güncel olduğunda turistler bir menüye daha fazla güvenir. Net görseller ve güncel fiyatlandırma, yemeklerin daha kolay anlaşılmasını sağlar, tereddüdü azaltır ve misafirlerin daha güvenli bir şekilde karar vermesine yardımcı olur.",
+      description: "US Foods araştırmasına göre, turistlerin 83%'ü restorana gitmeden önce menüyü çevrimiçi kontrol eder. Güncel fiyatlar görünmüyorsa, çoğu turist başka bir restoranı tercih eder. Net görseller ve güncel fiyatlandırma, misafirlerin restoranınızı tercih etmesine yardımcı olur.",
       point1: "Seçimi kolaylaştırır",
       point2: "Turistler için daha uygundur",
       point3: "Sipariş güvenini artırır",
@@ -178,7 +181,8 @@ const t = {
       per_month: "ay",
       recommended: "En Popüler",
       coming_soon: "Yakında",
-    
+      basic_f6: "Menünüzü sizin için bir kez ücretsiz dolduruyoruz",
+      discount_until: "Fırsat 30 Nisan'da sona eriyor",
       // Печатное меню
       print_label: "Geleneksel",
       print_title: "Basılı Menü",

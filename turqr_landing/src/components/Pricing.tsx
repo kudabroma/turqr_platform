@@ -1,8 +1,36 @@
 import { useLanguage } from "@/i18n/LanguageContext";
 import { X, Check, Clock } from "lucide-react";
+import { useEffect, useState } from "react";
+
+const DISCOUNT_END_MS = new Date("2026-04-30T23:59:59").getTime();
+
+function getTimeLeft() {
+  const diff = DISCOUNT_END_MS - Date.now();
+  if (diff <= 0) return { days: 0, hours: 0, minutes: 0, seconds: 0 };
+  return {
+    days: Math.floor(diff / 86400000),
+    hours: Math.floor((diff % 86400000) / 3600000),
+    minutes: Math.floor((diff % 3600000) / 60000),
+    seconds: Math.floor((diff % 60000) / 1000),
+  };
+}
+
+function useCountdown() {
+  const [time, setTime] = useState(getTimeLeft);
+
+  useEffect(() => {
+    const id = setInterval(() => {
+      setTime(getTimeLeft());
+    }, 1000);
+    return () => clearInterval(id);
+  }, []);
+
+  return time;
+}
 
 const Pricing = () => {
   const { t } = useLanguage();
+  const countdown = useCountdown();
 
   const printingMinuses = [
     t.pricing.print_minus1,
@@ -17,6 +45,7 @@ const Pricing = () => {
     t.pricing.basic_f3,
     t.pricing.basic_f4,
     t.pricing.basic_f5,
+    t.pricing.basic_f6,
   ];
 
   const proFeatures = [
@@ -26,11 +55,12 @@ const Pricing = () => {
     t.pricing.pro_f4,
   ];
 
+  const pad = (n: number) => String(n).padStart(2, "0");
+
   return (
     <section id="pricing" className="py-20 md:py-28 bg-background">
       <div className="container">
 
-        {/* Заголовок */}
         <div className="text-center mb-14">
           <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground">
             {t.pricing.title}{" "}
@@ -41,19 +71,11 @@ const Pricing = () => {
           </p>
         </div>
 
-        {/* Три карточки */}
         <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
 
           {/* 1 — Печатное меню */}
-          <div className="relative bg-card border border-border rounded-2xl p-8 flex flex-col gap-5 opacity-80">
-            {/* Крест поверх */}
-            <div className="absolute inset-0 rounded-2xl overflow-hidden pointer-events-none">
-              <div className="absolute inset-0 bg-muted/40" />
-              <svg className="absolute inset-0 w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <line x1="8" y1="8" x2="92" y2="92" stroke="currentColor" strokeWidth="1.5" className="text-destructive/30" />
-                <line x1="92" y1="8" x2="8" y2="92" stroke="currentColor" strokeWidth="1.5" className="text-destructive/30" />
-              </svg>
-            </div>
+          <div className="relative bg-card border border-border rounded-2xl p-8 flex flex-col gap-5">
+            <div className="absolute inset-0 rounded-2xl bg-muted/30 pointer-events-none" />
 
             <div className="relative z-10">
               <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
@@ -91,20 +113,29 @@ const Pricing = () => {
             </div>
 
             <div>
-              <p className="text-xs uppercase tracking-widest text-primary mb-1">
-                {t.pricing.basic_label}
-              </p>
               <h3 className="text-xl font-display font-bold text-foreground">
                 {t.pricing.basic_title}
               </h3>
             </div>
 
             <div>
-              <p className="text-3xl font-bold text-foreground">
-                ₺990
-                <span className="text-sm font-normal text-muted-foreground"> /{t.pricing.per_month}</span>
-              </p>
+              <div className="flex items-baseline gap-3">
+                <p className="text-3xl font-bold text-foreground">
+                  ₺990
+                  <span className="text-sm font-normal text-muted-foreground"> /{t.pricing.per_month}</span>
+                </p>
+                <p className="text-lg font-medium text-muted-foreground line-through">₺1,490</p>
+              </div>
               <p className="text-xs text-primary mt-1 font-medium">{t.pricing.basic_saving}</p>
+
+              {/* Таймер — без русских букв */}
+              <div className="mt-3 border border-primary/20 rounded-xl px-4 py-2.5 flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5 text-primary flex-shrink-0" />
+                <p className="text-xs text-primary font-medium">{t.pricing.discount_until}</p>
+                <span className="ml-auto font-mono text-sm font-bold text-primary tabular-nums">
+                  {countdown.days}d {pad(countdown.hours)}:{pad(countdown.minutes)}:{pad(countdown.seconds)}
+                </span>
+              </div>
             </div>
 
             <ul className="flex flex-col gap-3 flex-1">
@@ -124,7 +155,7 @@ const Pricing = () => {
             </a>
           </div>
 
-          {/* 3 — Pro (Coming Soon) */}
+          {/* 3 — Pro */}
           <div className="relative bg-card border border-border rounded-2xl p-8 flex flex-col gap-5">
             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
               <span className="bg-muted text-muted-foreground text-xs font-semibold px-4 py-1 rounded-full flex items-center gap-1">
@@ -134,9 +165,6 @@ const Pricing = () => {
             </div>
 
             <div>
-              <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">
-                {t.pricing.pro_label}
-              </p>
               <h3 className="text-xl font-display font-bold text-foreground">
                 {t.pricing.pro_title}
               </h3>
@@ -144,7 +172,7 @@ const Pricing = () => {
 
             <div>
               <p className="text-3xl font-bold text-muted-foreground">
-                ₺1,490
+                ₺2,490
                 <span className="text-sm font-normal text-muted-foreground"> /{t.pricing.per_month}</span>
               </p>
               <p className="text-xs text-muted-foreground mt-1">{t.pricing.pro_soon_note}</p>

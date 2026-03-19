@@ -6,35 +6,20 @@ const FloatingCta = () => {
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const heroSection = document.querySelector("#hero");
-    const contactSection = document.querySelector("#contact");
-
-    const observer = new IntersectionObserver(
-      () => {
-        const heroRect = heroSection?.getBoundingClientRect();
-        const contactRect = contactSection?.getBoundingClientRect();
-
-        const pastHero = heroRect ? heroRect.bottom < 0 : false;
-        const reachedContact = contactRect ? contactRect.top < window.innerHeight : false;
-
-        setVisible(pastHero && !reachedContact);
-      },
-      { threshold: 0 }
-    );
-
     const onScroll = () => {
-        const heroSection = document.querySelector("#hero");
-        const contactSection = document.querySelector("#contact");
+      const heroRect = document.querySelector("#hero")?.getBoundingClientRect();
+      const contactRect = document.querySelector("#contact")?.getBoundingClientRect();
+      const pricingRect = document.querySelector("#pricing")?.getBoundingClientRect();
 
-        const heroRect = heroSection?.getBoundingClientRect();
-        const contactRect = contactSection?.getBoundingClientRect();
+      const pastHero = heroRect ? heroRect.top < -(heroRect.height * 0.3) : false;
+      const reachedContact = contactRect ? contactRect.top < window.innerHeight * 0.8 : false;
+      const onPricing = pricingRect
+        ? pricingRect.top < window.innerHeight && pricingRect.bottom > 0
+        : false;
 
-        // Появляется когда hero прокрутился на 30% — не ждём полного исчезновения
-        const pastHero = heroRect ? heroRect.top < -(heroRect.height * 0.3) : false;
-        const reachedContact = contactRect ? contactRect.top < window.innerHeight * 0.8 : false;
+      setVisible(pastHero && !reachedContact && !onPricing);
+    };
 
-        setVisible(pastHero && !reachedContact);
-        };
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);

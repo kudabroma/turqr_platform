@@ -18,7 +18,6 @@ const Index = () => {
       <VisualMenuSection />
       <HowItWorks />
       <Features />
-      <TrustSection />
       <Pricing />
       <LeadFormSection />
       <FAQSection />

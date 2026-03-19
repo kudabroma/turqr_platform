@@ -10,18 +10,18 @@ const Header = () => {
   const [formOpen, setFormOpen] = useState(false);
 
   const navLinks = [
-    { label: t.visualMenu.eyebrow, href: "#visual-menu" },
+    { label: t.nav.whyTrust, href: "#visual-menu" },
     { label: t.nav.howItWorks, href: "#how-it-works" },
     { label: t.nav.features, href: "#features" },
     { label: t.nav.pricing, href: "#pricing" },
     { label: t.nav.faq, href: "#faq" },
-    { label: t.nav.contact, href: "#contact" },
   ];
 
   return (
     <>
       <header className="fixed top-0 left-0 right-0 z-50 border-b border-border/60 bg-background/75 backdrop-blur-xl supports-[backdrop-filter]:bg-background/65 shadow-sm">
         <div className="container flex items-center justify-between h-[72px]">
+
           {/* LEFT — Logo + Language */}
           <div className="flex items-center gap-4 lg:gap-5">
             <a href="#" className="shrink-0">
@@ -54,15 +54,8 @@ const Header = () => {
             ))}
           </nav>
 
-          {/* RIGHT */}
-          <div className="hidden md:flex items-center gap-12">
-            <a
-              href="https://app.turqr.com"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors whitespace-nowrap"
-            >
-              {t.nav.login}
-            </a>
-
+          {/* RIGHT — только CTA кнопка */}
+          <div className="hidden md:flex items-center">
             <Button
               onClick={() => setFormOpen(true)}
               className="gradient-primary text-primary-foreground rounded-full px-6 h-11 text-sm font-semibold hover:opacity-90 transition-opacity shadow-soft"
@@ -107,13 +100,6 @@ const Header = () => {
                   {l.label}
                 </a>
               ))}
-
-              <a
-                href="https://app.turqr.com"
-                className="text-sm font-medium text-muted-foreground py-2"
-              >
-                {t.nav.login}
-              </a>
 
               <Button
                 onClick={() => {
