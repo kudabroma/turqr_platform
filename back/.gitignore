@@ -10,8 +10,11 @@ venv/
 
 # Django
 db.sqlite3
+db_test.sqlite3
 *.log
 .env
+staticfiles/
+media/
 
 # IDE
 .vscode/
@@ -20,5 +23,3 @@ db.sqlite3
 # OS
 .DS_Store
 Thumbs.db
-db_test.sqlite3
-

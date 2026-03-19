@@ -6,25 +6,21 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 load_dotenv(BASE_DIR / ".env")
 
-SECRET_KEY = os.getenv(
-    "DJANGO_SECRET_KEY",
-    "django-insecure-development-key-change-me",
-)
+SECRET_KEY = os.getenv("DJANGO_SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("DJANGO_SECRET_KEY environment variable is not set!")
 
-DEBUG = os.getenv("DJANGO_DEBUG", "1") == "1"
-
+DEBUG = os.getenv("DJANGO_DEBUG", "0") == "1"
 
 # =========================
-# HOSTS (DEV MULTI-SUBDOMAIN)
+# HOSTS
 # =========================
 
 DJANGO_ALLOWED_HOSTS = os.getenv(
     "DJANGO_ALLOWED_HOSTS",
-    "localhost 127.0.0.1 192.168.0.157 .ngrok-free.dev .localhost",
+    "turqr.com api.turqr.com app.turqr.com",
 )
-
 ALLOWED_HOSTS = DJANGO_ALLOWED_HOSTS.split()
-
 
 # =========================
 # APPLICATIONS
@@ -45,9 +41,9 @@ INSTALLED_APPS = [
     "restaurants.apps.RestaurantsConfig",
 ]
 
-
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
+    "whitenoise.middleware.WhiteNoiseMiddleware",
 
     "corsheaders.middleware.CorsMiddleware",
 
@@ -60,7 +56,6 @@ MIDDLEWARE = [
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
-
 
 ROOT_URLCONF = "config.urls"
 
@@ -81,33 +76,39 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-
 # =========================
 # DATABASE
 # =========================
 
-DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
-    }
-}
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+if DATABASE_URL:
+    import dj_database_url
+    DATABASES = {
+        "default": dj_database_url.parse(DATABASE_URL, conn_max_age=600)
+    }
+else:
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
 
 # =========================
 # STATIC / MEDIA
 # =========================
 
 STATIC_URL = "/static/"
-STATICFILES_DIRS = [BASE_DIR / "static"]
+_static_dir = BASE_DIR / "static"
+STATICFILES_DIRS = [_static_dir] if _static_dir.exists() else []
 STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 MEDIA_URL = "/media/"
 MEDIA_ROOT = BASE_DIR / "media"
 
-
 AUTH_USER_MODEL = "restaurants.User"
-
 
 # =========================
 # DRF
@@ -120,48 +121,40 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "30/hour",
+    },
 }
-
 
 # =========================
 # CSRF
 # =========================
 
-CSRF_TRUSTED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "http://localhost:8082",
-    "http://127.0.0.1:8082",
-    "http://192.168.0.157:8080",
-    "http://192.168.0.157:8081",
-    "https://*.ngrok-free.dev",
-]
+_csrf_origins = os.getenv(
+    "CSRF_TRUSTED_ORIGINS",
+    "https://turqr.com https://app.turqr.com https://api.turqr.com",
+)
+CSRF_TRUSTED_ORIGINS = _csrf_origins.split()
 
-CSRF_COOKIE_SECURE = False
-SESSION_COOKIE_SECURE = False
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SAMESITE = "Lax"
-
+SESSION_ENGINE = "django.contrib.sessions.backends.db"
 
 # =========================
 # CORS
 # =========================
 
-CORS_ALLOWED_ORIGINS = [
-    "http://localhost:8080",
-    "http://127.0.0.1:8080",
-    "http://localhost:8081",
-    "http://127.0.0.1:8081",
-    "http://localhost:8082",
-    "http://127.0.0.1:8082",
-    "http://192.168.0.157:8080",
-    "http://192.168.0.157:8081",
-]
-
+_cors_origins = os.getenv(
+    "CORS_ALLOWED_ORIGINS",
+    "https://turqr.com https://app.turqr.com",
+)
+CORS_ALLOWED_ORIGINS = _cors_origins.split()
 CORS_ALLOW_CREDENTIALS = True
-
 
 # =========================
 # TELEGRAM
