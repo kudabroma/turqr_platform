@@ -35,7 +35,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8000";
+  const API_BASE = import.meta.env.VITE_API_URL ?? "https://turqrplatform-production.up.railway.app/api";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -1,4 +1,4 @@
-const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || "http://localhost:8000";
+const API_ORIGIN = import.meta.env.VITE_API_ORIGIN || "https://turqrplatform-production.up.railway.app";
 
 export function resolveLogoUrl(raw: string | null | undefined): string {
   const v = (raw ?? "").trim();
