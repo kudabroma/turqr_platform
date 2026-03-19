@@ -36,19 +36,17 @@ async function api<T>(url: string, options?: RequestInit): Promise<T> {
     ...(options?.headers as any),
   };
 
-  // Add JSON content-type only when we have body
   if (!headers["Content-Type"] && options?.body) {
     headers["Content-Type"] = "application/json";
   }
 
-  // ✅ CSRF for unsafe methods (SessionAuthentication)
-  if (isUnsafe(method)) {
-    const csrf = getCookie("csrftoken");
-    if (csrf) headers["X-CSRFToken"] = csrf;
-  }
+  // ✅ JWT токен вместо CSRF
+  const token = localStorage.getItem("access_token");
+  if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  const res = await fetch(url, {
-    credentials: "include",
+  const BASE = import.meta.env.VITE_API_URL ?? "";
+
+  const res = await fetch(`${BASE}${url}`, {
     ...options,
     headers,
   });
