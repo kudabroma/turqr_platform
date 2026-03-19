@@ -171,12 +171,6 @@ class LogoutView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        try:
-            refresh_token = request.data.get("refresh")
-            token = RefreshToken(refresh_token)
-            token.blacklist()
-        except TokenError:
-            pass
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
