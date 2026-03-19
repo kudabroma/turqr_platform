@@ -125,12 +125,12 @@ function normalizeBusinessUser(raw: any): BusinessUser {
    ========================= */
 
 export async function getRestaurants(): Promise<Restaurant[]> {
-  const data = await api<any[]>("/api/superadmin/restaurants/");
+  const data = await api<any[]>("/superadmin/restaurants/");
   return data.map(normalizeRestaurant);
 }
 
 export async function createRestaurant(data: CreateRestaurantPayload): Promise<Restaurant> {
-  const created = await api<any>("/api/superadmin/restaurants/", {
+  const created = await api<any>("/superadmin/restaurants/", {
     method: "POST",
     body: JSON.stringify(data),
   });
@@ -142,13 +142,13 @@ export async function createRestaurant(data: CreateRestaurantPayload): Promise<R
    ========================= */
 
 export async function getBusinessUsers(): Promise<BusinessUser[]> {
-  const data = await api<any[]>("/api/superadmin/users/");
+  const data = await api<any[]>("/superadmin/users/");
   return data.map(normalizeBusinessUser);
 }
 
 export async function createBusinessUser(data: CreateBusinessUserPayload): Promise<BusinessUser> {
   // Backend expected payload: { username/email, restaurant_id, password }
-  const created = await api<any>("/api/superadmin/users/", {
+  const created = await api<any>("/superadmin/users/", {
     method: "POST",
     body: JSON.stringify(data),
   });
