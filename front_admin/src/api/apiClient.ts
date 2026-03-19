@@ -1,8 +1,3 @@
-/**
- * API Client for TurQR Admin
- * SessionAuthentication (cookies) + CSRF header for unsafe methods.
- */
-
 const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
 
 export class ApiError extends Error {
@@ -23,51 +18,62 @@ interface RequestOptions {
   headers?: Record<string, string>;
 }
 
-// --- CSRF helper ---
-function getCookie(name: string): string | null {
-  const match = document.cookie.match(new RegExp("(^|;\\s*)" + name + "=([^;]*)"));
-  return match ? decodeURIComponent(match[2]) : null;
-}
-
-function isUnsafe(method: string) {
-  return ["POST", "PUT", "PATCH", "DELETE"].includes(method.toUpperCase());
-}
-
 function isFormData(body: unknown): body is FormData {
   return typeof FormData !== "undefined" && body instanceof FormData;
 }
 
+// --- Token helpers ---
+export function getAccessToken(): string | null {
+  return localStorage.getItem("access_token");
+}
+export function setTokens(access: string, refresh: string) {
+  localStorage.setItem("access_token", access);
+  localStorage.setItem("refresh_token", refresh);
+}
+export function clearTokens() {
+  localStorage.removeItem("access_token");
+  localStorage.removeItem("refresh_token");
+}
+
+async function refreshAccessToken(): Promise<string | null> {
+  const refresh = localStorage.getItem("refresh_token");
+  if (!refresh) return null;
+
+  const res = await fetch(`${API_BASE}/auth/refresh/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
+  });
+
+  if (!res.ok) {
+    clearTokens();
+    return null;
+  }
+
+  const data = await res.json();
+  localStorage.setItem("access_token", data.access);
+  return data.access;
+}
+
 async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
   const { method = "GET", body, headers = {} } = options;
-
   const form = isFormData(body);
 
-  // ✅ Собираем headers один раз, без "магии" потом
   const mergedHeaders: Record<string, string> = {
-    "X-Requested-With": "XMLHttpRequest",
     Accept: "application/json",
     ...headers,
   };
 
-  // ✅ Если FormData — Content-Type нельзя ставить НИКОГДА (сломает boundary)
-  if (form && "Content-Type" in mergedHeaders) {
-    delete mergedHeaders["Content-Type"];
-  }
-
-  // ✅ JSON: выставляем Content-Type
   if (!form && body !== undefined) {
     mergedHeaders["Content-Type"] = "application/json";
   }
 
-  // ✅ CSRF для unsafe
-  if (isUnsafe(method)) {
-    const csrf = getCookie("csrftoken");
-    if (csrf) mergedHeaders["X-CSRFToken"] = csrf;
-  }
+  // JWT токен
+  const token = getAccessToken();
+  if (token) mergedHeaders["Authorization"] = `Bearer ${token}`;
 
   const config: RequestInit = {
     method,
-    credentials: "include",
     headers: mergedHeaders,
   };
 
@@ -75,7 +81,16 @@ async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Pro
     config.body = form ? (body as FormData) : JSON.stringify(body);
   }
 
-  const response = await fetch(`${API_BASE}${endpoint}`, config);
+  let response = await fetch(`${API_BASE}${endpoint}`, config);
+
+  // Токен протух — пробуем refresh
+  if (response.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      mergedHeaders["Authorization"] = `Bearer ${newToken}`;
+      response = await fetch(`${API_BASE}${endpoint}`, { ...config, headers: mergedHeaders });
+    }
+  }
 
   if (response.status === 204) return undefined as T;
 
@@ -83,17 +98,9 @@ async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Pro
   const contentType = response.headers.get("content-type") || "";
 
   if (contentType.includes("application/json")) {
-    try {
-      data = await response.json();
-    } catch {
-      data = null;
-    }
+    try { data = await response.json(); } catch { data = null; }
   } else {
-    try {
-      data = await response.text();
-    } catch {
-      data = null;
-    }
+    try { data = await response.text(); } catch { data = null; }
   }
 
   if (!response.ok) {

@@ -8,6 +8,8 @@ export interface User {
   id: number;
   username: string;
   restaurant: number | null;
+  access: string;   // ✅ добавь
+  refresh: string; 
 }
 
 export interface Category {

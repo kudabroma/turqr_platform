@@ -2,6 +2,8 @@ import React, { createContext, useContext, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi, type User as AuthUser } from "@/api/endpoints";
 import { useSession } from "@/auth/useSession";
+import { setTokens, clearTokens } from "@/api/apiClient";
+
 
 type AuthContextValue = {
   isAuthenticated: boolean;
@@ -31,10 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await authApi.login(username, password);
 
-      // ✅ сразу кладём user в кэш me, чтобы редирект по роли сработал мгновенно
-      queryClient.setQueryData(["session", "me"], data);
+      // ✅ Сохраняем JWT токены
+      setTokens(data.access, data.refresh);
 
-      // ✅ и просто рефетчим me (на случай если бек добавит поля позже)
+      queryClient.setQueryData(["session", "me"], data);
       await queryClient.invalidateQueries({ queryKey: ["session", "me"] });
 
       return data;
@@ -47,6 +49,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthBusy(true);
     try {
       await authApi.logout();
+      clearTokens(); // ✅ чистим токены
       queryClient.removeQueries({ queryKey: ["session", "me"] });
     } finally {
       setAuthBusy(false);
