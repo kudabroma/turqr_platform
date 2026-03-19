@@ -5,7 +5,7 @@ from .views_public import (
     PublicRestaurantView,
     PublicMenuView,
 )
-
+from rest_framework_simplejwt.views import TokenRefreshView
 from .views import (
     RegistrationView,
     LoginView,
@@ -39,6 +39,7 @@ urlpatterns = [
     path("auth/login/", LoginView.as_view(), name="auth-login"),
     path("auth/logout/", LogoutView.as_view(), name="auth-logout"),
     path("auth/me/", MeView.as_view(), name="auth-me"),
+    path("auth/refresh/", TokenRefreshView.as_view(), name="auth-refresh"),
 
     # Business (admin)
     path("menu/", MenuView.as_view(), name="menu"),

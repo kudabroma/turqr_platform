@@ -11,8 +11,8 @@ from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Case, When, Value, IntegerField
 from django.http import HttpResponse
 from django.conf import settings
-import io
-import qrcode
+from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.exceptions import TokenError
 from django.http import FileResponse
 from .qr.generator import compose_qr_template, build_menu_url, generate_qr_png_bytes
 from .models import Restaurant, Category, Dish, PaymentHistory
@@ -144,11 +144,6 @@ class RegistrationView(APIView):
 
 
 class LoginView(APIView):
-    """
-    POST /api/auth/login/
-    {"username": "...", "password": "..."}
-    """
-
     permission_classes = [permissions.AllowAny]
 
     def post(self, request):
@@ -162,17 +157,26 @@ class LoginView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        login(request, user)
-        return Response(
-            {"id": user.id, "username": user.username, "restaurant": getattr(user, "restaurant_id", None)}
-        )
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            "access": str(refresh.access_token),
+            "refresh": str(refresh),
+            "id": user.id,
+            "username": user.username,
+            "restaurant": getattr(user, "restaurant_id", None)
+        })
 
 
 class LogoutView(APIView):
-    """POST /api/auth/logout/"""
+    permission_classes = [permissions.IsAuthenticated]
 
     def post(self, request):
-        logout(request)
+        try:
+            refresh_token = request.data.get("refresh")
+            token = RefreshToken(refresh_token)
+            token.blacklist()
+        except TokenError:
+            pass
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
