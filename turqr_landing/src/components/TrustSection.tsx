@@ -15,7 +15,7 @@ const TrustSection = () => {
   const beforeAccent = accentText ? title.replace(accentText, "").trim() : title;
 
   return (
-    <section className="py-20 md:py-28">
+    <section className="py-20 md:py-28 gradient-warm">
       <div className="container">
         <h2 className="text-3xl md:text-5xl font-display font-bold text-foreground text-center mb-12 leading-tight">
           {beforeAccent}{" "}

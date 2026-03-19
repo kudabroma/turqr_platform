@@ -13,6 +13,7 @@ const Header = () => {
     { label: t.visualMenu.eyebrow, href: "#visual-menu" },
     { label: t.nav.howItWorks, href: "#how-it-works" },
     { label: t.nav.features, href: "#features" },
+    { label: t.nav.pricing, href: "#pricing" },
     { label: t.nav.faq, href: "#faq" },
     { label: t.nav.contact, href: "#contact" },
   ];

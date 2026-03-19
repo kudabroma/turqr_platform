@@ -6,6 +6,7 @@ const t = {
       features: "Features",
       howItWorks: "How It Works",
       faq: "FAQ",
+      pricing: "Pricing",
       contact: "Contact",
       login: "Log in",
       cta: "Get QR Menu",
@@ -52,6 +53,44 @@ const t = {
       title: "Why Restaurants Trust TurQR",
       items: ["Easy interface", "Easy setup", "Fast loading menus", "WhatsApp support", "Update anytime"],
     },
+    pricing: {
+      title: "Cheaper than",
+      titleHighlight: "printing",
+      subtitle: "Pay less than you spend on reprints — and never reprint again.",
+      per_month: "mo",
+      recommended: "Most Popular",
+      coming_soon: "Coming Soon",
+    
+      // Печатное меню
+      print_label: "Traditional",
+      print_title: "Printed Menu",
+      print_avg: "Average monthly cost in Turkey",
+      print_minus1: "Reprint every time prices change",
+      print_minus2: "Tourists can't read Turkish menus",
+      print_minus3: "Damaged menus look unprofessional",
+      print_minus4: "No way to track what guests view",
+    
+      // Basic
+      basic_label: "TurQR",
+      basic_title: "Basic",
+      basic_saving: "Cheaper than your monthly reprints",
+      basic_f1: "QR menu in Turkish & English",
+      basic_f2: "Your restaurant page with photos",
+      basic_f3: "Update prices in seconds",
+      basic_f4: "restaurantname.turqr.com",
+      basic_f5: "WhatsApp support",
+      basic_cta: "Get Started →",
+    
+      // Pro
+      pro_label: "TurQR",
+      pro_title: "Pro",
+      pro_soon_note: "Analytics launching soon",
+      pro_f1: "Everything in Basic",
+      pro_f2: "Menu scan analytics",
+      pro_f3: "Turkish, English & Russian",
+      pro_f4: "Priority support",
+      pro_cta: "Coming Soon",
+    },
     form: {
       title: "Get an online QR menu for your restaurant",
       subtitle: "Leave your contact details and we will help you launch your QR menu.",
@@ -84,6 +123,7 @@ const t = {
     nav: {
       features: "Özellikler",
       howItWorks: "Nasıl Çalışır",
+      pricing: "Fiyatlar",
       faq: "SSS",
       contact: "İletişim",
       login: "Giriş Yap",
@@ -130,6 +170,44 @@ const t = {
     trust: {
       title: "Restoranlar Neden TurQR’ye Güveniyor",
       items: ["Kolay arayüz", "Kolay kurulum", "Hızlı yüklenen menüler", "WhatsApp desteği", "İstediğin zaman güncelle"],
+    },
+    pricing: {
+      title: "Baskıdan daha",
+      titleHighlight: "ucuz",
+      subtitle: "Yeniden baskı masrafından daha az ödeyin — ve bir daha baskı yaptırmayın.",
+      per_month: "ay",
+      recommended: "En Popüler",
+      coming_soon: "Yakında",
+    
+      // Печатное меню
+      print_label: "Geleneksel",
+      print_title: "Basılı Menü",
+      print_avg: "Türkiye'deki ortalama aylık maliyet",
+      print_minus1: "Fiyat değişince yeniden baskı",
+      print_minus2: "Turistler Türkçe menüyü okuyamaz",
+      print_minus3: "Yıpranmış menüler kötü görünür",
+      print_minus4: "Misafirlerin ne gördüğünü bilemezsiniz",
+    
+      // Basic
+      basic_label: "TurQR",
+      basic_title: "Basic",
+      basic_saving: "Aylık baskı masrafınızdan daha ucuz",
+      basic_f1: "Türkçe ve İngilizce QR menü",
+      basic_f2: "Fotoğraflı restoran sayfanız",
+      basic_f3: "Fiyatları saniyeler içinde güncelleyin",
+      basic_f4: "restoraniniz.turqr.com",
+      basic_f5: "WhatsApp destek",
+      basic_cta: "Hemen Başla →",
+    
+      // Pro
+      pro_label: "TurQR",
+      pro_title: "Pro",
+      pro_soon_note: "Analitik özelliği yakında geliyor",
+      pro_f1: "Basic'teki her şey",
+      pro_f2: "Menü tarama analitiği",
+      pro_f3: "Türkçe, İngilizce ve Rusça",
+      pro_f4: "Öncelikli destek",
+      pro_cta: "Yakında",
     },
     form: {
       title: "Restoranınız için online QR menü alın",

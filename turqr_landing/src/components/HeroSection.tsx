@@ -21,7 +21,7 @@ const HeroSection = () => {
 
   return (
     <>
-      <section className="relative pt-28 pb-20 md:pt-36 md:pb-28 overflow-hidden gradient-hero">
+      <section id="hero" className="relative pt-28 pb-20 md:pt-36 md:pb-28 overflow-hidden gradient-hero">
         <div className="absolute top-20 left-[10%] w-12 h-12 rounded-xl gradient-primary opacity-10 animate-float" />
         <div
           className="absolute top-40 right-[15%] w-16 h-16 rounded-2xl gradient-primary opacity-10 animate-float"
@@ -48,16 +48,6 @@ const HeroSection = () => {
               <p className="text-lg text-muted-foreground leading-relaxed">
                 {t.hero.subtitle}
               </p>
-
-              <div className="flex flex-col sm:flex-row gap-3">
-                <Button
-                  onClick={() => setFormOpen(true)}
-                  className="gradient-primary text-primary-foreground rounded-full px-8 py-6 text-base font-semibold hover:opacity-90 transition-opacity"
-                >
-                  {t.hero.cta}
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </Button>
-              </div>
             </div>
 
             {/* Phone mockup */}

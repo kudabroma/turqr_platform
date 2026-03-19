@@ -8,6 +8,8 @@ import FAQSection from "@/components/FAQSection";
 import Footer from "@/components/Footer";
 import FloatingWhatsApp from "@/components/FloatingWhatsApp";
 import VisualMenuSection from "@/components/VisualMenuSection";
+import Pricing from "@/components/Pricing"
+import FloatingCta from "@/components/FloatingCta";
 const Index = () => {
   return (
     <div className="min-h-screen bg-background relative">
@@ -17,10 +19,11 @@ const Index = () => {
       <HowItWorks />
       <Features />
       <TrustSection />
+      <Pricing />
       <LeadFormSection />
       <FAQSection />
       <Footer />
-
+      <FloatingCta />
       {/* Floating WhatsApp */}
       <FloatingWhatsApp />
     </div>
