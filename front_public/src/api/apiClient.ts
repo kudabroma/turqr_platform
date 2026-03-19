@@ -1,3 +1,4 @@
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
 type ApiError = {
     status: number;
     message: string;
@@ -8,7 +9,7 @@ type ApiError = {
     url: string,
     options: RequestInit = {}
   ): Promise<T> {
-    const res = await fetch(url, {
+    const res = await fetch(`${API_BASE}${url}`, {
       ...options,
       headers: {
         "Content-Type": "application/json",
