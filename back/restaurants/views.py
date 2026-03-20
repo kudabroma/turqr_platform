@@ -78,6 +78,7 @@ class RestaurantMeView(APIView):
         logger = logging.getLogger(__name__)
         logger.error(f"FILES: {request.FILES}")
         logger.error(f"DATA: {request.data}")
+        
         if user.is_superuser:
             return Response(
                 {"detail": "Superuser cannot update restaurant here."},
@@ -93,10 +94,14 @@ class RestaurantMeView(APIView):
 
         serializer = RestaurantUpdateSerializer(restaurant, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        try:
+            serializer.save()
+            restaurant.refresh_from_db()
+            logger.error(f"SAVE SUCCESS: photo3={restaurant.photo3}")
+        except Exception as e:
+            logger.error(f"SAVE ERROR: {e}")
+            raise
 
-        # ✅ возвращаем свежие данные с правильным context
-        restaurant.refresh_from_db()
         return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
 
 
