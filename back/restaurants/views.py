@@ -337,24 +337,53 @@ class DishViewSet(viewsets.ModelViewSet):
         return Dish.objects.filter(restaurant=restaurant)
 
     def perform_create(self, serializer):
+        import boto3
+        import os
+        import io
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # Читаем файлы ДО save
+        files_data = {}
+        for k, v in self.request.FILES.items():
+            content = v.read()
+            files_data[k] = (v.name, content)
+            v.seek(0)
+
         user = self.request.user
 
         if user.is_superuser:
             restaurant = serializer.validated_data.get("restaurant")
             if restaurant is None:
                 raise serializers.ValidationError({"restaurant": "This field is required."})
-            serializer.save(restaurant=restaurant)
-            return
+            saved = serializer.save(restaurant=restaurant)
+        else:
+            restaurant = _get_user_restaurant(user)
+            if not restaurant:
+                raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
 
-        restaurant = _get_user_restaurant(user)
-        if not restaurant:
-            raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
+            category = serializer.validated_data.get("category")
+            if category and category.restaurant_id != restaurant.id:
+                raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
 
-        category = serializer.validated_data.get("category")
-        if category and category.restaurant_id != restaurant.id:
-            raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
+            saved = serializer.save(restaurant=restaurant)
 
-        serializer.save(restaurant=restaurant)
+        # Загружаем файлы в R2 после save
+        if files_data:
+            try:
+                s3 = boto3.client(
+                    's3',
+                    endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+                    aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
+                    region_name='auto',
+                )
+                for field_name, (filename, content) in files_data.items():
+                    key = f"dishes/images/{filename}"
+                    s3.upload_fileobj(io.BytesIO(content), 'turqr-media', key)
+                    logger.warning(f"R2 CREATE UPLOAD OK: {key}")
+            except Exception as e:
+                logger.warning(f"R2 CREATE UPLOAD ERROR: {e}")
 
     def perform_update(self, serializer):
         import logging
