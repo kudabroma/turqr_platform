@@ -358,11 +358,22 @@ class DishViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         import logging
+        from django.core.files.storage import default_storage
         logger = logging.getLogger(__name__)
 
-        # логируем файлы
         for k, v in self.request.FILES.items():
             logger.warning(f"FILE IN REQUEST: {k} = {v.name}, size={v.size}")
+            # тестовый прямой upload через default_storage
+            try:
+                test_path = f"dishes/images/test_{v.name}"
+                saved_path = default_storage.save(test_path, v)
+                logger.warning(f"TEST UPLOAD OK: {saved_path}")
+                v.seek(0)  # сбрасываем позицию для serializer
+            except Exception as e:
+                logger.warning(f"TEST UPLOAD ERROR: {e}")
+
+        user = self.request.user
+        instance = self.get_object()
 
         user = self.request.user
         instance = self.get_object()
