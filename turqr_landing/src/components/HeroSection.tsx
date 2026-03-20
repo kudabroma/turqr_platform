@@ -55,7 +55,7 @@ const HeroSection = () => {
               <div className="relative w-[350px] h-[640px] bg-foreground rounded-[3rem] p-3 shadow-elevated">
                 <div className="w-full h-full bg-card rounded-[2.5rem] overflow-hidden">
                   <iframe
-                    src="http://demores.localhost:8080/menu?lang=en"
+                    src="https://turqr.com/menu?lang=en"
                     title="TurQR Demo Menu"
                     className="w-full h-full border-0 rounded-[2.5rem] bg-white"
                     loading="lazy"
