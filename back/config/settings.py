@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     "rest_framework",
     "django_extensions",
 
+    "storages",
     "restaurants.apps.RestaurantsConfig",
 ]
 
@@ -106,8 +107,27 @@ STATICFILES_DIRS = [_static_dir] if _static_dir.exists() else []
 STATIC_ROOT = BASE_DIR / "staticfiles"
 STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
-MEDIA_URL = "/media/"
-MEDIA_ROOT = BASE_DIR / "media"
+# =========================
+# MEDIA — Cloudflare R2
+# =========================
+
+USE_R2 = os.getenv("USE_R2", "0") == "1"
+
+if USE_R2:
+    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
+    AWS_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
+    AWS_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
+    AWS_STORAGE_BUCKET_NAME = "turqr-media"
+    AWS_S3_ENDPOINT_URL = f"https://{os.getenv('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com"
+    AWS_S3_CUSTOM_DOMAIN = "media.turqr.com"
+    AWS_DEFAULT_ACL = "public-read"
+    AWS_S3_FILE_OVERWRITE = False
+    AWS_QUERYSTRING_AUTH = False
+    MEDIA_URL = "https://media.turqr.com/"
+    MEDIA_ROOT = ""
+else:
+    MEDIA_URL = "/media/"
+    MEDIA_ROOT = BASE_DIR / "media"
 
 AUTH_USER_MODEL = "restaurants.User"
 
