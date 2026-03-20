@@ -124,7 +124,9 @@ if USE_R2:
     AWS_QUERYSTRING_AUTH = False
     AWS_S3_SIGNATURE_VERSION = "s3v4"
     AWS_S3_REGION_NAME = "auto"
-    AWS_S3_ADDRESSING_STYLE = "path"
+    AWS_S3_OBJECT_PARAMETERS = {
+        'CacheControl': 'max-age=86400',
+    }    
     MEDIA_URL = "https://media.turqr.com/"
     MEDIA_ROOT = ""
 else:
