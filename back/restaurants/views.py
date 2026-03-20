@@ -360,36 +360,15 @@ class DishViewSet(viewsets.ModelViewSet):
         import logging
         import boto3
         import os
-        from django.core.files.storage import default_storage
+        import io
         logger = logging.getLogger(__name__)
 
+        # Читаем файлы ДО save пока поток открыт
+        files_data = {}
         for k, v in self.request.FILES.items():
-            logger.warning(f"FILE IN REQUEST: {k} = {v.name}, size={v.size}")
-
-            # тест 1: default_storage
-            try:
-                test_path = f"dishes/images/test_{v.name}"
-                saved_path = default_storage.save(test_path, v)
-                logger.warning(f"TEST UPLOAD OK: {saved_path}")
-                v.seek(0)
-            except Exception as e:
-                logger.warning(f"TEST UPLOAD ERROR: {e}")
-
-            # тест 2: прямой boto3
-            try:
-                s3 = boto3.client(
-                    's3',
-                    endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
-                    aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
-                    aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
-                    region_name='auto',
-                )
-                v.seek(0)
-                s3.upload_fileobj(v, 'turqr-media', f'dishes/images/direct_{v.name}')
-                logger.warning(f"DIRECT BOTO3 OK: dishes/images/direct_{v.name}")
-                v.seek(0)
-            except Exception as e:
-                logger.warning(f"DIRECT BOTO3 ERROR: {e}")
+            content = v.read()
+            files_data[k] = (v.name, content)
+            v.seek(0)  # сбрасываем для serializer
 
         user = self.request.user
         instance = self.get_object()
@@ -399,38 +378,47 @@ class DishViewSet(viewsets.ModelViewSet):
             saved = serializer.save()
             new_category = saved.category
 
-            logger.warning(f"SAVED DISH image field: {saved.image}")
-
             if old_category and old_category.is_system and new_category and not new_category.is_system:
                 Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
-
             if new_category and new_category.is_system and saved.moved_to_unsorted_at is None:
                 Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
 
-            return
+        else:
+            restaurant = _get_user_restaurant(user)
+            if not restaurant:
+                raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
+            if instance.restaurant_id != restaurant.id:
+                raise serializers.ValidationError({"detail": "You cannot modify this dish."})
 
-        restaurant = _get_user_restaurant(user)
-        if not restaurant:
-            raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
+            new_category = serializer.validated_data.get("category")
+            if new_category and new_category.restaurant_id != restaurant.id:
+                raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
 
-        if instance.restaurant_id != restaurant.id:
-            raise serializers.ValidationError({"detail": "You cannot modify this dish."})
+            old_category = instance.category
+            saved = serializer.save(restaurant=restaurant)
+            new_category_final = saved.category
 
-        new_category = serializer.validated_data.get("category")
-        if new_category and new_category.restaurant_id != restaurant.id:
-            raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
+            if old_category and old_category.is_system and new_category_final and not new_category_final.is_system:
+                Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
+            if new_category_final and new_category_final.is_system and saved.moved_to_unsorted_at is None:
+                Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
 
-        old_category = instance.category
-        saved = serializer.save(restaurant=restaurant)
-        new_category_final = saved.category
-
-        logger.warning(f"SAVED DISH image field: {saved.image}")
-
-        if old_category and old_category.is_system and new_category_final and not new_category_final.is_system:
-            Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
-
-        if new_category_final and new_category_final.is_system and saved.moved_to_unsorted_at is None:
-            Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
+        # Загружаем файлы в R2 через boto3 ПОСЛЕ save
+        if files_data:
+            try:
+                s3 = boto3.client(
+                    's3',
+                    endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+                    aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
+                    region_name='auto',
+                )
+                for field_name, (filename, content) in files_data.items():
+                    key = f"dishes/images/{filename}"
+                    s3.upload_fileobj(io.BytesIO(content), 'turqr-media', key)
+                    logger.warning(f"R2 UPLOAD OK: {key}")
+            except Exception as e:
+                logger.warning(f"R2 UPLOAD ERROR: {e}")
 
     def perform_destroy(self, instance):
         user = self.request.user
