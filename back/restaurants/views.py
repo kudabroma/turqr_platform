@@ -357,6 +357,13 @@ class DishViewSet(viewsets.ModelViewSet):
         serializer.save(restaurant=restaurant)
 
     def perform_update(self, serializer):
+        import logging
+        logger = logging.getLogger(__name__)
+
+        # логируем файлы
+        for k, v in self.request.FILES.items():
+            logger.warning(f"FILE IN REQUEST: {k} = {v.name}, size={v.size}")
+
         user = self.request.user
         instance = self.get_object()
 
@@ -364,6 +371,8 @@ class DishViewSet(viewsets.ModelViewSet):
             old_category = instance.category
             saved = serializer.save()
             new_category = saved.category
+
+            logger.warning(f"SAVED DISH image field: {saved.image}")
 
             if old_category and old_category.is_system and new_category and not new_category.is_system:
                 Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
@@ -387,6 +396,8 @@ class DishViewSet(viewsets.ModelViewSet):
         old_category = instance.category
         saved = serializer.save(restaurant=restaurant)
         new_category_final = saved.category
+
+        logger.warning(f"SAVED DISH image field: {saved.image}")
 
         if old_category and old_category.is_system and new_category_final and not new_category_final.is_system:
             Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
