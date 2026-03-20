@@ -87,11 +87,19 @@ class RestaurantMeView(APIView):
                 endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
                 aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
                 aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
+                region_name='auto',
             )
             buckets = s3.list_buckets()
             logger.error(f"R2 CONNECTION OK: {buckets}")
+            # Test upload
+            s3.put_object(
+                Bucket='turqr-media',
+                Key='test/hello.txt',
+                Body=b'hello from django',
+            )
+            logger.error("R2 UPLOAD TEST OK")
         except Exception as e:
-            logger.error(f"R2 CONNECTION ERROR: {e}")
+            logger.error(f"R2 ERROR: {e}")
 
         user = request.user
 
@@ -113,7 +121,7 @@ class RestaurantMeView(APIView):
         try:
             serializer.save()
             restaurant.refresh_from_db()
-            logger.error(f"SAVE SUCCESS: photo1={restaurant.photo1}, photo1_name={restaurant.photo1.name if restaurant.photo1 else 'EMPTY'}")
+            logger.error(f"SAVE SUCCESS: photo1={restaurant.photo1}")
         except Exception as e:
             import traceback
             logger.error(f"SAVE ERROR: {e}")
