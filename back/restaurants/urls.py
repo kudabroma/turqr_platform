@@ -51,7 +51,7 @@ urlpatterns = [
     path("admin/qr/png/", AdminQrPngView.as_view()),
     path("admin/qr/table-sticker/", AdminQrTableStickerView.as_view()),
     path("admin/qr/menu-a5/", AdminQrMenuA5DownloadView.as_view(), name="admin-qr-menu-a5"),
-    path("api/debug/storage/", DebugStorageView.as_view()),
+    path("debug/storage/", DebugStorageView.as_view()),
 ]
 
 urlpatterns += router.urls
