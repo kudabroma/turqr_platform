@@ -73,12 +73,28 @@ class RestaurantMeView(APIView):
         return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
 
     def patch(self, request):
-        user = request.user
         import logging
+        import os
         logger = logging.getLogger(__name__)
         logger.error(f"FILES: {request.FILES}")
         logger.error(f"DATA: {request.data}")
-        
+
+        # R2 connection test
+        try:
+            import boto3
+            s3 = boto3.client(
+                's3',
+                endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+                aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
+                aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
+            )
+            buckets = s3.list_buckets()
+            logger.error(f"R2 CONNECTION OK: {buckets}")
+        except Exception as e:
+            logger.error(f"R2 CONNECTION ERROR: {e}")
+
+        user = request.user
+
         if user.is_superuser:
             return Response(
                 {"detail": "Superuser cannot update restaurant here."},
