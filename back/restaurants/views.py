@@ -84,7 +84,9 @@ class RestaurantMeView(APIView):
         # Читаем файлы ДО save пока поток не закрыт
         files_to_upload = {}
         for field_name, file_obj in request.FILES.items():
-            files_to_upload[field_name] = (file_obj.name, file_obj.read())
+            content = file_obj.read()
+            files_to_upload[field_name] = (file_obj.name, content)
+            file_obj.seek(0)  # сбрасываем позицию чтобы serializer тоже мог прочитать
 
         # R2 client
         try:
@@ -138,7 +140,6 @@ class RestaurantMeView(APIView):
                     logger.error(f"DIRECT UPLOAD ERROR: {e}")
 
         return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
-
 
 # =====================
 # Auth
