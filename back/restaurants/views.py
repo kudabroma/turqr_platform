@@ -75,13 +75,13 @@ class RestaurantMeView(APIView):
     def patch(self, request):
         import logging
         import os
+        import boto3
         logger = logging.getLogger(__name__)
         logger.error(f"FILES: {request.FILES}")
         logger.error(f"DATA: {request.data}")
 
         # R2 connection test
         try:
-            import boto3
             s3 = boto3.client(
                 's3',
                 endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
@@ -91,12 +91,7 @@ class RestaurantMeView(APIView):
             )
             buckets = s3.list_buckets()
             logger.error(f"R2 CONNECTION OK: {buckets}")
-            # Test upload
-            s3.put_object(
-                Bucket='turqr-media',
-                Key='test/hello.txt',
-                Body=b'hello from django',
-            )
+            s3.put_object(Bucket='turqr-media', Key='test/hello.txt', Body=b'hello from django')
             logger.error("R2 UPLOAD TEST OK")
         except Exception as e:
             logger.error(f"R2 ERROR: {e}")
@@ -127,6 +122,15 @@ class RestaurantMeView(APIView):
             logger.error(f"SAVE ERROR: {e}")
             logger.error(traceback.format_exc())
             raise
+
+        # Прямая загрузка в R2 через boto3
+        for field_name, file_obj in request.FILES.items():
+            try:
+                key = f"restaurants/photos/{file_obj.name}"
+                s3.upload_fileobj(file_obj, 'turqr-media', key)
+                logger.error(f"DIRECT UPLOAD OK: {key}")
+            except Exception as e:
+                logger.error(f"DIRECT UPLOAD ERROR: {e}")
 
         return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
 
