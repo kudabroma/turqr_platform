@@ -76,11 +76,17 @@ class RestaurantMeView(APIView):
         import logging
         import os
         import boto3
+        import io
         logger = logging.getLogger(__name__)
         logger.error(f"FILES: {request.FILES}")
         logger.error(f"DATA: {request.data}")
 
-        # R2 connection test
+        # Читаем файлы ДО save пока поток не закрыт
+        files_to_upload = {}
+        for field_name, file_obj in request.FILES.items():
+            files_to_upload[field_name] = (file_obj.name, file_obj.read())
+
+        # R2 client
         try:
             s3 = boto3.client(
                 's3',
@@ -89,12 +95,10 @@ class RestaurantMeView(APIView):
                 aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
                 region_name='auto',
             )
-            buckets = s3.list_buckets()
-            logger.error(f"R2 CONNECTION OK: {buckets}")
-            s3.put_object(Bucket='turqr-media', Key='test/hello.txt', Body=b'hello from django')
-            logger.error("R2 UPLOAD TEST OK")
+            logger.error("R2 CLIENT OK")
         except Exception as e:
-            logger.error(f"R2 ERROR: {e}")
+            logger.error(f"R2 CLIENT ERROR: {e}")
+            s3 = None
 
         user = request.user
 
@@ -123,14 +127,15 @@ class RestaurantMeView(APIView):
             logger.error(traceback.format_exc())
             raise
 
-        # Прямая загрузка в R2 через boto3
-        for field_name, file_obj in request.FILES.items():
-            try:
-                key = f"restaurants/photos/{file_obj.name}"
-                s3.upload_fileobj(file_obj, 'turqr-media', key)
-                logger.error(f"DIRECT UPLOAD OK: {key}")
-            except Exception as e:
-                logger.error(f"DIRECT UPLOAD ERROR: {e}")
+        # Загружаем в R2 после save
+        if s3:
+            for field_name, (filename, content) in files_to_upload.items():
+                try:
+                    key = f"restaurants/photos/{filename}"
+                    s3.upload_fileobj(io.BytesIO(content), 'turqr-media', key)
+                    logger.error(f"DIRECT UPLOAD OK: {key}, size={len(content)}")
+                except Exception as e:
+                    logger.error(f"DIRECT UPLOAD ERROR: {e}")
 
         return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
 
