@@ -358,22 +358,38 @@ class DishViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         import logging
+        import boto3
+        import os
         from django.core.files.storage import default_storage
         logger = logging.getLogger(__name__)
 
         for k, v in self.request.FILES.items():
             logger.warning(f"FILE IN REQUEST: {k} = {v.name}, size={v.size}")
-            # тестовый прямой upload через default_storage
+
+            # тест 1: default_storage
             try:
                 test_path = f"dishes/images/test_{v.name}"
                 saved_path = default_storage.save(test_path, v)
                 logger.warning(f"TEST UPLOAD OK: {saved_path}")
-                v.seek(0)  # сбрасываем позицию для serializer
+                v.seek(0)
             except Exception as e:
                 logger.warning(f"TEST UPLOAD ERROR: {e}")
 
-        user = self.request.user
-        instance = self.get_object()
+            # тест 2: прямой boto3
+            try:
+                s3 = boto3.client(
+                    's3',
+                    endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+                    aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
+                    region_name='auto',
+                )
+                v.seek(0)
+                s3.upload_fileobj(v, 'turqr-media', f'dishes/images/direct_{v.name}')
+                logger.warning(f"DIRECT BOTO3 OK: dishes/images/direct_{v.name}")
+                v.seek(0)
+            except Exception as e:
+                logger.warning(f"DIRECT BOTO3 ERROR: {e}")
 
         user = self.request.user
         instance = self.get_object()
