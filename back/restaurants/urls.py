@@ -19,10 +19,10 @@ from .views import (
     RestaurantMeView,
     AdminQrPngView,
     AdminQrTableStickerView,
-    AdminQrMenuA5DownloadView
+    AdminQrMenuA5DownloadView,
+    DebugStorageView
 )
 from .lead_views import create_lead
-
 
 router = DefaultRouter()
 router.register(r"categories", CategoryViewSet, basename="category")
@@ -51,6 +51,7 @@ urlpatterns = [
     path("admin/qr/png/", AdminQrPngView.as_view()),
     path("admin/qr/table-sticker/", AdminQrTableStickerView.as_view()),
     path("admin/qr/menu-a5/", AdminQrMenuA5DownloadView.as_view(), name="admin-qr-menu-a5"),
+    path("api/debug/storage/", DebugStorageView.as_view()),
 ]
 
 urlpatterns += router.urls

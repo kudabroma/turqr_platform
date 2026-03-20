@@ -126,6 +126,7 @@ if USE_R2:
     AWS_S3_REGION_NAME = "auto"
     AWS_S3_OBJECT_PARAMETERS = {
         'CacheControl': 'max-age=86400',
+        'ContentType': 'image/jpeg', 
     }    
     MEDIA_URL = "https://media.turqr.com/"
     MEDIA_ROOT = ""

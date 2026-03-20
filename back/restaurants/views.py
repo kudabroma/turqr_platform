@@ -587,3 +587,19 @@ class AdminQrMenuA5DownloadView(APIView):
             filename=f"{slug}_menu_a5.pdf",
             content_type="application/pdf",
         )
+class DebugStorageView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def get(self, request):
+        import os
+        from django.conf import settings
+        return Response({
+            "USE_R2": os.getenv("USE_R2"),
+            "DEFAULT_FILE_STORAGE": getattr(settings, "DEFAULT_FILE_STORAGE", None),
+            "AWS_STORAGE_BUCKET_NAME": getattr(settings, "AWS_STORAGE_BUCKET_NAME", None),
+            "AWS_S3_ENDPOINT_URL": getattr(settings, "AWS_S3_ENDPOINT_URL", None),
+            "AWS_S3_CUSTOM_DOMAIN": getattr(settings, "AWS_S3_CUSTOM_DOMAIN", None),
+            "R2_ACCOUNT_ID_set": bool(os.getenv("R2_ACCOUNT_ID")),
+            "R2_ACCESS_KEY_set": bool(os.getenv("R2_ACCESS_KEY_ID")),
+            "R2_SECRET_KEY_set": bool(os.getenv("R2_SECRET_ACCESS_KEY")),
+        })
