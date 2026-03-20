@@ -97,9 +97,11 @@ class RestaurantMeView(APIView):
         try:
             serializer.save()
             restaurant.refresh_from_db()
-            logger.error(f"SAVE SUCCESS: photo3={restaurant.photo3}")
+            logger.error(f"SAVE SUCCESS: photo1={restaurant.photo1}, photo1_name={restaurant.photo1.name if restaurant.photo1 else 'EMPTY'}")
         except Exception as e:
+            import traceback
             logger.error(f"SAVE ERROR: {e}")
+            logger.error(traceback.format_exc())
             raise
 
         return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
