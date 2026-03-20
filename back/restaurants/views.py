@@ -74,7 +74,10 @@ class RestaurantMeView(APIView):
 
     def patch(self, request):
         user = request.user
-
+        import logging
+        logger = logging.getLogger(__name__)
+        logger.error(f"FILES: {request.FILES}")
+        logger.error(f"DATA: {request.data}")
         if user.is_superuser:
             return Response(
                 {"detail": "Superuser cannot update restaurant here."},
