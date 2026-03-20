@@ -120,7 +120,6 @@ if USE_R2:
     AWS_STORAGE_BUCKET_NAME = "turqr-media"
     AWS_S3_ENDPOINT_URL = f"https://{os.getenv('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com"
     AWS_S3_CUSTOM_DOMAIN = "media.turqr.com"
-    AWS_DEFAULT_ACL = "public-read"
     AWS_S3_FILE_OVERWRITE = False
     AWS_QUERYSTRING_AUTH = False
     MEDIA_URL = "https://media.turqr.com/"
