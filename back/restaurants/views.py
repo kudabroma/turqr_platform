@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, login, logout, get_user_model
+from django.contrib.auth import authenticate
 from django.db import transaction
 from rest_framework.permissions import IsAuthenticated
 from django.utils import timezone
@@ -9,11 +9,9 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Case, When, Value, IntegerField
-from django.http import HttpResponse
+from django.http import HttpResponse, FileResponse
 from django.conf import settings
 from rest_framework_simplejwt.tokens import RefreshToken
-from rest_framework_simplejwt.exceptions import TokenError
-from django.http import FileResponse
 from .qr.generator import compose_qr_template, build_menu_url, generate_qr_png_bytes
 from .models import Restaurant, Category, Dish, PaymentHistory
 from .serializers import (
@@ -31,6 +29,8 @@ from .serializers import (
 from .permissions import HasActiveSubscriptionOrReadOnly
 from .services.unsorted import get_unsorted_category
 
+User = settings.AUTH_USER_MODEL
+from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
@@ -46,12 +46,11 @@ def _get_user_restaurant(user):
 # =====================
 class RestaurantMeView(APIView):
     """
-    GET /api/restaurants/me/
+    GET  /api/restaurants/me/
     PATCH /api/restaurants/me/
     """
 
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
-    # ✅ для загрузки logo (ImageField) через multipart/form-data
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get(self, request):
@@ -70,38 +69,11 @@ class RestaurantMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
+        return Response(
+            RestaurantMeSerializer(restaurant, context={"request": request}).data
+        )
 
     def patch(self, request):
-        import logging
-        import os
-        import boto3
-        import io
-        logger = logging.getLogger(__name__)
-        logger.error(f"FILES: {request.FILES}")
-        logger.error(f"DATA: {request.data}")
-
-        # Читаем файлы ДО save пока поток не закрыт
-        files_to_upload = {}
-        for field_name, file_obj in request.FILES.items():
-            content = file_obj.read()
-            files_to_upload[field_name] = (file_obj.name, content)
-            file_obj.seek(0)  # сбрасываем позицию чтобы serializer тоже мог прочитать
-
-        # R2 client
-        try:
-            s3 = boto3.client(
-                's3',
-                endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
-                aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
-                aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
-                region_name='auto',
-            )
-            logger.error("R2 CLIENT OK")
-        except Exception as e:
-            logger.error(f"R2 CLIENT ERROR: {e}")
-            s3 = None
-
         user = request.user
 
         if user.is_superuser:
@@ -117,29 +89,20 @@ class RestaurantMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        serializer = RestaurantUpdateSerializer(restaurant, data=request.data, partial=True)
+        serializer = RestaurantUpdateSerializer(
+            restaurant,
+            data=request.data,
+            partial=True,
+        )
         serializer.is_valid(raise_exception=True)
-        try:
-            serializer.save()
-            restaurant.refresh_from_db()
-            logger.error(f"SAVE SUCCESS: photo1={restaurant.photo1}")
-        except Exception as e:
-            import traceback
-            logger.error(f"SAVE ERROR: {e}")
-            logger.error(traceback.format_exc())
-            raise
+        serializer.save()  # django-storages автоматически загружает файлы в R2
 
-        # Загружаем в R2 после save
-        if s3:
-            for field_name, (filename, content) in files_to_upload.items():
-                try:
-                    key = f"restaurants/photos/{filename}"
-                    s3.upload_fileobj(io.BytesIO(content), 'turqr-media', key)
-                    logger.error(f"DIRECT UPLOAD OK: {key}, size={len(content)}")
-                except Exception as e:
-                    logger.error(f"DIRECT UPLOAD ERROR: {e}")
+        restaurant.refresh_from_db()
 
-        return Response(RestaurantMeSerializer(restaurant, context={"request": request}).data)
+        return Response(
+            RestaurantMeSerializer(restaurant, context={"request": request}).data
+        )
+
 
 # =====================
 # Auth
@@ -171,7 +134,6 @@ class RegistrationView(APIView):
                 name=serializer.validated_data["restaurant_name"]
             )
 
-            # ✅ ensure Unsorted exists for the new restaurant
             get_unsorted_category(restaurant)
 
             user = User(
@@ -207,7 +169,7 @@ class LoginView(APIView):
             "refresh": str(refresh),
             "id": user.id,
             "username": user.username,
-            "restaurant": getattr(user, "restaurant_id", None)
+            "restaurant": getattr(user, "restaurant_id", None),
         })
 
 
@@ -225,19 +187,17 @@ class MeView(APIView):
 
     def get(self, request):
         user = request.user
-        return Response({"id": user.id, "username": user.username, "restaurant": getattr(user, "restaurant_id", None)})
+        return Response({
+            "id": user.id,
+            "username": user.username,
+            "restaurant": getattr(user, "restaurant_id", None),
+        })
 
 
 # =====================
 # Categories CRUD
 # =====================
 class CategoryViewSet(viewsets.ModelViewSet):
-    """
-    CRUD для категорий меню.
-    Business user работает только со своим рестораном.
-    Superuser может указывать restaurant вручную.
-    """
-
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
 
     def get_serializer_class(self):
@@ -270,7 +230,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
         if not restaurant:
             raise ValidationError({"restaurant": "User has no associated restaurant."})
 
-        # ставим новую категорию в конец списка (перед Unsorted)
         last = Category.objects.filter(
             restaurant=restaurant,
             is_system=False
@@ -278,15 +237,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
         next_order = (last.sort_order + 1) if last else 0
 
-        serializer.save(
-            restaurant=restaurant,
-            sort_order=next_order
-        )
+        serializer.save(restaurant=restaurant, sort_order=next_order)
 
     def perform_update(self, serializer):
         category = self.get_object()
 
-        # 🚫 system category нельзя менять
         if category.is_system:
             raise ValidationError({"detail": "System category cannot be modified."})
 
@@ -303,13 +258,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
         serializer.save(restaurant=restaurant)
 
     def destroy(self, request, *args, **kwargs):
-        """
-        DELETE category:
-        - system category нельзя удалять
-        - блюда переносим в Unsorted
-        - категорию удаляем
-        """
-
         category = self.get_object()
 
         if category.is_system:
@@ -329,13 +277,10 @@ class CategoryViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=["post"])
     def reorder(self, request):
-        """
-        Меняет порядок категорий (drag & drop)
-        """
-
         restaurant = _get_user_restaurant(request.user)
         if not restaurant:
             raise ValidationError({"restaurant": "User has no associated restaurant."})
+
         items = request.data.get("items", [])
 
         for item in items:
@@ -345,7 +290,6 @@ class CategoryViewSet(viewsets.ModelViewSet):
                 is_system=False
             ).update(sort_order=item["sort_order"])
 
-        # гарантируем что Unsorted всегда последняя
         unsorted = Category.objects.filter(
             restaurant=restaurant,
             is_system=True
@@ -368,13 +312,11 @@ class CategoryViewSet(viewsets.ModelViewSet):
 # =====================
 class DishViewSet(viewsets.ModelViewSet):
     """
-    CRUD для блюд меню.
-    Business user работает только со своим рестораном.
-    Superuser может со всеми, но restaurant обязателен при создании.
+    CRUD для блюд.
+    Фото блюда (image) загружается через django-storages в R2 автоматически.
     """
 
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
-    # ✅ для загрузки image через multipart/form-data
     parser_classes = [JSONParser, MultiPartParser, FormParser]
 
     def get_serializer_class(self):
@@ -385,7 +327,6 @@ class DishViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
-        # superuser sees all
         if getattr(user, "is_superuser", False):
             return Dish.objects.all()
 
@@ -413,29 +354,25 @@ class DishViewSet(viewsets.ModelViewSet):
         if category and category.restaurant_id != restaurant.id:
             raise serializers.ValidationError({"category": "Category must belong to your restaurant."})
 
-        serializer.save(restaurant=self.request.user.restaurant)
+        serializer.save(restaurant=restaurant)
 
     def perform_update(self, serializer):
         user = self.request.user
         instance = self.get_object()
 
-        # --- superuser ---
         if user.is_superuser:
             old_category = instance.category
             saved = serializer.save()
             new_category = saved.category
 
-            # ✅ lifecycle: если из системной -> в обычную, сбросить
             if old_category and old_category.is_system and new_category and not new_category.is_system:
                 Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
 
-            # если в системную — поставить moved_to_unsorted_at (если не было)
             if new_category and new_category.is_system and saved.moved_to_unsorted_at is None:
                 Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
 
             return
 
-        # --- business user ---
         restaurant = _get_user_restaurant(user)
         if not restaurant:
             raise serializers.ValidationError({"restaurant": "User has no associated restaurant."})
@@ -451,7 +388,6 @@ class DishViewSet(viewsets.ModelViewSet):
         saved = serializer.save(restaurant=restaurant)
         new_category_final = saved.category
 
-        # ✅ lifecycle after save
         if old_category and old_category.is_system and new_category_final and not new_category_final.is_system:
             Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
 
@@ -479,8 +415,6 @@ class DishViewSet(viewsets.ModelViewSet):
 # Payment History (read-only)
 # =====================
 class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """История платежей только для текущего ресторана."""
-
     serializer_class = PaymentHistorySerializer
     permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
 
@@ -499,12 +433,12 @@ class PaymentHistoryViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 # =====================
-# Menu (Admin)
+# Menu (Public / Admin read)
 # =====================
 class MenuView(APIView):
     """
     GET /api/menu/
-    Возвращает категории и блюда ресторана текущего пользователя.
+    Возвращает категории и блюда ресторана.
     Поддерживает ?lang=en (по умолчанию tr).
     """
 
@@ -513,14 +447,13 @@ class MenuView(APIView):
     def get(self, request):
         user = request.user
 
-        # 🔹 Определяем ресторан
         if user.is_superuser and request.query_params.get("restaurant_id"):
             try:
                 restaurant = Restaurant.objects.get(pk=request.query_params.get("restaurant_id"))
             except Restaurant.DoesNotExist:
                 return Response(
                     {"detail": "Restaurant not found."},
-                    status=status.HTTP_404_NOT_FOUND
+                    status=status.HTTP_404_NOT_FOUND,
                 )
         else:
             restaurant = _get_user_restaurant(user)
@@ -530,15 +463,9 @@ class MenuView(APIView):
                     status=status.HTTP_403_FORBIDDEN,
                 )
 
-        # 🔹 Получаем язык (по умолчанию TR)
-        lang = request.query_params.get("lang", "tr")
-        lang = lang.lower()
-        if not lang.startswith("en"):
-            lang = "tr"
-        else:
-            lang = "en"
+        lang = request.query_params.get("lang", "tr").lower()
+        lang = "en" if lang.startswith("en") else "tr"
 
-        # 🔹 Загружаем категории с блюдами
         categories = (
             Category.objects
             .filter(restaurant=restaurant)
@@ -549,28 +476,23 @@ class MenuView(APIView):
                     output_field=IntegerField(),
                 )
             )
-            .order_by("_sys_last", "id")   # ✅ system (Unsorted) всегда в конце
+            .order_by("_sys_last", "id")
             .prefetch_related("dishes")
         )
 
-        # 🔹 Передаем lang в context
         serializer = CategoryWithDishesSerializer(
             categories,
             many=True,
-            context={
-                "request": request,
-                "lang": lang,
-            }
+            context={"request": request, "lang": lang},
         )
-        return Response(serializer.data)   # ✅ ВАЖНО: без {"categories": ...}
-    
+        return Response(serializer.data)
+
+
 # =====================
 # Subscription
 # =====================
 class SubscriptionView(APIView):
-    """
-    GET /api/subscription/
-    """
+    """GET /api/subscription/"""
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -592,19 +514,19 @@ class SubscriptionView(APIView):
 
         subscription = getattr(restaurant, "subscription", None)
         if not subscription:
-            return Response({"error": "Подписка не оформлена."}, status=status.HTTP_404_NOT_FOUND)
+            return Response(
+                {"error": "Подписка не оформлена."},
+                status=status.HTTP_404_NOT_FOUND,
+            )
 
-        serializer = SubscriptionSerializer(subscription)
-        return Response(serializer.data)
-    # =====================
+        return Response(SubscriptionSerializer(subscription).data)
+
+
+# =====================
 # QR Admin Endpoints
 # =====================
-
 class AdminQrPngView(APIView):
-    """
-    GET /api/admin/qr/png/
-    Возвращает styled QR код меню ресторана
-    """
+    """GET /api/admin/qr/png/"""
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -626,10 +548,7 @@ class AdminQrPngView(APIView):
 
 
 class AdminQrTableStickerView(APIView):
-    """
-    GET /api/admin/qr/table-sticker/
-    Возвращает sticker PNG
-    """
+    """GET /api/admin/qr/table-sticker/"""
 
     permission_classes = [permissions.IsAuthenticated]
 
@@ -642,14 +561,13 @@ class AdminQrTableStickerView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        slug = restaurant.slug
-
-        image = compose_qr_template(slug)
+        image = compose_qr_template(restaurant.slug)
 
         response = HttpResponse(image.getvalue(), content_type="image/png")
-        response["Content-Disposition"] = f'attachment; filename="turqr-{slug}-sticker.png"'
-
+        response["Content-Disposition"] = f'attachment; filename="turqr-{restaurant.slug}-sticker.png"'
         return response
+
+
 class AdminQrMenuA5DownloadView(APIView):
     permission_classes = [IsAuthenticated]
 

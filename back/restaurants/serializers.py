@@ -5,6 +5,26 @@ from .models import Restaurant, Category, Dish, Subscription, PaymentHistory
 
 User = get_user_model()
 
+MEDIA_BASE = "https://media.turqr.com"
+
+
+def _build_url(field_value) -> str | None:
+    """
+    Возвращает полный публичный URL файла.
+    Если django-storages вернул относительный путь — добавляем домен.
+    """
+    if not field_value:
+        return None
+    try:
+        url = field_value.url
+        if not url:
+            return None
+        if url.startswith("/"):
+            return f"{MEDIA_BASE}{url}"
+        return url
+    except Exception:
+        return None
+
 
 # =========================
 # Restaurant: /api/restaurants/me/
@@ -21,8 +41,6 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
     photo4_url = serializers.SerializerMethodField()
     photo5_url = serializers.SerializerMethodField()
     photo6_url = serializers.SerializerMethodField()
-
-    # -------- compat subscription fields --------
 
     def get_active(self, obj: Restaurant) -> bool:
         sub = getattr(obj, "subscription", None)
@@ -42,27 +60,13 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             return None
         return sub.expires_at.date().isoformat()
 
-    # -------- url helpers --------
-    # ✅ ВАЖНО: возвращаем относительный URL (/media/...), чтобы работало через ngrok и на телефоне
-
-    def _file_url(self, obj: Restaurant, field_name: str):
-        f = getattr(obj, field_name, None)
-        if not f:
-            return None
-        try:
-            return f.url  # ✅ "/media/...."
-        except Exception:
-            return None
-
-    def get_logo_url(self, obj: Restaurant):
-        return self._file_url(obj, "logo")
-
-    def get_photo1_url(self, obj: Restaurant): return self._file_url(obj, "photo1")
-    def get_photo2_url(self, obj: Restaurant): return self._file_url(obj, "photo2")
-    def get_photo3_url(self, obj: Restaurant): return self._file_url(obj, "photo3")
-    def get_photo4_url(self, obj: Restaurant): return self._file_url(obj, "photo4")
-    def get_photo5_url(self, obj: Restaurant): return self._file_url(obj, "photo5")
-    def get_photo6_url(self, obj: Restaurant): return self._file_url(obj, "photo6")
+    def get_logo_url(self, obj): return _build_url(obj.logo)
+    def get_photo1_url(self, obj): return _build_url(obj.photo1)
+    def get_photo2_url(self, obj): return _build_url(obj.photo2)
+    def get_photo3_url(self, obj): return _build_url(obj.photo3)
+    def get_photo4_url(self, obj): return _build_url(obj.photo4)
+    def get_photo5_url(self, obj): return _build_url(obj.photo5)
+    def get_photo6_url(self, obj): return _build_url(obj.photo6)
 
     class Meta:
         model = Restaurant
@@ -75,38 +79,22 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "email",
             "address",
             "working_hours",
-
             "description_tr",
             "description_en",
-
             "logo",
             "logo_url",
             "front_template",
-
             "active",
             "plan",
             "paid_until",
-
-            "photo1",
-            "photo2",
-            "photo3",
-            "photo4",
-            "photo5",
-            "photo6",
-            "photo1_url",
-            "photo2_url",
-            "photo3_url",
-            "photo4_url",
-            "photo5_url",
-            "photo6_url",
+            "photo1", "photo2", "photo3",
+            "photo4", "photo5", "photo6",
+            "photo1_url", "photo2_url", "photo3_url",
+            "photo4_url", "photo5_url", "photo6_url",
         ]
 
-class RestaurantUpdateSerializer(serializers.ModelSerializer):
-    """
-    PATCH /api/restaurants/me/
-    Только реальные поля Restaurant (без computed полей).
-    """
 
+class RestaurantUpdateSerializer(serializers.ModelSerializer):
     class Meta:
         model = Restaurant
         fields = [
@@ -116,18 +104,12 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "email",
             "address",
             "working_hours",
-            # ✅ NEW bilingual fields
             "description_tr",
             "description_en",
-
             "front_template",
             "logo",
-            "photo1",
-            "photo2",
-            "photo3",
-            "photo4",
-            "photo5",
-            "photo6",
+            "photo1", "photo2", "photo3",
+            "photo4", "photo5", "photo6",
         ]
 
 
@@ -135,11 +117,6 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
 # Auth / Users
 # =========================
 class UserSerializer(serializers.ModelSerializer):
-    """
-    Сериализатор пользователя.
-    Пароль принимается только на запись и хэшируется стандартными методами Django.
-    """
-
     password = serializers.CharField(write_only=True, min_length=6)
 
     class Meta:
@@ -156,26 +133,14 @@ class UserSerializer(serializers.ModelSerializer):
 
 
 # =========================
-# Categories (Business / Admin)
+# Categories
 # =========================
 class CategorySerializer(serializers.ModelSerializer):
-    """
-    Business user: restaurant read-only, бек сам подставляет в perform_create.
-    Разрешаем создавать/обновлять через name_tr без обязательного legacy name.
-    """
     restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
 
     class Meta:
         model = Category
-        fields = [
-            "id",
-            "name",
-            "name_tr",
-            "name_en",
-            "restaurant",
-            "is_system",
-            "sort_order",
-        ]
+        fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system", "sort_order"]
         read_only_fields = ["id", "restaurant", "is_system", "sort_order"]
         extra_kwargs = {
             "name": {"required": False, "allow_blank": True},
@@ -188,12 +153,9 @@ class CategorySerializer(serializers.ModelSerializer):
         name_tr = (attrs.get("name_tr") or "").strip()
         name_en = (attrs.get("name_en") or "").strip()
 
-        # new -> legacy
         if name_tr and not name:
             attrs["name"] = name_tr
             name = name_tr
-
-        # legacy -> new
         if name and not name_tr:
             attrs["name_tr"] = name
 
@@ -202,33 +164,19 @@ class CategorySerializer(serializers.ModelSerializer):
             or (attrs.get("name_tr") or "").strip()
             or name_en
         )
-
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
-
         return attrs
 
 
 class CategorySuperuserSerializer(serializers.ModelSerializer):
-    """
-    Superuser: restaurant обязателен.
-    """
     restaurant = serializers.PrimaryKeyRelatedField(
-        queryset=Restaurant.objects.all(),
-        required=True,
+        queryset=Restaurant.objects.all(), required=True
     )
 
     class Meta:
         model = Category
-        fields = [
-            "id",
-            "name",
-            "name_tr",
-            "name_en",
-            "restaurant",
-            "is_system",
-            "sort_order",
-        ]
+        fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system", "sort_order"]
         read_only_fields = ["id", "is_system", "sort_order"]
         extra_kwargs = {
             "name": {"required": False, "allow_blank": True},
@@ -244,7 +192,6 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
         if name_tr and not name:
             attrs["name"] = name_tr
             name = name_tr
-
         if name and not name_tr:
             attrs["name_tr"] = name
 
@@ -253,43 +200,33 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
             or (attrs.get("name_tr") or "").strip()
             or name_en
         )
-
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
-
         return attrs
 
 
 # =========================
-# Dishes (Business / Admin)
+# Dishes
 # =========================
 class DishSerializer(serializers.ModelSerializer):
     """
-    Business user: restaurant read-only (бек подставит).
-    Разрешаем создавать/обновлять через name_tr/description_tr без обязательного name/description.
+    Business user.
+    Фото блюда загружается через django-storages в R2 автоматически.
+    image_url возвращает полный публичный URL.
     """
     restaurant = serializers.PrimaryKeyRelatedField(read_only=True)
     image_url = serializers.SerializerMethodField()
 
     def get_image_url(self, obj: Dish):
-        image = getattr(obj, "image", None)
-        if not image:
-            return None
-        try:
-            return image.url  # "/media/...."
-        except Exception:
-            return None
+        return _build_url(obj.image)
 
     class Meta:
         model = Dish
         fields = [
             "id",
-            "name",
-            "description",
-            "name_tr",
-            "name_en",
-            "description_tr",
-            "description_en",
+            "name", "description",
+            "name_tr", "name_en",
+            "description_tr", "description_en",
             "price",
             "category",
             "restaurant",
@@ -300,8 +237,6 @@ class DishSerializer(serializers.ModelSerializer):
             "archived_at",
         ]
         read_only_fields = ["id", "restaurant", "image_url", "moved_to_unsorted_at", "archived_at"]
-
-        # ✅ КЛЮЧЕВОЕ: legacy поля больше не обязательные
         extra_kwargs = {
             "name": {"required": False, "allow_blank": True},
             "description": {"required": False, "allow_blank": True},
@@ -312,66 +247,49 @@ class DishSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, attrs):
-        # --- normalize ---
         name = (attrs.get("name") or "").strip()
         name_tr = (attrs.get("name_tr") or "").strip()
         name_en = (attrs.get("name_en") or "").strip()
-
-        desc = (attrs.get("description") or "").strip()
         desc_tr = (attrs.get("description_tr") or "").strip()
-        desc_en = (attrs.get("description_en") or "").strip()
+        desc = (attrs.get("description") or "").strip()
 
-        # ✅ new -> legacy
         if name_tr and not name:
             attrs["name"] = name_tr
             name = name_tr
-
-        # ✅ legacy -> new (чтобы не было пустых bilingual полей)
         if name and not name_tr:
             attrs["name_tr"] = name
 
-        # ✅ description: new -> legacy
         if "description_tr" in attrs and "description" not in attrs:
             attrs["description"] = desc_tr
-
-        # ✅ description: legacy -> new (если пришло legacy)
         if "description" in attrs and "description_tr" not in attrs:
             attrs["description_tr"] = desc
 
-        # ✅ финальная проверка имени (должно быть хоть одно)
         final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
-
         return attrs
 
 
 class DishSuperuserSerializer(serializers.ModelSerializer):
     """
-    Superuser может создавать блюда для любого ресторана (restaurant обязателен).
+    Superuser: restaurant обязателен.
+    Фото также через django-storages → R2.
     """
-    restaurant = serializers.PrimaryKeyRelatedField(queryset=Restaurant.objects.all(), required=True)
+    restaurant = serializers.PrimaryKeyRelatedField(
+        queryset=Restaurant.objects.all(), required=True
+    )
     image_url = serializers.SerializerMethodField()
 
     def get_image_url(self, obj: Dish):
-        image = getattr(obj, "image", None)
-        if not image:
-            return None
-        try:
-            return image.url  # "/media/...."
-        except Exception:
-            return None
+        return _build_url(obj.image)
 
     class Meta:
         model = Dish
         fields = [
             "id",
-            "name",
-            "description",
-            "name_tr",
-            "name_en",
-            "description_tr",
-            "description_en",
+            "name", "description",
+            "name_tr", "name_en",
+            "description_tr", "description_en",
             "price",
             "category",
             "restaurant",
@@ -382,8 +300,6 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
             "archived_at",
         ]
         read_only_fields = ["id", "image_url", "moved_to_unsorted_at", "archived_at"]
-
-        # ✅ тоже делаем legacy поля необязательными
         extra_kwargs = {
             "name": {"required": False, "allow_blank": True},
             "description": {"required": False, "allow_blank": True},
@@ -397,37 +313,28 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
         name = (attrs.get("name") or "").strip()
         name_tr = (attrs.get("name_tr") or "").strip()
         name_en = (attrs.get("name_en") or "").strip()
-
-        desc = (attrs.get("description") or "").strip()
         desc_tr = (attrs.get("description_tr") or "").strip()
+        desc = (attrs.get("description") or "").strip()
 
-        # new -> legacy
         if name_tr and not name:
             attrs["name"] = name_tr
             name = name_tr
-
-        # legacy -> new
         if name and not name_tr:
             attrs["name_tr"] = name
 
-        # description new -> legacy
         if "description_tr" in attrs and "description" not in attrs:
             attrs["description"] = desc_tr
-
-        # description legacy -> new
         if "description" in attrs and "description_tr" not in attrs:
             attrs["description_tr"] = desc
 
-        # финальная проверка
         final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
-
         return attrs
 
 
 # =========================
-# Menu Read (Admin menu read-only)
+# Menu Read (public/admin read-only)
 # =========================
 class DishReadSerializer(serializers.ModelSerializer):
     name = serializers.SerializerMethodField()
@@ -451,13 +358,7 @@ class DishReadSerializer(serializers.ModelSerializer):
         return (obj.description_tr or "").strip() or (obj.description or "").strip() or (obj.description_en or "").strip()
 
     def get_image_url(self, obj: Dish):
-        image = getattr(obj, "image", None)
-        if not image:
-            return None
-        try:
-            return image.url  # "/media/...."
-        except Exception:
-            return None
+        return _build_url(obj.image)
 
     class Meta:
         model = Dish
@@ -474,29 +375,13 @@ class CategoryWithDishesSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj: Category):
         lang = self._lang()
-
         if lang == "en":
-            return (
-                (obj.name_en or "").strip()
-                or (obj.name_tr or "").strip()
-                or (obj.name or "").strip()
-            )
-
-        return (
-            (obj.name_tr or "").strip()
-            or (obj.name or "").strip()
-            or (obj.name_en or "").strip()
-        )
+            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
+        return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
 
     class Meta:
         model = Category
-        fields = [
-            "id",
-            "name",
-            "is_system",
-            "sort_order",
-            "dishes",
-        ]
+        fields = ["id", "name", "is_system", "sort_order", "dishes"]
 
 
 # =========================
@@ -505,21 +390,10 @@ class CategoryWithDishesSerializer(serializers.ModelSerializer):
 class SubscriptionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subscription
-        fields = [
-            "tariff",
-            "status",
-            "started_at",
-            "expires_at",
-        ]
+        fields = ["tariff", "status", "started_at", "expires_at"]
 
 
 class PaymentHistorySerializer(serializers.ModelSerializer):
     class Meta:
         model = PaymentHistory
-        fields = [
-            "id",
-            "amount",
-            "paid_at",
-            "payment_method",
-            "status",
-        ]
+        fields = ["id", "amount", "paid_at", "payment_method", "status"]
