@@ -5,12 +5,30 @@ import { FeaturedDishes } from "@/components/admin/FeaturedDishes";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { restaurantApi, menuApi } from "@/api/endpoints";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Copy, Check } from "lucide-react";
+import { getAccessToken } from "@/api/apiClient";
+
+const API_BASE = import.meta.env.VITE_API_URL ?? "/api";
+
+async function fetchBlobUrl(endpoint: string): Promise<string | null> {
+  const token = getAccessToken();
+  try {
+    const res = await fetch(`${API_BASE}${endpoint}`, {
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return URL.createObjectURL(blob);
+  } catch {
+    return null;
+  }
+}
 
 export default function RestaurantPreview() {
   const navigate = useNavigate();
   const [copied, setCopied] = useState(false);
+  const [qrBlobUrl, setQrBlobUrl] = useState<string | null>(null);
 
   const restaurantQuery = useQuery({
     queryKey: ["restaurant", "me"],
@@ -24,46 +42,43 @@ export default function RestaurantPreview() {
     refetchOnWindowFocus: false,
   });
 
-  const photos: string[] = (() => {
-    const r: any = restaurantQuery.data;
-    if (!r) return [];
+  const slug = (restaurantQuery.data as any)?.slug ?? "";
 
-    const arr = [
-      r.photo1_url,
-      r.photo2_url,
-      r.photo3_url,
-      r.photo4_url,
-      r.photo5_url,
-      r.photo6_url,
-    ].filter(Boolean);
-
-    if (arr.length === 0) {
-      const fallback = [r.photo1, r.logo_url, r.logo].filter(Boolean);
-      return fallback as string[];
-    }
-
-    return arr as string[];
-  })();
+  // Загружаем QR с токеном
+  useEffect(() => {
+    if (!slug) return;
+    fetchBlobUrl("/admin/qr/png/").then(setQrBlobUrl);
+    return () => {
+      if (qrBlobUrl) URL.revokeObjectURL(qrBlobUrl);
+    };
+  }, [slug]);
 
   const dishes =
     menuQuery.data?.flatMap((c) => c.dishes?.map((d) => ({ ...d, category_name: c.name })) ?? []) ?? [];
 
-  const slug = (restaurantQuery.data as any)?.slug ?? "";
-  const menuLink = slug ? `https://${slug}.turqr.com/menu` : "";
+  // Правильный формат menu link
+  const menuLink = slug ? `https://menu.turqr.com/?slug=${slug}` : "";
 
   const handleCopyMenuLink = async () => {
     if (!menuLink) return;
-
     try {
       await navigator.clipboard.writeText(menuLink);
       setCopied(true);
-
-      setTimeout(() => {
-        setCopied(false);
-      }, 2000);
+      setTimeout(() => setCopied(false), 2000);
     } catch (error) {
       console.error("Link kopyalanamadı", error);
     }
+  };
+
+  // Скачивание файла с токеном
+  const handleDownload = async (endpoint: string, filename: string) => {
+    const url = await fetchBlobUrl(endpoint);
+    if (!url) return;
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -96,11 +111,17 @@ export default function RestaurantPreview() {
             ) : (
               <div className="flex flex-col items-center text-center">
                 <div className="rounded-2xl border border-border bg-white p-3 shadow-sm">
-                  <img
-                    src="https://api.turqr.com/api/admin/qr/png/"
-                    alt="Restaurant QR"
-                    className="w-48 h-48 object-contain"
-                  />
+                  {qrBlobUrl ? (
+                    <img
+                      src={qrBlobUrl}
+                      alt="Restaurant QR"
+                      className="w-48 h-48 object-contain"
+                    />
+                  ) : (
+                    <div className="w-48 h-48 flex items-center justify-center text-sm text-muted-foreground">
+                      QR yükleniyor...
+                    </div>
+                  )}
                 </div>
 
                 <p className="mt-4 text-sm text-muted-foreground">
@@ -111,7 +132,6 @@ export default function RestaurantPreview() {
                   <span className="text-sm text-muted-foreground break-all text-left">
                     {menuLink}
                   </span>
-
                   <button
                     type="button"
                     onClick={handleCopyMenuLink}
@@ -124,26 +144,29 @@ export default function RestaurantPreview() {
                 </div>
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
-                  <a
-                    href="https:///api.turqr.com/api/admin/qr/table-sticker/"
+                  <button
+                    type="button"
+                    onClick={() => handleDownload("/admin/qr/table-sticker/", `turqr-${slug}-sticker.png`)}
                     className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-sm font-medium text-center transition-colors"
                   >
                     Sticker İndir
-                  </a>
+                  </button>
 
-                  <a
-                    href="https://api.turqr.com/api/admin/qr/png/"
+                  <button
+                    type="button"
+                    onClick={() => handleDownload("/admin/qr/png/", `turqr-${slug}-qr.png`)}
                     className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-sm font-medium text-center transition-colors"
                   >
                     QR İndir
-                  </a>
+                  </button>
 
-                  <a
-                    href="https://api.turqr.com/api/admin/qr/menu-a5/"
+                  <button
+                    type="button"
+                    onClick={() => handleDownload("/admin/qr/menu-a5/", `turqr-${slug}-menu-a5.pdf`)}
                     className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-sm font-medium text-center transition-colors"
                   >
                     Menu A5 İndir
-                  </a>
+                  </button>
                 </div>
               </div>
             )}

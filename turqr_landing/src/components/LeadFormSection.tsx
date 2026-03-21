@@ -27,7 +27,7 @@ const LeadFormSection = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = import.meta.env.VITE_API_URL ?? "https://turqrplatform-production.up.railway.app/api";
+  const API_BASE = import.meta.env.VITE_API_URL ?? "https://api.turqr.com/api/admin/api";
 
   const formTitle = t.form.title;
 
