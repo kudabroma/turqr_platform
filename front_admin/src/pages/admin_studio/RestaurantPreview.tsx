@@ -97,7 +97,7 @@ export default function RestaurantPreview() {
               <div className="flex flex-col items-center text-center">
                 <div className="rounded-2xl border border-border bg-white p-3 shadow-sm">
                   <img
-                    src="https://turqrplatform-production.up.railway.app/api/admin/qr/png/"
+                    src="https://api.turqr.com/api/admin/qr/png/"
                     alt="Restaurant QR"
                     className="w-48 h-48 object-contain"
                   />
@@ -125,21 +125,21 @@ export default function RestaurantPreview() {
 
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3 w-full">
                   <a
-                    href="https://turqrplatform-production.up.railway.app/api/admin/qr/table-sticker/"
+                    href="https:///api.turqr.com/api/admin/qr/table-sticker/"
                     className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-sm font-medium text-center transition-colors"
                   >
                     Sticker İndir
                   </a>
 
                   <a
-                    href="https://turqrplatform-production.up.railway.app/api/admin/qr/png/"
+                    href="https://api.turqr.com/api/admin/qr/png/"
                     className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-sm font-medium text-center transition-colors"
                   >
                     QR İndir
                   </a>
 
                   <a
-                    href="https://turqrplatform-production.up.railway.app/api/admin/qr/menu-a5/"
+                    href="https://api.turqr.com/api/admin/qr/menu-a5/"
                     className="rounded-xl bg-orange-500 hover:bg-orange-600 text-white px-4 py-3 text-sm font-medium text-center transition-colors"
                   >
                     Menu A5 İndir

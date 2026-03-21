@@ -16,7 +16,7 @@ MANROPE_BOLD_PATH = FONTS_DIR / "Manrope-Bold.ttf"
 
 
 def build_menu_url(slug: str) -> str:
-    return f"https://{slug}.turqr.com/menu"
+    return f"https://menu.turqr.com/?slug={slug}"
 
 
 def generate_qr_pil_image(url: str) -> Image.Image:
