@@ -74,6 +74,12 @@ class RestaurantMeView(APIView):
         )
 
     def patch(self, request):
+        import boto3
+        import os
+        import io
+        import logging
+        logger = logging.getLogger(__name__)
+
         user = request.user
 
         if user.is_superuser:
@@ -89,15 +95,38 @@ class RestaurantMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
+        # Читаем файлы ДО save пока поток открыт
+        files_data = {}
+        for k, v in request.FILES.items():
+            content = v.read()
+            files_data[k] = (v.name, content)
+            v.seek(0)
+
         serializer = RestaurantUpdateSerializer(
             restaurant,
             data=request.data,
             partial=True,
         )
         serializer.is_valid(raise_exception=True)
-        serializer.save()  # django-storages автоматически загружает файлы в R2
-
+        serializer.save()
         restaurant.refresh_from_db()
+
+        # Загружаем файлы в R2 через boto3 ПОСЛЕ save
+        if files_data:
+            try:
+                s3 = boto3.client(
+                    's3',
+                    endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
+                    aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
+                    aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
+                    region_name='auto',
+                )
+                for field_name, (filename, content) in files_data.items():
+                    key = f"restaurants/photos/{filename}"
+                    s3.upload_fileobj(io.BytesIO(content), 'turqr-media', key)
+                    logger.warning(f"R2 RESTAURANT UPLOAD OK: {key}")
+            except Exception as e:
+                logger.warning(f"R2 RESTAURANT UPLOAD ERROR: {e}")
 
         return Response(
             RestaurantMeSerializer(restaurant, context={"request": request}).data
