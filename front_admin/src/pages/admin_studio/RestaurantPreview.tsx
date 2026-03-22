@@ -57,7 +57,7 @@ export default function RestaurantPreview() {
     menuQuery.data?.flatMap((c) => c.dishes?.map((d) => ({ ...d, category_name: c.name })) ?? []) ?? [];
 
   // Правильный формат menu link
-  const menuLink = slug ? `https://menu.turqr.com/?slug=${slug}` : "";
+  const menuLink = slug ? `https://menu.turqr.com/menu?slug=${slug}` : "";
 
   const handleCopyMenuLink = async () => {
     if (!menuLink) return;
