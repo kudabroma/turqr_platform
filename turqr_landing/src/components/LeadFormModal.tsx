@@ -35,7 +35,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const API_BASE = import.meta.env.VITE_API_URL ?? "https://api.turqr.com/api/admin/api";
+  const API_BASE = import.meta.env.VITE_API_URL ?? "https://api.turqr.com/api";
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,7 +45,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
     setIsSubmitting(true);
 
     try {
-      const res = await fetch(`${API_BASE}/api/lead/`, {
+      const res = await fetch(`${API_BASE}/lead/`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
