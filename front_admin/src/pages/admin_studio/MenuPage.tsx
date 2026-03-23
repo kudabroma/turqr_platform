@@ -405,7 +405,7 @@ export default function MenuPage() {
           </button>
 
           {/* Tümü + все категории — единый scrollable ряд */}
-          <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1">
+          <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
             {/* FIX 1: Tümü теперь скроллируется вместе с остальными */}
             <button
               onClick={() => setActiveCategoryId(null)}
