@@ -42,12 +42,6 @@ export default function MenuPage() {
 
   const categoriesRaw = (menuQuery.data ?? []) as CategoryWithDishes[];
 
-  /**
-   * ✅ Admin menü kategorileri:
-   * - normal kategoriler önce
-   * - Unsorted/system en sonda
-   * - asıl sıralama sort_order üzerinden
-   */
   const categoriesRawSorted = useMemo(() => {
     return [...categoriesRaw].sort((a: any, b: any) => {
       const aSys = a?.is_system ? 1 : 0;
@@ -71,10 +65,6 @@ export default function MenuPage() {
     }));
   }, [categoriesRawSorted]);
 
-  /**
-   * ✅ Modal için categories query kullanıyoruz,
-   * ama sırayı artık sort_order'a göre veriyoruz
-   */
   const categoriesForModal = useMemo(() => {
     const source = (categoriesQuery.data ?? []) as any[];
 
@@ -150,13 +140,19 @@ export default function MenuPage() {
     });
   }, [dishes, search, activeCategoryId]);
 
+  /**
+   * FIX 3: В режиме Tümü (activeCategoryId === null) скрываем is_system категории.
+   * Они видны только когда пользователь явно кликнул на эту вкладку.
+   */
   const groupedByCategory = useMemo(() => {
     if (activeCategoryId === null) {
-      return categoriesForTabs.map((cat) => ({
-        categoryId: cat.id,
-        categoryName: cat.name,
-        dishes: filteredDishes.filter((d) => d._categoryId === cat.id),
-      }));
+      return categoriesForTabs
+        .filter((cat) => !cat.is_system) // ← скрываем Unsorted из Tümü
+        .map((cat) => ({
+          categoryId: cat.id,
+          categoryName: cat.name,
+          dishes: filteredDishes.filter((d) => d._categoryId === cat.id),
+        }));
     }
 
     const cat = categoriesForTabs.find((c) => c.id === activeCategoryId);
@@ -392,20 +388,28 @@ export default function MenuPage() {
           />
         </div>
 
-        {/* ✅ Categories: fixed alignment */}
+        {/*
+          FIX 1 + FIX 2:
+          - Шестерёнка (⚙️) — единственный sticky элемент, shrink-0
+          - Tümü переехал ВНУТРЬ overflow-x-auto контейнера первым элементом
+          - items-center на внешнем flex выравнивает скролл-бар по центру шестерёнки
+        */}
         <div className="flex items-center gap-2 mb-2">
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={() => setShowCategoriesModal(true)}
-              className="inline-flex h-14 w-14 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-border transition-colors"
-              title="Kategorileri Düzenle"
-            >
-              <Settings className="h-5 w-5" />
-            </button>
+          {/* Только шестерёнка закреплена */}
+          <button
+            onClick={() => setShowCategoriesModal(true)}
+            className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-border transition-colors"
+            title="Kategorileri Düzenle"
+          >
+            <Settings className="h-5 w-5" />
+          </button>
 
+          {/* Tümü + все категории — единый scrollable ряд */}
+          <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1">
+            {/* FIX 1: Tümü теперь скроллируется вместе с остальными */}
             <button
               onClick={() => setActiveCategoryId(null)}
-              className={`inline-flex h-14 items-center justify-center px-5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`inline-flex h-10 items-center justify-center px-5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                 activeCategoryId === null
                   ? "bg-primary text-primary-foreground"
                   : "bg-muted text-foreground hover:bg-border"
@@ -413,14 +417,12 @@ export default function MenuPage() {
             >
               Tümü
             </button>
-          </div>
 
-          <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1">
             {categoriesForTabs.map((cat) => (
               <button
                 key={cat.id}
                 onClick={() => setActiveCategoryId(cat.id)}
-                className={`inline-flex h-14 items-center justify-center px-5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+                className={`inline-flex h-10 items-center justify-center px-5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                   activeCategoryId === cat.id
                     ? "bg-primary text-primary-foreground"
                     : "bg-muted text-foreground hover:bg-border"
