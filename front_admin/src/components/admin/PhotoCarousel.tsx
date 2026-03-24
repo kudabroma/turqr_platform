@@ -12,6 +12,7 @@ export function PhotoCarousel() {
     queryKey: ["restaurant", "me"],
     queryFn: restaurantApi.me,
     refetchOnWindowFocus: false,
+    staleTime: Infinity, // ✅ берёт из кэша, не рефетчит
   });
 
   const photos = useMemo(() => {

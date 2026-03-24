@@ -34,6 +34,7 @@ export default function RestaurantPreview() {
     queryKey: ["restaurant", "me"],
     queryFn: restaurantApi.me,
     refetchOnWindowFocus: false,
+    staleTime: Infinity, // ✅
   });
 
   const menuQuery = useQuery({
