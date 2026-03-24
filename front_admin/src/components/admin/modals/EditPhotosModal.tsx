@@ -7,6 +7,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { restaurantApi } from "@/api/endpoints";
 
 interface EditPhotosModalProps {
@@ -18,9 +19,9 @@ type SlotId = 1 | 2 | 3 | 4 | 5 | 6;
 
 interface PhotoSlot {
   id: SlotId;
-  url: string | null; // server url or local preview url
-  file: File | null; // selected file for upload
-  removed: boolean; // ✅ важно: удаление тоже считается изменением
+  url: string | null;
+  file: File | null;
+  removed: boolean;
 }
 
 const makeEmptySlots = (): PhotoSlot[] => [
@@ -40,65 +41,55 @@ function slotUrlKey(id: SlotId) {
 }
 
 export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
+  const queryClient = useQueryClient();
+
   const [slots, setSlots] = useState<PhotoSlot[]>(makeEmptySlots);
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const [activeSlotId, setActiveSlotId] = useState<SlotId | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // keep track of created object URLs to revoke them
   const objectUrlsRef = useRef<Set<string>>(new Set());
 
-  // ✅ изменения: либо новый файл, либо удаление
-  const anyChanges = useMemo(() => {
-    return slots.some((s) => s.file !== null || s.removed === true);
-  }, [slots]);
+  // ✅ Берём данные из React Query кэша — не делаем лишний запрос
+  const { data: restaurantData, isLoading } = useQuery({
+    queryKey: ["restaurant", "me"],
+    queryFn: restaurantApi.me,
+    enabled: open,       // запрос только когда модалка открыта
+    staleTime: Infinity, // берёт из кэша если уже есть — новый запрос не делает
+  });
 
-  // Load restaurant photos when modal opens
+  // Заполняем слоты когда данные пришли из кэша или с сервера
   useEffect(() => {
-    let cancelled = false;
+    if (!open || !restaurantData) return;
 
-    const load = async () => {
-      setLoading(true);
-      try {
-        const me = await restaurantApi.me();
+    const next = makeEmptySlots().map((slot) => {
+      const k = slotUrlKey(slot.id);
+      const url = (restaurantData as any)?.[k] ?? null;
+      return { ...slot, url, file: null, removed: false };
+    });
 
-        const next = makeEmptySlots().map((slot) => {
-          const k = slotUrlKey(slot.id);
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const url = (me as any)?.[k] ?? null;
+    setSlots(next);
+  }, [open, restaurantData]);
 
-          return {
-            ...slot,
-            url,
-            file: null,
-            removed: false, // ✅ сбрасываем удаление при загрузке
-          };
-        });
-
-        if (!cancelled) setSlots(next);
-      } catch (e) {
-        if (!cancelled) setSlots(makeEmptySlots());
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
-
-    if (open) load();
-
-    return () => {
-      cancelled = true;
-    };
+  // Сброс слотов при закрытии
+  useEffect(() => {
+    if (!open) {
+      setActiveSlotId(null);
+      setSlots(makeEmptySlots());
+    }
   }, [open]);
 
-  // Cleanup object URLs on unmount
+  // Cleanup object URLs при анмаунте
   useEffect(() => {
     return () => {
       objectUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
       objectUrlsRef.current.clear();
     };
   }, []);
+
+  const anyChanges = useMemo(() => {
+    return slots.some((s) => s.file !== null || s.removed === true);
+  }, [slots]);
 
   const openPickerFor = (id: SlotId) => {
     setActiveSlotId(id);
@@ -114,7 +105,7 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
     setSlots((prev) =>
       prev.map((s) =>
         s.id === activeSlotId
-          ? { ...s, file, url: previewUrl, removed: false } // ✅ сняли удаление
+          ? { ...s, file, url: previewUrl, removed: false }
           : s
       )
     );
@@ -124,7 +115,7 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
     setSlots((prev) =>
       prev.map((s) =>
         s.id === id
-          ? { ...s, url: null, file: null, removed: true } // ✅ помечаем удаление
+          ? { ...s, url: null, file: null, removed: true }
           : s
       )
     );
@@ -137,36 +128,24 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
 
       slots.forEach((s) => {
         const key = slotKey(s.id);
-
         if (s.file) {
-          // загрузка нового файла
           fd.append(key, s.file);
           return;
         }
-
         if (s.removed) {
-          // ✅ удаление: отправляем пустое значение
           fd.append(key, "");
         }
       });
 
       await restaurantApi.updateForm(fd);
 
-      // After save, refetch to get real server URLs
-      const me = await restaurantApi.me();
+      // ✅ Инвалидируем кэш — PhotoCarousel и PreviewPage обновятся сами
+      await queryClient.invalidateQueries({ queryKey: ["restaurant", "me"] });
 
-      // Cleanup previews (object URLs) after successful save
+      // Cleanup preview object URLs
       objectUrlsRef.current.forEach((u) => URL.revokeObjectURL(u));
       objectUrlsRef.current.clear();
 
-      const next = makeEmptySlots().map((slot) => {
-        const k = slotUrlKey(slot.id);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const url = (me as any)?.[k] ?? null;
-        return { ...slot, url, file: null, removed: false };
-      });
-
-      setSlots(next);
       onOpenChange(false);
     } catch (e) {
       console.error(e);
@@ -176,9 +155,7 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
   };
 
   const close = (val: boolean) => {
-    if (!val) {
-      setActiveSlotId(null);
-    }
+    if (!val) setActiveSlotId(null);
     onOpenChange(val);
   };
 
@@ -189,7 +166,6 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
           <DialogTitle>Fotoğrafları Düzenle</DialogTitle>
         </DialogHeader>
 
-        {/* hidden file input */}
         <input
           ref={fileInputRef}
           type="file"
@@ -202,7 +178,7 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
           }}
         />
 
-        {loading ? (
+        {isLoading ? (
           <div className="flex items-center justify-center py-10 text-muted-foreground gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Fotoğraflar yükleniyor...</span>
@@ -257,9 +233,9 @@ export function EditPhotosModal({ open, onOpenChange }: EditPhotosModalProps) {
 
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={() => close(false)} disabled={saving}>
-            Iptal
+            İptal
           </Button>
-          <Button onClick={handleSave} disabled={saving || loading || !anyChanges}>
+          <Button onClick={handleSave} disabled={saving || isLoading || !anyChanges}>
             {saving ? (
               <span className="inline-flex items-center gap-2">
                 <Loader2 className="h-4 w-4 animate-spin" />
