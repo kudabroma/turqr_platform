@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { authApi, type User } from "@/api/endpoints";
+import { getAccessToken } from "@/api/apiClient";
 
 export function useSession() {
   const q = useQuery<User>({
@@ -7,7 +8,9 @@ export function useSession() {
     queryFn: authApi.me,
     retry: false,
     refetchOnWindowFocus: false,
-    staleTime: 30_000,
+    staleTime: Infinity,        // ✅ кэш никогда не устаревает сам по себе
+    gcTime: Infinity,           // ✅ не выбрасывать из памяти
+    enabled: !!getAccessToken(), // ✅ вообще не делать запрос если токена нет
   });
 
   const status = (q.error as any)?.status;

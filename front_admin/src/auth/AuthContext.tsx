@@ -37,7 +37,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setTokens(data.access, data.refresh);
 
       queryClient.setQueryData(["session", "me"], data);
-      await queryClient.invalidateQueries({ queryKey: ["session", "me"] });
 
       return data;
     } finally {
