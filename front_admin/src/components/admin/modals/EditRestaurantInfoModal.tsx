@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ChangeEvent } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
 import { Textarea } from "@/components/ui/textarea";
@@ -14,13 +14,19 @@ import { Label } from "@/components/ui/label";
 
 import { restaurantApi, type RestaurantMe } from "@/api/endpoints";
 
+type Lang = "tr" | "en";
+
+type RestaurantWithExtraFields = RestaurantMe & {
+  working_hours?: string | null;
+  description_tr?: string | null;
+  description_en?: string | null;
+};
+
 type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  restaurant: RestaurantMe;
+  restaurant: RestaurantWithExtraFields;
 };
-
-type Lang = "tr" | "en";
 
 type FormState = {
   name: string;
@@ -33,6 +39,85 @@ type FormState = {
   description_en: string;
 };
 
+type RestaurantUpdatePayload = Partial<RestaurantMe> & {
+  working_hours?: string;
+  description_tr?: string;
+  description_en?: string;
+};
+
+const FIELD_LIMITS = {
+  name: 100,
+  address: 200,
+  phone: 20,
+  email: 100,
+  contacts: 500,
+  working_hours: 50,
+  description: 280,
+} as const;
+
+const INITIAL_FORM: FormState = {
+  name: "",
+  address: "",
+  phone: "",
+  email: "",
+  contacts: "",
+  working_hours: "",
+  description_tr: "",
+  description_en: "",
+};
+
+const SINGLE_LINE_REGEX = /[^\p{L}\p{N}\s&.,'"()\-/:]/gu;
+const MULTILINE_REGEX = /[^\p{L}\p{N}\s&.,'"()\-/:!?]/gu;
+const PHONE_REGEX = /[^\d+\s()\-]/g;
+
+function sanitizeSingleLineText(value: string, maxLength: number): string {
+  return value
+    .replace(SINGLE_LINE_REGEX, "")
+    .replace(/\s+/g, " ")
+    .trimStart()
+    .slice(0, maxLength);
+}
+
+function sanitizeMultilineText(value: string, maxLength: number): string {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .replace(MULTILINE_REGEX, "")
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimStart()
+    .slice(0, maxLength);
+}
+
+function sanitizeWorkingHours(value: string, maxLength: number): string {
+  return value
+    .replace(/[^\p{L}\p{N}\s:.,()\-\/]/gu, "")
+    .replace(/\s+/g, " ")
+    .trimStart()
+    .slice(0, maxLength);
+}
+
+function sanitizePhone(value: string, maxLength: number): string {
+  let sanitized = value.replace(PHONE_REGEX, "");
+
+  if (sanitized.includes("+")) {
+    sanitized = sanitized[0] + sanitized.slice(1).replace(/\+/g, "");
+  }
+
+  return sanitized.slice(0, maxLength);
+}
+
+function sanitizeEmail(value: string, maxLength: number): string {
+  return value.replace(/\s+/g, "").slice(0, maxLength);
+}
+
+function getMutationErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Kaydedilemedi.";
+}
+
 export function EditRestaurantInfoModal({
   open,
   onOpenChange,
@@ -41,16 +126,7 @@ export function EditRestaurantInfoModal({
   const qc = useQueryClient();
   const [activeLang, setActiveLang] = useState<Lang>("tr");
 
-  const [form, setForm] = useState<FormState>({
-    name: "",
-    address: "",
-    phone: "",
-    email: "",
-    contacts: "",
-    working_hours: "",
-    description_tr: "",
-    description_en: "",
-  });
+  const [form, setForm] = useState<FormState>(INITIAL_FORM);
 
   useEffect(() => {
     if (!open) return;
@@ -61,19 +137,30 @@ export function EditRestaurantInfoModal({
       phone: restaurant.phone ?? "",
       email: restaurant.email ?? "",
       contacts: restaurant.contacts ?? "",
-      working_hours: (restaurant as any).working_hours ?? "",
-      description_tr: (restaurant as any).description_tr ?? "",
-      description_en: (restaurant as any).description_en ?? "",
+      working_hours: restaurant.working_hours ?? "",
+      description_tr: restaurant.description_tr ?? "",
+      description_en: restaurant.description_en ?? "",
     });
 
     setActiveLang("tr");
   }, [open, restaurant]);
 
-  const update = (key: keyof FormState, value: string) =>
-    setForm((f) => ({ ...f, [key]: value }));
+  const update = (key: keyof FormState, value: string) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleInputChange =
+    (
+      key: keyof FormState,
+      sanitizer: (value: string, maxLength: number) => string,
+      maxLength: number,
+    ) =>
+    (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      update(key, sanitizer(e.target.value, maxLength));
+    };
 
   const mutation = useMutation({
-    mutationFn: (payload: Partial<RestaurantMe>) => restaurantApi.update(payload),
+    mutationFn: (payload: RestaurantUpdatePayload) => restaurantApi.update(payload),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: ["restaurant", "me"] });
       onOpenChange(false);
@@ -81,17 +168,22 @@ export function EditRestaurantInfoModal({
   });
 
   const handleSave = () => {
-    mutation.mutate({
-      name: form.name,
-      address: form.address,
-      phone: form.phone,
-      email: form.email,
-      contacts: form.contacts,
-      working_hours: form.working_hours,
-      description_tr: form.description_tr,
-      description_en: form.description_en,
-    } as Partial<RestaurantMe>);
+    const payload: RestaurantUpdatePayload = {
+      name: form.name.trim(),
+      address: form.address.trim(),
+      phone: form.phone.trim(),
+      email: form.email.trim(),
+      contacts: form.contacts.trim(),
+      working_hours: form.working_hours.trim(),
+      description_tr: form.description_tr.trim(),
+      description_en: form.description_en.trim(),
+    };
+
+    mutation.mutate(payload);
   };
+
+  const currentDescriptionLength =
+    activeLang === "tr" ? form.description_tr.length : form.description_en.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -102,54 +194,85 @@ export function EditRestaurantInfoModal({
 
         <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
           <div className="space-y-4 mt-2">
-            <div>
+            <div className="space-y-1.5">
               <Label>İsim</Label>
               <Input
                 value={form.name}
-                maxLength={100}
-                onChange={(e) => update("name", e.target.value)}
+                maxLength={FIELD_LIMITS.name}
+                onChange={handleInputChange(
+                  "name",
+                  sanitizeSingleLineText,
+                  FIELD_LIMITS.name,
+                )}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {form.name.length}/{FIELD_LIMITS.name}
+              </p>
             </div>
 
-            <div>
+            <div className="space-y-1.5">
               <Label>Adres</Label>
               <Input
                 value={form.address}
-                maxLength={200}
-                onChange={(e) => update("address", e.target.value)}
+                maxLength={FIELD_LIMITS.address}
+                onChange={handleInputChange(
+                  "address",
+                  sanitizeSingleLineText,
+                  FIELD_LIMITS.address,
+                )}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {form.address.length}/{FIELD_LIMITS.address}
+              </p>
             </div>
 
-            <div>
+            <div className="space-y-1.5">
               <Label>Telefon</Label>
               <Input
                 value={form.phone}
-                maxLength={20}
-                onChange={(e) => update("phone", e.target.value)}
+                type="tel"
+                inputMode="tel"
+                autoComplete="tel"
+                maxLength={FIELD_LIMITS.phone}
+                onChange={handleInputChange("phone", sanitizePhone, FIELD_LIMITS.phone)}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {form.phone.length}/{FIELD_LIMITS.phone}
+              </p>
             </div>
 
-            <div>
+            <div className="space-y-1.5">
               <Label>E-posta</Label>
               <Input
                 value={form.email}
-                maxLength={100}
+                maxLength={FIELD_LIMITS.email}
                 type="email"
-                onChange={(e) => update("email", e.target.value)}
+                autoComplete="email"
+                onChange={handleInputChange("email", sanitizeEmail, FIELD_LIMITS.email)}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {form.email.length}/{FIELD_LIMITS.email}
+              </p>
             </div>
 
-            <div>
+            <div className="space-y-1.5">
               <Label>Çalışma Saatleri</Label>
               <Input
                 value={form.working_hours}
-                maxLength={50}
-                onChange={(e) => update("working_hours", e.target.value)}
+                maxLength={FIELD_LIMITS.working_hours}
+                onChange={handleInputChange(
+                  "working_hours",
+                  sanitizeWorkingHours,
+                  FIELD_LIMITS.working_hours,
+                )}
                 placeholder="09:00 - 23:00"
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {form.working_hours.length}/{FIELD_LIMITS.working_hours}
+              </p>
             </div>
 
-            <div>
+            <div className="space-y-1.5">
               <Label>Açıklama</Label>
 
               <div className="flex gap-2 mt-2 mb-2">
@@ -181,34 +304,55 @@ export function EditRestaurantInfoModal({
               {activeLang === "tr" ? (
                 <Textarea
                   value={form.description_tr}
-                  maxLength={1000}
-                  onChange={(e) => update("description_tr", e.target.value)}
+                  maxLength={FIELD_LIMITS.description}
+                  onChange={handleInputChange(
+                    "description_tr",
+                    sanitizeMultilineText,
+                    FIELD_LIMITS.description,
+                  )}
                   placeholder="Restoran açıklaması (Türkçe)"
                   rows={4}
                 />
               ) : (
                 <Textarea
                   value={form.description_en}
-                  maxLength={1000}
-                  onChange={(e) => update("description_en", e.target.value)}
+                  maxLength={FIELD_LIMITS.description}
+                  onChange={handleInputChange(
+                    "description_en",
+                    sanitizeMultilineText,
+                    FIELD_LIMITS.description,
+                  )}
                   placeholder="Restoran açıklaması (İngilizce)"
                   rows={4}
                 />
               )}
+
+              <p className="text-xs text-muted-foreground text-right">
+                {currentDescriptionLength}/{FIELD_LIMITS.description}
+              </p>
             </div>
 
-            <div>
+            <div className="space-y-1.5">
               <Label>Ek İletişim Bilgileri (isteğe bağlı)</Label>
               <Textarea
                 value={form.contacts}
-                maxLength={500}
-                onChange={(e) => update("contacts", e.target.value)}
+                maxLength={FIELD_LIMITS.contacts}
+                onChange={handleInputChange(
+                  "contacts",
+                  sanitizeMultilineText,
+                  FIELD_LIMITS.contacts,
+                )}
                 rows={3}
               />
+              <p className="text-xs text-muted-foreground text-right">
+                {form.contacts.length}/{FIELD_LIMITS.contacts}
+              </p>
             </div>
 
             {mutation.isError && (
-              <div className="text-sm text-red-600">Kaydedilemedi.</div>
+              <div className="text-sm text-red-600">
+                {getMutationErrorMessage(mutation.error)}
+              </div>
             )}
           </div>
         </div>

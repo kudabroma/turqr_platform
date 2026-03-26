@@ -39,6 +39,32 @@ interface EditDishModalProps {
 
 type Lang = "tr" | "en";
 
+const FIELD_LIMITS = {
+  name: 100,
+  description: 500,
+} as const;
+
+const DISH_NAME_REGEX = /[^\p{L}\p{N}\s&.,'"()\-\/+]/gu;
+const DISH_DESCRIPTION_REGEX = /[^\p{L}\p{N}\s&.,'"()\-\/+!?:%]/gu;
+
+function sanitizeDishName(value: string): string {
+  return value
+    .replace(DISH_NAME_REGEX, "")
+    .replace(/\s+/g, " ")
+    .trimStart()
+    .slice(0, FIELD_LIMITS.name);
+}
+
+function sanitizeDishDescription(value: string): string {
+  return value
+    .replace(/\r\n?/g, "\n")
+    .replace(DISH_DESCRIPTION_REGEX, "")
+    .replace(/[^\S\n]+/g, " ")
+    .replace(/\n{3,}/g, "\n\n")
+    .trimStart()
+    .slice(0, FIELD_LIMITS.description);
+}
+
 const emptyDish: DishData = {
   name_tr: "",
   name_en: "",
@@ -94,10 +120,10 @@ export function EditDishModal({
     if (dish) {
       setForm({
         ...dish,
-        name_tr: dish.name_tr ?? "",
-        name_en: dish.name_en ?? "",
-        description_tr: dish.description_tr ?? "",
-        description_en: dish.description_en ?? "",
+        name_tr: sanitizeDishName(dish.name_tr ?? ""),
+        name_en: sanitizeDishName(dish.name_en ?? ""),
+        description_tr: sanitizeDishDescription(dish.description_tr ?? ""),
+        description_en: sanitizeDishDescription(dish.description_en ?? ""),
         is_active: (dish as any).is_active ?? true,
         _categoryId: dish._categoryId ?? undefined,
       });
@@ -120,13 +146,25 @@ export function EditDishModal({
   }, [categories]);
 
   const update = <K extends keyof DishData>(key: K, value: DishData[K]) => {
-    setForm((prev) => ({ ...prev, [key]: value }));
+    let nextValue = value;
 
-    if (key === "name_tr" && String(value).trim()) {
+    if (typeof value === "string") {
+      if (key === "name_tr" || key === "name_en") {
+        nextValue = sanitizeDishName(value) as DishData[K];
+      }
+
+      if (key === "description_tr" || key === "description_en") {
+        nextValue = sanitizeDishDescription(value) as DishData[K];
+      }
+    }
+
+    setForm((prev) => ({ ...prev, [key]: nextValue }));
+
+    if (key === "name_tr" && String(nextValue).trim()) {
       setNameTrError("");
     }
 
-    if (key === "_categoryId" && value) {
+    if (key === "_categoryId" && nextValue) {
       setCategoryError("");
     }
   };
@@ -242,7 +280,7 @@ export function EditDishModal({
                       <Label>İsim (TR)</Label>
                       <Input
                         value={form.name_tr}
-                        maxLength={100}
+                        maxLength={FIELD_LIMITS.name}
                         onChange={(e) => update("name_tr", e.target.value)}
                         className={nameTrError ? "border-red-500 focus-visible:ring-red-500" : ""}
                       />
@@ -255,7 +293,7 @@ export function EditDishModal({
                       <Label>Açıklama (TR)</Label>
                       <Textarea
                         value={form.description_tr}
-                        maxLength={500}
+                        maxLength={FIELD_LIMITS.description}
                         onChange={(e) => update("description_tr", e.target.value)}
                         rows={3}
                       />
@@ -267,7 +305,7 @@ export function EditDishModal({
                       <Label>İsim (EN)</Label>
                       <Input
                         value={form.name_en}
-                        maxLength={100}
+                        maxLength={FIELD_LIMITS.name}
                         onChange={(e) => update("name_en", e.target.value)}
                       />
                     </div>
@@ -276,7 +314,7 @@ export function EditDishModal({
                       <Label>Açıklama (EN)</Label>
                       <Textarea
                         value={form.description_en}
-                        maxLength={500}
+                        maxLength={FIELD_LIMITS.description}
                         onChange={(e) => update("description_en", e.target.value)}
                         rows={3}
                       />
@@ -301,7 +339,6 @@ export function EditDishModal({
                     )
                   }
                 >
-                  {/* ✅ #6: пустой плейсхолдер по умолчанию */}
                   <option value="">Kategori seçiniz...</option>
                   {categoryOptions.map((c) => (
                     <option key={c.id} value={c.id}>
@@ -331,15 +368,12 @@ export function EditDishModal({
               <Label>Fiyat (₺)</Label>
               <Input
                 type="number"
-                // ✅ #5: минимум 0, шаг 50, нельзя отрицательное
                 min={0}
                 step={50}
                 value={priceInput}
-                // ✅ #5: при фокусе — очищаем если 0
                 onFocus={() => {
                   if (priceInput === "0") setPriceInput("");
                 }}
-                // ✅ #5: при уходе фокуса — если пусто, ставим 0
                 onBlur={() => {
                   if (priceInput === "" || isNaN(Number(priceInput))) {
                     setPriceInput("0");
@@ -348,7 +382,6 @@ export function EditDishModal({
                 }}
                 onChange={(e) => {
                   const val = e.target.value;
-                  // ✅ #5: запрещаем отрицательные значения
                   if (val === "" || Number(val) >= 0) {
                     setPriceInput(val);
                     update("price", val === "" ? 0 : Number(val));

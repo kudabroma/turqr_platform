@@ -59,6 +59,17 @@ interface EditCategoriesModalProps {
   }) => Promise<void> | void;
 }
 
+const CATEGORY_NAME_MAX = 100;
+const CATEGORY_NAME_REGEX = /[^\p{L}\p{N}\s&.,'"()\-\/]/gu;
+
+function sanitizeCategoryName(value: string): string {
+  return value
+    .replace(CATEGORY_NAME_REGEX, "")
+    .replace(/\s+/g, " ")
+    .trimStart()
+    .slice(0, CATEGORY_NAME_MAX);
+}
+
 function isSystemCategoryLikeUnsorted(c: {
   name_tr?: string;
   name_en?: string;
@@ -111,11 +122,10 @@ function SortableRow({
         </div>
 
         <div className="flex-1 space-y-3">
-          {/* ✅ #4: maxLength на названия категорий */}
           <Input
             placeholder="İsim (TR)"
             value={row.name_tr}
-            maxLength={100}
+            maxLength={CATEGORY_NAME_MAX}
             onChange={(e) => updateField(row.id, "name_tr", e.target.value)}
             className="h-12 rounded-xl bg-white border-border text-base"
           />
@@ -123,7 +133,7 @@ function SortableRow({
           <Input
             placeholder="İsim (EN)"
             value={row.name_en}
-            maxLength={100}
+            maxLength={CATEGORY_NAME_MAX}
             onChange={(e) => updateField(row.id, "name_en", e.target.value)}
             className="h-12 rounded-xl bg-white border-border text-base"
           />
@@ -161,8 +171,8 @@ export function EditCategoriesModal({
     setRows(
       categories.map((c) => ({
         id: c.id,
-        name_tr: c.name_tr ?? c.name ?? "",
-        name_en: c.name_en ?? "",
+        name_tr: sanitizeCategoryName(c.name_tr ?? c.name ?? ""),
+        name_en: sanitizeCategoryName(c.name_en ?? ""),
         is_system: isSystemCategoryLikeUnsorted(c),
       }))
     );
@@ -178,8 +188,10 @@ export function EditCategoriesModal({
     field: "name_tr" | "name_en",
     value: string
   ) => {
+    const sanitizedValue = sanitizeCategoryName(value);
+
     setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: value } : r))
+      prev.map((r) => (r.id === id ? { ...r, [field]: sanitizedValue } : r))
     );
   };
 
