@@ -2,8 +2,7 @@ import React, { createContext, useContext, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { authApi, type User as AuthUser } from "@/api/endpoints";
 import { useSession } from "@/auth/useSession";
-import { setTokens, clearTokens } from "@/api/apiClient";
-
+import { setAccessToken, clearTokens } from "@/api/apiClient";
 
 type AuthContextValue = {
   isAuthenticated: boolean;
@@ -33,8 +32,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       const data = await authApi.login(username, password);
 
-      // ✅ Сохраняем JWT токены
-      setTokens(data.access, data.refresh);
+      // ✅ Сохраняем только access token — refresh больше не нужен
+      setAccessToken(data.access);
 
       queryClient.setQueryData(["session", "me"], data);
 
@@ -48,7 +47,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setAuthBusy(true);
     try {
       await authApi.logout();
-      clearTokens(); // ✅ чистим токены
+      clearTokens();
       queryClient.removeQueries({ queryKey: ["session", "me"] });
     } finally {
       setAuthBusy(false);

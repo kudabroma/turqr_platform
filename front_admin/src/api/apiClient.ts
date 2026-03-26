@@ -26,33 +26,13 @@ function isFormData(body: unknown): body is FormData {
 export function getAccessToken(): string | null {
   return localStorage.getItem("access_token");
 }
-export function setTokens(access: string, refresh: string) {
+
+export function setAccessToken(access: string) {
   localStorage.setItem("access_token", access);
-  localStorage.setItem("refresh_token", refresh);
 }
+
 export function clearTokens() {
   localStorage.removeItem("access_token");
-  localStorage.removeItem("refresh_token");
-}
-
-async function refreshAccessToken(): Promise<string | null> {
-  const refresh = localStorage.getItem("refresh_token");
-  if (!refresh) return null;
-
-  const res = await fetch(`${API_BASE}/auth/refresh/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ refresh }),
-  });
-
-  if (!res.ok) {
-    clearTokens();
-    return null;
-  }
-
-  const data = await res.json();
-  localStorage.setItem("access_token", data.access);
-  return data.access;
 }
 
 async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -68,7 +48,6 @@ async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Pro
     mergedHeaders["Content-Type"] = "application/json";
   }
 
-  // JWT токен
   const token = getAccessToken();
   if (token) mergedHeaders["Authorization"] = `Bearer ${token}`;
 
@@ -81,15 +60,13 @@ async function apiClient<T>(endpoint: string, options: RequestOptions = {}): Pro
     config.body = form ? (body as FormData) : JSON.stringify(body);
   }
 
-  let response = await fetch(`${API_BASE}${endpoint}`, config);
+  const response = await fetch(`${API_BASE}${endpoint}`, config);
 
-  // Токен протух — пробуем refresh
+  // Токен истёк — чистим и редиректим на логин
   if (response.status === 401) {
-    const newToken = await refreshAccessToken();
-    if (newToken) {
-      mergedHeaders["Authorization"] = `Bearer ${newToken}`;
-      response = await fetch(`${API_BASE}${endpoint}`, { ...config, headers: mergedHeaders });
-    }
+    clearTokens();
+    window.location.href = "/login";
+    return undefined as T;
   }
 
   if (response.status === 204) return undefined as T;
