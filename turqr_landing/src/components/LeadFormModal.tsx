@@ -175,38 +175,38 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
       <DialogContent
         className="
           w-[calc(100vw-2rem)]
-          max-w-[560px]
-          rounded-[28px]
+          max-w-[500px]
+          rounded-[24px]
           border border-border/40
           bg-background
           p-0
-          shadow-[0_24px_80px_rgba(0,0,0,0.18)]
+          shadow-[0_20px_60px_rgba(0,0,0,0.16)]
           overflow-hidden
           gap-0
         "
       >
         {submitted ? (
-          <div className="flex flex-col items-center justify-center px-8 py-12 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full gradient-primary">
-              <CheckCircle className="h-8 w-8 text-primary-foreground" />
+          <div className="flex flex-col items-center justify-center px-6 py-10 text-center">
+            <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full gradient-primary">
+              <CheckCircle className="h-7 w-7 text-primary-foreground" />
             </div>
 
-            <p className="text-lg font-semibold text-foreground">{t.form.success}</p>
+            <p className="text-base font-semibold text-foreground">{t.form.success}</p>
           </div>
         ) : (
           <>
-            <DialogHeader className="px-7 pt-7 pb-2 text-left sm:px-8 sm:pt-8">
-              <DialogTitle className="pr-8 text-[30px] sm:text-[34px] font-semibold tracking-tight leading-[1.08] text-foreground">
+            <DialogHeader className="px-6 pt-6 pb-1 text-left">
+              <DialogTitle className="pr-8 text-[24px] sm:text-[28px] font-semibold tracking-tight leading-[1.12] text-foreground">
                 {t.form.title}
               </DialogTitle>
 
-              <DialogDescription className="pt-2 text-[15px] sm:text-base leading-7 text-muted-foreground max-w-[440px]">
+              <DialogDescription className="pt-2 text-sm sm:text-[15px] leading-6 text-muted-foreground max-w-[400px]">
                 {t.form.subtitle}
               </DialogDescription>
             </DialogHeader>
 
-            <form onSubmit={handleSubmit} className="px-7 pb-7 pt-2 sm:px-8 sm:pb-8">
-              <div className="flex flex-col gap-4">
+            <form onSubmit={handleSubmit} className="px-6 pb-6 pt-2">
+              <div className="flex flex-col gap-3.5">
                 <div className="space-y-1.5">
                   <Label htmlFor="modal-name">{t.form.name}</Label>
                   <Input
@@ -215,7 +215,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
                     autoComplete="name"
                     value={form.name}
                     maxLength={FIELD_LIMITS.name}
-                    className="h-14 rounded-2xl px-4"
+                    className="h-12 rounded-xl px-4"
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setField("name", sanitizeNameOrCity(e.target.value, FIELD_LIMITS.name))
                     }
@@ -233,7 +233,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
                     autoComplete="organization"
                     value={form.restaurant}
                     maxLength={FIELD_LIMITS.restaurant}
-                    className="h-14 rounded-2xl px-4"
+                    className="h-12 rounded-xl px-4"
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setField(
                         "restaurant",
@@ -254,7 +254,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
                     autoComplete="address-level2"
                     value={form.city}
                     maxLength={FIELD_LIMITS.city}
-                    className="h-14 rounded-2xl px-4"
+                    className="h-12 rounded-xl px-4"
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setField("city", sanitizeNameOrCity(e.target.value, FIELD_LIMITS.city))
                     }
@@ -275,7 +275,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
                     placeholder="+90 555 555 55 55"
                     value={form.phone}
                     maxLength={FIELD_LIMITS.phone}
-                    className="h-14 rounded-2xl px-4"
+                    className="h-12 rounded-xl px-4"
                     onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
                       setField("phone", sanitizePhone(e.target.value, FIELD_LIMITS.phone))
                     }
@@ -286,7 +286,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
                 </div>
 
                 {error && (
-                  <div className="rounded-2xl border border-red-100 bg-red-50 p-3 text-sm text-red-600">
+                  <div className="rounded-xl border border-red-100 bg-red-50 p-3 text-sm text-red-600">
                     {error}
                   </div>
                 )}
@@ -294,7 +294,7 @@ const LeadFormModal = ({ open, onOpenChange }: Props) => {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="mt-2 h-14 rounded-full gradient-primary text-base font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
+                  className="mt-1 h-12 rounded-full gradient-primary text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90 disabled:opacity-60"
                 >
                   {isSubmitting ? "Sending..." : t.form.submit}
                 </Button>
