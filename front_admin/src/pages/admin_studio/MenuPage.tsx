@@ -174,9 +174,6 @@ export default function MenuPage() {
     let defaultCategoryId: number | undefined =
       active && !(active as any).is_system ? active.id : undefined;
 
-    if (!defaultCategoryId) {
-      defaultCategoryId = categoriesRawSorted.find((c: any) => !c.is_system)?.id;
-    }
 
     const defaultCategoryName =
       defaultCategoryId

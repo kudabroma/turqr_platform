@@ -67,6 +67,9 @@ export function EditDishModal({
   const [nameTrError, setNameTrError] = useState("");
   const [categoryError, setCategoryError] = useState("");
 
+  // ✅ #5: храним цену как строку чтобы поле было пустым при фокусе
+  const [priceInput, setPriceInput] = useState<string>("0");
+
   const isNew = !dish;
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -98,15 +101,16 @@ export function EditDishModal({
         is_active: (dish as any).is_active ?? true,
         _categoryId: dish._categoryId ?? undefined,
       });
+      // ✅ #5: инициализируем строку цены
+      setPriceInput(String(dish.price ?? 0));
     } else {
       setForm(emptyDish);
+      setPriceInput("0");
     }
 
     setActiveLang("tr");
     setImageFile(null);
     setImagePreview(null);
-
-    // сброс ошибок при открытии
     setNameTrError("");
     setCategoryError("");
   }, [open, dish]);
@@ -238,6 +242,7 @@ export function EditDishModal({
                       <Label>İsim (TR)</Label>
                       <Input
                         value={form.name_tr}
+                        maxLength={100}
                         onChange={(e) => update("name_tr", e.target.value)}
                         className={nameTrError ? "border-red-500 focus-visible:ring-red-500" : ""}
                       />
@@ -250,6 +255,7 @@ export function EditDishModal({
                       <Label>Açıklama (TR)</Label>
                       <Textarea
                         value={form.description_tr}
+                        maxLength={500}
                         onChange={(e) => update("description_tr", e.target.value)}
                         rows={3}
                       />
@@ -261,6 +267,7 @@ export function EditDishModal({
                       <Label>İsim (EN)</Label>
                       <Input
                         value={form.name_en}
+                        maxLength={100}
                         onChange={(e) => update("name_en", e.target.value)}
                       />
                     </div>
@@ -269,6 +276,7 @@ export function EditDishModal({
                       <Label>Açıklama (EN)</Label>
                       <Textarea
                         value={form.description_en}
+                        maxLength={500}
                         onChange={(e) => update("description_en", e.target.value)}
                         rows={3}
                       />
@@ -293,9 +301,8 @@ export function EditDishModal({
                     )
                   }
                 >
-                  <option value="">
-                    Kategori seçiniz...
-                  </option>
+                  {/* ✅ #6: пустой плейсхолдер по умолчанию */}
+                  <option value="">Kategori seçiniz...</option>
                   {categoryOptions.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
@@ -324,9 +331,29 @@ export function EditDishModal({
               <Label>Fiyat (₺)</Label>
               <Input
                 type="number"
-                step="0.01"
-                value={Number.isFinite(form.price) ? form.price : 0}
-                onChange={(e) => update("price", Number(e.target.value))}
+                // ✅ #5: минимум 0, шаг 50, нельзя отрицательное
+                min={0}
+                step={50}
+                value={priceInput}
+                // ✅ #5: при фокусе — очищаем если 0
+                onFocus={() => {
+                  if (priceInput === "0") setPriceInput("");
+                }}
+                // ✅ #5: при уходе фокуса — если пусто, ставим 0
+                onBlur={() => {
+                  if (priceInput === "" || isNaN(Number(priceInput))) {
+                    setPriceInput("0");
+                    update("price", 0);
+                  }
+                }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  // ✅ #5: запрещаем отрицательные значения
+                  if (val === "" || Number(val) >= 0) {
+                    setPriceInput(val);
+                    update("price", val === "" ? 0 : Number(val));
+                  }
+                }}
               />
             </div>
 
