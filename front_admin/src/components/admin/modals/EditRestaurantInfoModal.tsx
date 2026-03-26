@@ -106,6 +106,7 @@ export function EditRestaurantInfoModal({
               <Label>İsim</Label>
               <Input
                 value={form.name}
+                maxLength={100}
                 onChange={(e) => update("name", e.target.value)}
               />
             </div>
@@ -114,6 +115,7 @@ export function EditRestaurantInfoModal({
               <Label>Adres</Label>
               <Input
                 value={form.address}
+                maxLength={200}
                 onChange={(e) => update("address", e.target.value)}
               />
             </div>
@@ -122,6 +124,7 @@ export function EditRestaurantInfoModal({
               <Label>Telefon</Label>
               <Input
                 value={form.phone}
+                maxLength={20}
                 onChange={(e) => update("phone", e.target.value)}
               />
             </div>
@@ -130,6 +133,8 @@ export function EditRestaurantInfoModal({
               <Label>E-posta</Label>
               <Input
                 value={form.email}
+                maxLength={100}
+                type="email"
                 onChange={(e) => update("email", e.target.value)}
               />
             </div>
@@ -138,6 +143,7 @@ export function EditRestaurantInfoModal({
               <Label>Çalışma Saatleri</Label>
               <Input
                 value={form.working_hours}
+                maxLength={50}
                 onChange={(e) => update("working_hours", e.target.value)}
                 placeholder="09:00 - 23:00"
               />
@@ -175,6 +181,7 @@ export function EditRestaurantInfoModal({
               {activeLang === "tr" ? (
                 <Textarea
                   value={form.description_tr}
+                  maxLength={1000}
                   onChange={(e) => update("description_tr", e.target.value)}
                   placeholder="Restoran açıklaması (Türkçe)"
                   rows={4}
@@ -182,6 +189,7 @@ export function EditRestaurantInfoModal({
               ) : (
                 <Textarea
                   value={form.description_en}
+                  maxLength={1000}
                   onChange={(e) => update("description_en", e.target.value)}
                   placeholder="Restoran açıklaması (İngilizce)"
                   rows={4}
@@ -193,6 +201,7 @@ export function EditRestaurantInfoModal({
               <Label>Ek İletişim Bilgileri (isteğe bağlı)</Label>
               <Textarea
                 value={form.contacts}
+                maxLength={500}
                 onChange={(e) => update("contacts", e.target.value)}
                 rows={3}
               />

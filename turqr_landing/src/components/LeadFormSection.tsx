@@ -12,6 +12,13 @@ type LeadFormState = {
   phone: string;
 };
 
+const FIELD_LIMITS = {
+  name: 50,
+  restaurant: 80,
+  city: 50,
+  phone: 20,
+} as const;
+
 const INITIAL_FORM: LeadFormState = {
   name: "",
   restaurant: "",
@@ -19,55 +26,129 @@ const INITIAL_FORM: LeadFormState = {
   phone: "",
 };
 
+const NAME_CITY_REGEX = /[^a-zA-Zа-яА-ЯёЁıİğĞüÜşŞöÖçÇ\s'-]/g;
+const RESTAURANT_REGEX = /[^a-zA-Zа-яА-ЯёЁ0-9ıİğĞüÜşŞöÖçÇ\s&.,'"()\-]/g;
+const PHONE_REGEX = /[^\d+\s()\-]/g;
+
+function sanitizeNameOrCity(value: string, maxLength: number): string {
+  return value.replace(NAME_CITY_REGEX, "").slice(0, maxLength);
+}
+
+function sanitizeRestaurant(value: string, maxLength: number): string {
+  return value.replace(RESTAURANT_REGEX, "").slice(0, maxLength);
+}
+
+function sanitizePhone(value: string, maxLength: number): string {
+  let sanitized = value.replace(PHONE_REGEX, "");
+
+  if (sanitized.includes("+")) {
+    sanitized = sanitized[0] + sanitized.slice(1).replace(/\+/g, "");
+  }
+
+  return sanitized.slice(0, maxLength);
+}
+
+function getErrorMessage(error: unknown): string {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return "Something went wrong. Please try again.";
+}
+
+const ACCENT_PATTERNS = [
+  /online QR menu/i,
+  /çevrimiçi QR menü/i,
+  /QR menünüz/i,
+  /QR menü/i,
+  /QR menu/i,
+];
+
 const LeadFormSection = () => {
   const { t } = useLanguage();
 
-  const [submitted, setSubmitted] = useState(false);
+  const [submitted, setSubmitted] = useState<boolean>(false);
   const [form, setForm] = useState<LeadFormState>(INITIAL_FORM);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
 
   const API_BASE = import.meta.env.VITE_API_URL ?? "https://api.turqr.com/api";
-
   const formTitle = t.form.title;
 
-  const accentMatch =
-    formTitle.match(/QR menu/i) ||
-    formTitle.match(/online QR menu/i) ||
-    formTitle.match(/QR menü/i) ||
-    formTitle.match(/QR menünüz/i) ||
-    formTitle.match(/çevrimiçi QR menü/i);
-
+  const accentMatch = ACCENT_PATTERNS.map((pattern) => formTitle.match(pattern)).find(Boolean);
   const accentText = accentMatch?.[0] ?? "";
-  const beforeAccent = accentText ? formTitle.replace(accentText, "").trim() : formTitle;
+  const accentStart = accentMatch?.index ?? -1;
+  const accentEnd = accentStart >= 0 ? accentStart + accentText.length : -1;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const beforeAccent = accentStart >= 0 ? formTitle.slice(0, accentStart) : formTitle;
+  const afterAccent = accentEnd >= 0 ? formTitle.slice(accentEnd) : "";
+
+  const setField = <K extends keyof LeadFormState>(key: K, value: LeadFormState[K]) => {
+    setForm((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const validateForm = (): string | null => {
+    const trimmedName = form.name.trim();
+    const trimmedRestaurant = form.restaurant.trim();
+    const trimmedCity = form.city.trim();
+    const trimmedPhone = form.phone.trim();
+
+    if (!trimmedName || !trimmedRestaurant || !trimmedCity || !trimmedPhone) {
+      return "Please fill in all fields.";
+    }
+
+    if (trimmedPhone.replace(/\D/g, "").length < 7) {
+      return "Please enter a valid phone number.";
+    }
+
+    return null;
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (isSubmitting) return;
+
+    const validationError = validateForm();
+    if (validationError) {
+      setError(validationError);
+      return;
+    }
 
     setError(null);
     setIsSubmitting(true);
 
     try {
+      const payload = {
+        name: form.name.trim(),
+        restaurant: form.restaurant.trim(),
+        city: form.city.trim(),
+        phone: form.phone.trim(),
+      };
+
       const res = await fetch(`${API_BASE}/lead/`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: form.name.trim(),
-          restaurant: form.restaurant.trim(),
-          city: form.city.trim(),
-          phone: form.phone.trim(),
-        }),
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
       });
 
       if (!res.ok) {
         let msg = `Request failed (${res.status})`;
 
         try {
-          const data = await res.json();
-          msg = data?.detail || msg;
+          const data: unknown = await res.json();
+
+          if (
+            typeof data === "object" &&
+            data !== null &&
+            "detail" in data &&
+            typeof data.detail === "string"
+          ) {
+            msg = data.detail;
+          }
         } catch {
-          // ignore json parse error
+          // ignore json parse errors
         }
 
         throw new Error(msg);
@@ -75,8 +156,8 @@ const LeadFormSection = () => {
 
       setSubmitted(true);
       setForm(INITIAL_FORM);
-    } catch (err: any) {
-      setError(err?.message || "Something went wrong. Please try again.");
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -100,11 +181,14 @@ const LeadFormSection = () => {
       <div className="container max-w-lg">
         <div className="text-center mb-8">
           <h2 className="text-3xl md:text-4xl font-display font-bold text-foreground leading-tight">
-            {beforeAccent}{" "}
-            {accentText && (
-              <span className="text-[#e64a19] font-extrabold">
-                {accentText}
-              </span>
+            {accentText ? (
+              <>
+                {beforeAccent}
+                <span className="text-[#e64a19] font-extrabold">{accentText}</span>
+                {afterAccent}
+              </>
+            ) : (
+              formTitle
             )}
           </h2>
 
@@ -120,9 +204,16 @@ const LeadFormSection = () => {
             <Input
               id="name"
               required
+              autoComplete="name"
               value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              maxLength={FIELD_LIMITS.name}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setField("name", sanitizeNameOrCity(e.target.value, FIELD_LIMITS.name))
+              }
             />
+            <p className="text-xs text-muted-foreground text-right">
+              {form.name.length}/{FIELD_LIMITS.name}
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -130,9 +221,19 @@ const LeadFormSection = () => {
             <Input
               id="restaurant"
               required
+              autoComplete="organization"
               value={form.restaurant}
-              onChange={(e) => setForm({ ...form, restaurant: e.target.value })}
+              maxLength={FIELD_LIMITS.restaurant}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setField(
+                  "restaurant",
+                  sanitizeRestaurant(e.target.value, FIELD_LIMITS.restaurant),
+                )
+              }
             />
+            <p className="text-xs text-muted-foreground text-right">
+              {form.restaurant.length}/{FIELD_LIMITS.restaurant}
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -140,9 +241,16 @@ const LeadFormSection = () => {
             <Input
               id="city"
               required
+              autoComplete="address-level2"
               value={form.city}
-              onChange={(e) => setForm({ ...form, city: e.target.value })}
+              maxLength={FIELD_LIMITS.city}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setField("city", sanitizeNameOrCity(e.target.value, FIELD_LIMITS.city))
+              }
             />
+            <p className="text-xs text-muted-foreground text-right">
+              {form.city.length}/{FIELD_LIMITS.city}
+            </p>
           </div>
 
           <div className="space-y-1.5">
@@ -151,9 +259,18 @@ const LeadFormSection = () => {
               id="phone"
               required
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              placeholder="+90 555 555 55 55"
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              maxLength={FIELD_LIMITS.phone}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setField("phone", sanitizePhone(e.target.value, FIELD_LIMITS.phone))
+              }
             />
+            <p className="text-xs text-muted-foreground text-right">
+              {form.phone.length}/{FIELD_LIMITS.phone}
+            </p>
           </div>
 
           {error && (

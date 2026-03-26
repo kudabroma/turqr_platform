@@ -74,10 +74,6 @@ function isSystemCategoryLikeUnsorted(c: {
   return tr === "unsorted" || en === "unsorted" || any === "unsorted";
 }
 
-/* =========================
-   Sortable Row Component
-========================= */
-
 function SortableRow({
   row,
   updateField,
@@ -115,9 +111,11 @@ function SortableRow({
         </div>
 
         <div className="flex-1 space-y-3">
+          {/* ✅ #4: maxLength на названия категорий */}
           <Input
             placeholder="İsim (TR)"
             value={row.name_tr}
+            maxLength={100}
             onChange={(e) => updateField(row.id, "name_tr", e.target.value)}
             className="h-12 rounded-xl bg-white border-border text-base"
           />
@@ -125,6 +123,7 @@ function SortableRow({
           <Input
             placeholder="İsim (EN)"
             value={row.name_en}
+            maxLength={100}
             onChange={(e) => updateField(row.id, "name_en", e.target.value)}
             className="h-12 rounded-xl bg-white border-border text-base"
           />
@@ -142,10 +141,6 @@ function SortableRow({
     </div>
   );
 }
-
-/* =========================
-   Main Modal
-========================= */
 
 export function EditCategoriesModal({
   open,
@@ -173,7 +168,6 @@ export function EditCategoriesModal({
     );
   }, [open, categories]);
 
-  // ✅ Unsorted/system category вообще не показываем в модалке
   const visibleRows = useMemo(
     () => rows.filter((r) => !r._deleted && !r.is_system),
     [rows]
