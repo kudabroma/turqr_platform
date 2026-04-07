@@ -10,7 +10,6 @@ from rest_framework import serializers
 
 from .models import Restaurant, Subscription
 
-from .models import Restaurant, Subscription
 
 try:
     from .models import Payment  # если есть — ок

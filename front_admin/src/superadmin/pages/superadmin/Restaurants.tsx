@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   createRestaurant,
   deleteRestaurant,
+  extendSubscription,
   getRestaurants,
   toggleRestaurantActive,
 } from "@/superadmin/api/superadmin";
@@ -28,7 +29,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ExternalLink, Link2, Plus, Trash2, UserCheck, UserX } from "lucide-react";
+import { Calendar, ExternalLink, Link2, Plus, Trash2, UserCheck, UserX } from "lucide-react";
 
 function toSlug(input: string) {
   return input
@@ -49,7 +50,6 @@ function normalizeSlug(input: string) {
     .replace(/^-+|-+$/g, "");
 }
 
-// Пока ты в dev: потом заменишь на https://{slug}.turqr.com
 function publicUrl(slug: string) {
   return `http://${slug}.localhost:8080`;
 }
@@ -115,6 +115,30 @@ export default function RestaurantsPage() {
     },
   });
 
+  // ── Extend subscription ──────────────────────────────────────────────────
+  const [extendOpen, setExtendOpen] = useState(false);
+  const [extendTarget, setExtendTarget] = useState<Restaurant | null>(null);
+  const [extendDays, setExtendDays] = useState(30);
+
+  const extendMut = useMutation({
+    mutationFn: () => extendSubscription(extendTarget!.id, extendDays),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["superadmin", "restaurants"] });
+      toast({ title: `Subscription extended by ${extendDays} days` });
+      setExtendOpen(false);
+      setExtendTarget(null);
+      setExtendDays(30);
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Failed to extend subscription",
+        description: e?.message ?? "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
+  // ────────────────────────────────────────────────────────────────────────
+
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -140,14 +164,8 @@ export default function RestaurantsPage() {
   const onCreate = async () => {
     const cleanName = name.trim();
     const cleanSlug = normalizeSlug(slug);
-
     if (!cleanName || !cleanSlug) return;
-
-    await createMut.mutateAsync({
-      name: cleanName,
-      slug: cleanSlug,
-    });
-
+    await createMut.mutateAsync({ name: cleanName, slug: cleanSlug });
     setName("");
     setSlug("");
     setSlugTouched(false);
@@ -261,6 +279,21 @@ export default function RestaurantsPage() {
                       Django admin
                     </Button>
 
+                    {/* ── NEW: Extend subscription ── */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        setExtendTarget(r);
+                        setExtendDays(30);
+                        setExtendOpen(true);
+                      }}
+                      className="gap-2"
+                    >
+                      <Calendar size={16} />
+                      Extend
+                    </Button>
+
                     <Button
                       variant={r.active ? "secondary" : "outline"}
                       size="sm"
@@ -364,8 +397,7 @@ export default function RestaurantsPage() {
             </div>
 
             <p className="text-xs text-muted-foreground">
-              DEV note: later you’ll use “disable restaurant” (active=false) instead of
-              deleting.
+              DEV note: later you'll use "disable restaurant" (active=false) instead of deleting.
             </p>
           </div>
 
@@ -386,6 +418,75 @@ export default function RestaurantsPage() {
               disabled={!deleteTarget || deleteMut.isPending}
             >
               {deleteMut.isPending ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* EXTEND SUBSCRIPTION */}
+      <Dialog
+        open={extendOpen}
+        onOpenChange={(v) => {
+          if (extendMut.isPending) return;
+          setExtendOpen(v);
+          if (!v) setExtendTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Extend subscription</DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="rounded-lg border p-3 bg-muted/30">
+              <div className="text-sm font-medium">{extendTarget?.name ?? "—"}</div>
+              <div className="text-xs text-muted-foreground">
+                Current paid until:{" "}
+                <span className="font-semibold text-foreground">
+                  {extendTarget?.paid_until ?? "not set"}
+                </span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Days to extend</Label>
+              <div className="flex gap-2">
+                {[7, 30, 90, 365].map((d) => (
+                  <Button
+                    key={d}
+                    variant={extendDays === d ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setExtendDays(d)}
+                  >
+                    {d}d
+                  </Button>
+                ))}
+              </div>
+              <Input
+                type="number"
+                min={1}
+                value={extendDays}
+                onChange={(e) => setExtendDays(Number(e.target.value))}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setExtendOpen(false);
+                setExtendTarget(null);
+              }}
+              disabled={extendMut.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => extendMut.mutate()}
+              disabled={extendMut.isPending || extendDays < 1}
+            >
+              {extendMut.isPending ? "Extending..." : `Extend ${extendDays} days`}
             </Button>
           </DialogFooter>
         </DialogContent>

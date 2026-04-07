@@ -53,3 +53,7 @@ export interface UpdateSubscriptionPayload {
   status?: Subscription["status"];
   paid_until?: string;
 }
+export interface ExtendSubscriptionPayload {
+  restaurant_id: number;
+  days: number;
+}
