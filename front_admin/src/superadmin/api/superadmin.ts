@@ -238,7 +238,7 @@ export async function getPaymentHistory(): Promise<Payment[]> {
   return [...payments];
 }
 export async function extendSubscription(restaurantId: number, days: number): Promise<Restaurant> {
-  const data = await api<any>(`/api/superadmin/restaurants/${restaurantId}/extend-subscription/`, {
+  const data = await api<any>(`/superadmin/restaurants/${restaurantId}/extend-subscription/`, {
     method: "POST",
     body: JSON.stringify({ days }),
   });
