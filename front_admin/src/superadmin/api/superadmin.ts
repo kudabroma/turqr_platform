@@ -161,18 +161,18 @@ export async function createBusinessUser(data: CreateBusinessUserPayload): Promi
  * returns updated user OR 204
  */
 export async function toggleBusinessUserActive(userId: number): Promise<void> {
-  await api(`/api/superadmin/users/${userId}/toggle-active/`, {
+  await api(`/superadmin/users/${userId}/toggle-active/`, {
     method: "PATCH",
     body: JSON.stringify({}), // можно пустое тело
   });
 }
 export async function deleteRestaurant(id: number) {
-  return api(`/api/superadmin/restaurants/${id}/`, {
+  return api(`/superadmin/restaurants/${id}/`, {
     method: "DELETE",
   });
 }
 export async function toggleRestaurantActive(id: number) {
-  return api(`/api/superadmin/restaurants/${id}/toggle-active/`, {
+  return api(`/superadmin/restaurants/${id}/toggle-active/`, {
     method: "PATCH",
   });
 }
@@ -183,7 +183,7 @@ export async function toggleRestaurantActive(id: number) {
  * returns 204 or {ok:true}
  */
 export async function resetBusinessUserPassword(userId: number, newPassword: string): Promise<void> {
-  await api<void>(`/api/superadmin/users/${userId}/reset-password/`, {
+  await api<void>(`/superadmin/users/${userId}/reset-password/`, {
     method: "POST",
     body: JSON.stringify({ password: newPassword }),
   });
@@ -240,7 +240,7 @@ export async function getPaymentHistory(): Promise<Payment[]> {
 export async function extendSubscription(restaurantId: number, days: number): Promise<Restaurant> {
   const data = await api<any>(`/superadmin/restaurants/${restaurantId}/extend-subscription/`, {
     method: "POST",
-    body: JSON.stringify({ days }),
+    body: JSON.stringify({ days }),   
   });
   return normalizeRestaurant(data);
 }
