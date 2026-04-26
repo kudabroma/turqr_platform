@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { MapPin, Clock, Star, ChevronRight, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
+import NotFound from "@/pages/NotFound";
 
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { PhotoGallery } from "@/components/PhotoGallery";
@@ -171,13 +172,7 @@ export default function PreviewPage() {
   }
 
   if (restaurantQuery.isError || menuQuery.isError) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">
-          {lang === "en" ? "Failed to load data" : "Menü şu anda yüklenemiyor. Lütfen tekrar deneyin."}
-        </p>
-      </div>
-    );
+    return <NotFound />;
   }
 
   const restaurantName = String(restaurantFromApi?.name ?? "Restaurant");

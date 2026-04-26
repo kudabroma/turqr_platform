@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { Home } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
-
+import NotFound from "@/pages/NotFound";
 import { fetchPublicMenu, fetchPublicRestaurant } from "@/api/public";
 import { adaptPublicMenuToUi } from "@/api/adapters/menuAdapter";
 
@@ -291,11 +291,7 @@ export default function MenuPage() {
   }
 
   if (menuQuery.isError || restaurantQuery.isError) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">{errorText}</p>
-      </div>
-    );
+    return <NotFound />;
   }
 
   const restaurantName =
