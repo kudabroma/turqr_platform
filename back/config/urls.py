@@ -25,7 +25,6 @@ urlpatterns = [
     path('api/', include('restaurants.urls')),
     #Superadmin API
     path("api/superadmin/", include("restaurants.superadmin_urls")),
-    path("api/", include("restaurants.urls")), 
 ]
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
