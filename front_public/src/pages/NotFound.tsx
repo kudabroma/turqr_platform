@@ -1,8 +1,6 @@
-import { useNavigate } from 'react-router-dom'
 const platformLogo = "/platform/Turlogo.png";
 
 export default function NotFound() {
-  const navigate = useNavigate()
 
   return (
     <div style={{ fontFamily: 'Inter, sans-serif', background: '#fff', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -57,18 +55,9 @@ export default function NotFound() {
         </p>
 
         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
-          <button
-            onClick={() => navigate('/')}
-            style={{ fontSize: 15, fontWeight: 500, padding: '13px 32px', background: '#E8521A', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer' }}
-          >
-            Back to home
-          </button>
-          <button
-            onClick={() => navigate(-1)}
-            style={{ fontSize: 15, fontWeight: 400, padding: '13px 28px', background: 'transparent', color: '#555', border: '1px solid #e0e0e0', borderRadius: 10, cursor: 'pointer' }}
-          >
-            Go back
-          </button>
+          <p style={{ fontSize: 13, color: '#bbb' }}>
+            Please scan the QR code again to access the menu.
+          </p>
         </div>
       </div>
 
