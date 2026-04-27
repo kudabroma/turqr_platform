@@ -19,6 +19,8 @@ export type UiDish = {
   description: string;
   price: number;
   imageUrl?: string;
+  // ✅ пробрасываем все поля из API
+  [key: string]: unknown;
 };
 
 export type UiCategory = {
@@ -58,7 +60,6 @@ export function adaptPublicMenuToUi(apiData: unknown): UiCategory[] {
       const name = asString(d.name) || asString(d.title) || "Без названия";
       const description = asString(d.description) || "";
 
-      // ✅ FIX: price может быть строкой "1500.00"
       const price =
         asNumberLike(d.price, NaN) ||
         asNumberLike(d.cost, NaN) ||
@@ -72,7 +73,8 @@ export function adaptPublicMenuToUi(apiData: unknown): UiCategory[] {
         asString(d.photo_url) ||
         undefined;
 
-      return { id, name, description, price, imageUrl };
+      // ✅ FIX: ...d прокидывает is_vegan, is_spicy, is_vegetarian, is_gluten_free и все остальные поля из API
+      return { ...d, id, name, description, price, imageUrl };
     });
 
     const id = asString(c.id) || asString(c.slug) || `${catIndex}`;
