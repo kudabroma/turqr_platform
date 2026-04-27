@@ -10,7 +10,9 @@ export interface MenuItem {
   category: string;
   price: number;
   isVegan?: boolean;
+  isVegetarian?: boolean;
   isSpicy?: boolean;
+  isGlutenFree?: boolean;
   image: string;
   translations: Translations<{
     name: string;
@@ -162,7 +164,9 @@ export const uiTranslations: Translations<{
   search: string;
   filters: string;
   vegan: string;
+  vegetarian: string;
   spicy: string;
+  glutenFree: string;
   currency: string;
   reviews: string;
   openNow: string;
@@ -176,7 +180,9 @@ export const uiTranslations: Translations<{
     search: "Search dishes...",
     filters: "Filters",
     vegan: "Vegan",
+    vegetarian: "Vegetarian",
     spicy: "Spicy",
+    glutenFree: "Gluten-free",
     currency: "₺",
     reviews: "Reviews",
     openNow: "Open Now",
@@ -190,7 +196,9 @@ export const uiTranslations: Translations<{
     search: "Yemek ara...",
     filters: "Filtreler",
     vegan: "Vegan",
+    vegetarian: "Vejetaryen",
     spicy: "Acılı",
+    glutenFree: "Glutensiz",
     currency: "₺",
     reviews: "Yorumlar",
     openNow: "Açık",

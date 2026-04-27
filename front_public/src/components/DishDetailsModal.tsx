@@ -10,7 +10,9 @@ export type UiDishLike = {
   image: string;
   price: number;
   isVegan?: boolean;
+  isVegetarian?: boolean;
   isSpicy?: boolean;
+  isGlutenFree?: boolean;
   translations: DishTranslations;
   ingredients?: string;
 };
@@ -100,14 +102,22 @@ export function DishDetailsModal({
           <div className="flex flex-wrap items-center gap-2 mt-4">
             {dish.isVegan && (
               <span className="filter-badge filter-badge-vegan">
-                <Leaf className="w-3 h-3" />
-                {ui?.vegan ?? "Vegan"}
+                🌱 {ui?.vegan ?? "Vegan"}
+              </span>
+            )}
+            {dish.isVegetarian && !dish.isVegan && (
+              <span className="filter-badge filter-badge-vegan">
+                🥗 {ui?.vegetarian ?? "Vegetarian"}
               </span>
             )}
             {dish.isSpicy && (
               <span className="filter-badge filter-badge-spicy">
-                <Flame className="w-3 h-3" />
-                {ui?.spicy ?? "Spicy"}
+                🌶️ {ui?.spicy ?? "Spicy"}
+              </span>
+            )}
+            {dish.isGlutenFree && (
+              <span className="filter-badge" style={{ background: '#f3f0ff', color: '#6d28d9' }}>
+                🌾 {ui?.glutenFree ?? "Gluten-free"}
               </span>
             )}
           </div>

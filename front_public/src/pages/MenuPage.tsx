@@ -62,7 +62,9 @@ function ensureDishShape(
       : "";
 
   const isVegan = Boolean(input?.isVegan ?? input?.is_vegan ?? false);
+  const isVegetarian = Boolean(input?.isVegetarian ?? input?.is_vegetarian ?? false);
   const isSpicy = Boolean(input?.isSpicy ?? input?.is_spicy ?? false);
+  const isGlutenFree = Boolean(input?.isGlutenFree ?? input?.is_gluten_free ?? false);
 
   const rawPrice =
     input?.price ??
@@ -127,7 +129,9 @@ function ensureDishShape(
     price,
     image,
     isVegan,
+    isVegetarian,
     isSpicy,
+    isGlutenFree,
     translations,
     ingredients: ingredients || undefined,
   };
