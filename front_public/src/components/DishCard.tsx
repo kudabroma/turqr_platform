@@ -83,7 +83,7 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
       className={`py-5 border-b border-border ${onClick ? "cursor-pointer" : ""}`}
       {...interactiveProps}
     >
-      <div className="flex items-start gap-4">
+      <div className="flex items-stretch gap-4">
         <div className="w-36 h-36 rounded-3xl overflow-hidden flex-shrink-0 bg-muted">
           {dish.image ? (
             <img
@@ -96,7 +96,7 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
           )}
         </div>
 
-        <div className="flex-1 min-w-0 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col justify-between">
           <h3 className="font-sans text-[20px] leading-tight font-semibold text-foreground">
             {t.name}
           </h3>
@@ -130,11 +130,10 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
             </div>
           )}
 
-          <div className="mt-auto">
+          
             <span className="text-[18px] font-semibold text-primary">
               {dish.price} {ui.currency}
             </span>
-          </div>
         </div>
       </div>
     </div>
