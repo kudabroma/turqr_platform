@@ -87,7 +87,6 @@ class Category(models.Model):
     name = models.CharField(max_length=255, verbose_name="Название категории")
 
     # ✅ NEW: bilingual fields (TR + EN)
-    # Пустые строки по умолчанию, чтобы миграции проходили без ручных правок
     name_tr = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (TR)")
     name_en = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (EN)")
 
@@ -106,7 +105,6 @@ class Category(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self) -> str:
-        # удобно в админке: сначала tr, потом name, потом en
         return self.name_tr or self.name or self.name_en or f"Category #{self.pk}"
 
     class Meta:
@@ -120,7 +118,7 @@ class Dish(models.Model):
     description = models.TextField(blank=True, verbose_name="Описание")
     is_active = models.BooleanField(default=True, db_index=True, verbose_name="Активно (видно туристам)")
 
-    # ✅ NEW: bilingual fields (TR + EN)
+    # ✅ Bilingual fields (TR + EN)
     name_tr = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (TR)")
     name_en = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (EN)")
     description_tr = models.TextField(blank=True, default="", verbose_name="Описание (TR)")
@@ -142,7 +140,13 @@ class Dish(models.Model):
         verbose_name="Ресторан",
     )
 
-    # ✅ NEW: lifecycle fields
+    # ✅ NEW: Аллергены и диетические метки (Phase 1.3)
+    is_vegetarian = models.BooleanField(default=False, verbose_name="🥗 Вегетарианское")
+    is_vegan = models.BooleanField(default=False, verbose_name="🌱 Веганское")
+    is_gluten_free = models.BooleanField(default=False, verbose_name="🌾 Без глютена")
+    is_spicy = models.BooleanField(default=False, verbose_name="🌶️ Острое")
+
+    # ✅ Lifecycle fields
     moved_to_unsorted_at = models.DateTimeField(null=True, blank=True, verbose_name="Перемещено в Unsorted")
     archived_at = models.DateTimeField(null=True, blank=True, verbose_name="В архиве с")
 

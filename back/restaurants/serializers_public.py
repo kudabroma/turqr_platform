@@ -122,7 +122,10 @@ class PublicDishSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dish
-        fields = ["id", "name", "description", "price", "image_url"]
+        fields = [
+            "id", "name", "description", "price", "image_url",
+            "is_vegetarian", "is_vegan", "is_gluten_free", "is_spicy",
+        ]
 
     def _lang(self) -> str:
         """

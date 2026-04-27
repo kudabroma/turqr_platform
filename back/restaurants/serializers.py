@@ -231,6 +231,7 @@ class DishSerializer(serializers.ModelSerializer):
             "category",
             "restaurant",
             "is_active",
+            "is_vegetarian", "is_vegan", "is_gluten_free", "is_spicy",
             "image",
             "image_url",
             "moved_to_unsorted_at",
@@ -362,7 +363,11 @@ class DishReadSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Dish
-        fields = ["id", "name", "description", "price", "category", "image_url", "is_active"]
+        fields = [
+            "id", "name", "description", "price", "category",
+            "image_url", "is_active",
+            "is_vegetarian", "is_vegan", "is_gluten_free", "is_spicy",
+        ]
 
 
 class CategoryWithDishesSerializer(serializers.ModelSerializer):
