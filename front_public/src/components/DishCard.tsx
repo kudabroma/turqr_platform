@@ -66,7 +66,7 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
             </h4>
             <span className="whitespace-nowrap font-semibold text-primary">
               {dish.price}
-              {ui.currency}
+              {ui.currency} 
             </span>
           </div>
 
@@ -96,12 +96,12 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
           )}
         </div>
 
-        <div className="flex-1 min-w-0 h-36 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col">
           <h3 className="font-sans text-[20px] leading-tight font-semibold text-foreground">
             {t.name}
           </h3>
 
-          <p className="mt-3 text-base leading-8 text-muted-foreground line-clamp-2 overflow-hidden text-ellipsis">
+          <p className="mt-3 text-base leading-6 text-muted-foreground line-clamp-2">
             {t.description}
           </p>
 
@@ -113,7 +113,7 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
                 </span>
               )}
               {dish.isVegetarian && !dish.isVegan && (
-                <span className="inline-flex items-center gap-1 rounded-full bg-lime-50 px-2.5 py-1 text-xs font-medium text-lime-700">
+                <span classNamline-clamp-2 overflow-hidden text-ellipsise="inline-flex items-center gap-1 rounded-full bg-lime-50 px-2.5 py-1 text-xs font-medium text-lime-700">
                   🥗
                 </span>
               )}
