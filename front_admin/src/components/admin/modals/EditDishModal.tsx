@@ -18,6 +18,10 @@ export interface DishData {
   description_tr: string;
   description_en: string;
   is_active: boolean;
+  is_vegetarian: boolean;
+  is_vegan: boolean;
+  is_gluten_free: boolean;
+  is_spicy: boolean;
   price: number;
   image: string;
   imageFile?: File | null;
@@ -71,6 +75,10 @@ const emptyDish: DishData = {
   description_tr: "",
   description_en: "",
   is_active: true,
+  is_vegetarian: false,
+  is_vegan: false,
+  is_gluten_free: false,
+  is_spicy: false,
   price: 0,
   image: "",
   vegan: false,
@@ -78,6 +86,13 @@ const emptyDish: DishData = {
   featured: false,
   _categoryId: undefined,
 };
+
+const DIET_LABELS = [
+  { key: "is_vegan" as keyof DishData, emoji: "🌱", label: "Vegan" },
+  { key: "is_vegetarian" as keyof DishData, emoji: "🥗", label: "Vejetaryen" },
+  { key: "is_spicy" as keyof DishData, emoji: "🌶️", label: "Acılı" },
+  { key: "is_gluten_free" as keyof DishData, emoji: "🌾", label: "Glutensiz" },
+];
 
 export function EditDishModal({
   open,
@@ -93,7 +108,6 @@ export function EditDishModal({
   const [nameTrError, setNameTrError] = useState("");
   const [categoryError, setCategoryError] = useState("");
 
-  // ✅ #5: храним цену как строку чтобы поле было пустым при фокусе
   const [priceInput, setPriceInput] = useState<string>("0");
 
   const isNew = !dish;
@@ -125,9 +139,12 @@ export function EditDishModal({
         description_tr: sanitizeDishDescription(dish.description_tr ?? ""),
         description_en: sanitizeDishDescription(dish.description_en ?? ""),
         is_active: (dish as any).is_active ?? true,
+        is_vegetarian: (dish as any).is_vegetarian ?? false,
+        is_vegan: (dish as any).is_vegan ?? false,
+        is_gluten_free: (dish as any).is_gluten_free ?? false,
+        is_spicy: (dish as any).is_spicy ?? false,
         _categoryId: dish._categoryId ?? undefined,
       });
-      // ✅ #5: инициализируем строку цены
       setPriceInput(String(dish.price ?? 0));
     } else {
       setForm(emptyDish);
@@ -152,7 +169,6 @@ export function EditDishModal({
       if (key === "name_tr" || key === "name_en") {
         nextValue = sanitizeDishName(value) as DishData[K];
       }
-
       if (key === "description_tr" || key === "description_en") {
         nextValue = sanitizeDishDescription(value) as DishData[K];
       }
@@ -160,13 +176,8 @@ export function EditDishModal({
 
     setForm((prev) => ({ ...prev, [key]: nextValue }));
 
-    if (key === "name_tr" && String(nextValue).trim()) {
-      setNameTrError("");
-    }
-
-    if (key === "_categoryId" && nextValue) {
-      setCategoryError("");
-    }
+    if (key === "name_tr" && String(nextValue).trim()) setNameTrError("");
+    if (key === "_categoryId" && nextValue) setCategoryError("");
   };
 
   const handleSave = () => {
@@ -208,6 +219,8 @@ export function EditDishModal({
 
         <div className="px-6 pb-6 overflow-y-auto max-h-[calc(85vh-132px)]">
           <div className="space-y-4 mt-2">
+
+            {/* Фото */}
             <div className="flex items-center gap-4">
               <input
                 ref={fileInputRef}
@@ -219,55 +232,36 @@ export function EditDishModal({
                   if (file) acceptFile(file);
                 }}
               />
-
               <div
                 className="w-20 h-20 rounded-xl bg-muted border-2 border-dashed border-border flex items-center justify-center overflow-hidden cursor-pointer"
                 onClick={() => fileInputRef.current?.click()}
               >
                 {imagePreview || form.image ? (
-                  <img
-                    src={imagePreview || form.image}
-                    alt=""
-                    className="w-full h-full object-cover"
-                  />
+                  <img src={imagePreview || form.image} alt="" className="w-full h-full object-cover" />
                 ) : (
                   <Upload className="h-6 w-6 text-muted-foreground" />
                 )}
               </div>
-
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => fileInputRef.current?.click()}
-              >
+              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                 Fotoğraf Yükle
               </Button>
             </div>
 
+            {/* Переводы TR/EN */}
             <div>
               <Label>Çeviri</Label>
-
               <div className="flex gap-2 mt-2">
                 <button
                   type="button"
                   onClick={() => setActiveLang("tr")}
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    activeLang === "tr"
-                      ? "bg-primary text-white"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`px-3 py-1 rounded-full text-sm ${activeLang === "tr" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}
                 >
                   TR
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveLang("en")}
-                  className={`px-3 py-1 rounded-full text-sm ${
-                    activeLang === "en"
-                      ? "bg-primary text-white"
-                      : "bg-muted text-muted-foreground"
-                  }`}
+                  className={`px-3 py-1 rounded-full text-sm ${activeLang === "en" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}
                 >
                   EN
                 </button>
@@ -284,11 +278,8 @@ export function EditDishModal({
                         onChange={(e) => update("name_tr", e.target.value)}
                         className={nameTrError ? "border-red-500 focus-visible:ring-red-500" : ""}
                       />
-                      {nameTrError ? (
-                        <p className="mt-2 text-sm text-red-500">{nameTrError}</p>
-                      ) : null}
+                      {nameTrError && <p className="mt-2 text-sm text-red-500">{nameTrError}</p>}
                     </div>
-
                     <div>
                       <Label>Açıklama (TR)</Label>
                       <Textarea
@@ -309,7 +300,6 @@ export function EditDishModal({
                         onChange={(e) => update("name_en", e.target.value)}
                       />
                     </div>
-
                     <div>
                       <Label>Açıklama (EN)</Label>
                       <Textarea
@@ -324,46 +314,32 @@ export function EditDishModal({
               </div>
             </div>
 
+            {/* Категория */}
             {categoryOptions.length > 0 && (
               <div>
                 <Label>Kategori</Label>
                 <select
-                  className={`w-full rounded-md border bg-background px-3 py-2 text-sm ${
-                    categoryError ? "border-red-500" : "border-border"
-                  }`}
+                  className={`w-full rounded-md border bg-background px-3 py-2 text-sm ${categoryError ? "border-red-500" : "border-border"}`}
                   value={form._categoryId ?? ""}
-                  onChange={(e) =>
-                    update(
-                      "_categoryId",
-                      e.target.value ? Number(e.target.value) : undefined
-                    )
-                  }
+                  onChange={(e) => update("_categoryId", e.target.value ? Number(e.target.value) : undefined)}
                 >
                   <option value="">Kategori seçiniz...</option>
                   {categoryOptions.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
+                    <option key={c.id} value={c.id}>{c.name}</option>
                   ))}
                 </select>
-
-                {categoryError ? (
-                  <p className="mt-2 text-sm text-red-500">{categoryError}</p>
-                ) : null}
+                {categoryError && <p className="mt-2 text-sm text-red-500">{categoryError}</p>}
               </div>
             )}
 
             {categoryOptions.length === 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3">
-                <p className="text-sm font-medium text-amber-900">
-                  Önce kategori oluşturmalısınız.
-                </p>
-                <p className="mt-1 text-sm text-amber-800">
-                  Yemek eklemek için en az bir kategori gerekli.
-                </p>
+                <p className="text-sm font-medium text-amber-900">Önce kategori oluşturmalısınız.</p>
+                <p className="mt-1 text-sm text-amber-800">Yemek eklemek için en az bir kategori gerekli.</p>
               </div>
             )}
 
+            {/* Цена */}
             <div>
               <Label>Fiyat (₺)</Label>
               <Input
@@ -371,9 +347,7 @@ export function EditDishModal({
                 min={0}
                 step={50}
                 value={priceInput}
-                onFocus={() => {
-                  if (priceInput === "0") setPriceInput("");
-                }}
+                onFocus={() => { if (priceInput === "0") setPriceInput(""); }}
                 onBlur={() => {
                   if (priceInput === "" || isNaN(Number(priceInput))) {
                     setPriceInput("0");
@@ -390,46 +364,61 @@ export function EditDishModal({
               />
             </div>
 
+            {/* Диетические метки */}
+            <div className="border rounded-xl px-4 py-3 space-y-3">
+              <div className="font-medium text-sm">Diyet Etiketleri</div>
+              {DIET_LABELS.map(({ key, emoji, label }) => (
+                <div key={key} className="flex items-center justify-between">
+                  <span className="text-sm text-muted-foreground">
+                    {emoji} {label}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => update(key, !form[key] as any)}
+                    className={`relative w-11 h-6 rounded-full transition-colors ${
+                      form[key] ? "bg-green-500" : "bg-gray-300"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
+                        form[key] ? "translate-x-5" : ""
+                      }`}
+                    />
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Статус активности */}
             <div className="flex items-center justify-between border rounded-xl px-4 py-3">
               <div>
                 <div className="font-medium text-sm">Durum</div>
                 <div className="text-xs text-muted-foreground">
-                  {form.is_active
-                    ? "Yemek aktif ve menüde görünür"
-                    : "Yemek pasif ve gizlidir"}
+                  {form.is_active ? "Yemek aktif ve menüde görünür" : "Yemek pasif ve gizlidir"}
                 </div>
               </div>
-
               <button
                 type="button"
                 onClick={() => update("is_active", !form.is_active)}
-                className={`relative w-11 h-6 rounded-full transition-colors ${
-                  form.is_active ? "bg-green-500" : "bg-gray-300"
-                }`}
+                className={`relative w-11 h-6 rounded-full transition-colors ${form.is_active ? "bg-green-500" : "bg-gray-300"}`}
               >
                 <span
-                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${
-                    form.is_active ? "translate-x-5" : ""
-                  }`}
+                  className={`absolute top-1 left-1 w-4 h-4 bg-white rounded-full transition-transform ${form.is_active ? "translate-x-5" : ""}`}
                 />
               </button>
             </div>
+
           </div>
         </div>
 
         <div className="px-6 py-1 border-t bg-background flex items-center justify-between">
           <div>
             {!isNew && onDelete && (
-              <Button variant="destructive" size="sm" onClick={handleDelete}>
-                Sil
-              </Button>
+              <Button variant="destructive" size="sm" onClick={handleDelete}>Sil</Button>
             )}
           </div>
-
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onOpenChange(false)}>
-              İptal
-            </Button>
+            <Button variant="outline" onClick={() => onOpenChange(false)}>İptal</Button>
             <Button onClick={handleSave}>Kaydet</Button>
           </div>
         </div>

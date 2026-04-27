@@ -100,6 +100,7 @@ export default function MenuPage() {
       }));
   }, [categoriesRawSorted]);
 
+  // ✅ FIX: добавлены is_vegetarian, is_vegan, is_gluten_free, is_spicy
   const dishes: DishData[] = useMemo(() => {
     return categoriesRawSorted.flatMap((c) =>
       (c.dishes ?? []).map((d: any) => ({
@@ -109,6 +110,10 @@ export default function MenuPage() {
         description_tr: d.description_tr ?? d.description ?? "",
         description_en: d.description_en ?? "",
         is_active: typeof d.is_active === "boolean" ? d.is_active : true,
+        is_vegetarian: d.is_vegetarian ?? false,
+        is_vegan: d.is_vegan ?? false,
+        is_gluten_free: d.is_gluten_free ?? false,
+        is_spicy: d.is_spicy ?? false,
         price: typeof d.price === "string" ? Number(d.price) : d.price ?? 0,
         image: d.image_url ?? d.image ?? "",
         imageFile: null,
@@ -140,14 +145,10 @@ export default function MenuPage() {
     });
   }, [dishes, search, activeCategoryId]);
 
-  /**
-   * FIX 3: В режиме Tümü (activeCategoryId === null) скрываем is_system категории.
-   * Они видны только когда пользователь явно кликнул на эту вкладку.
-   */
   const groupedByCategory = useMemo(() => {
     if (activeCategoryId === null) {
       return categoriesForTabs
-        .filter((cat) => !cat.is_system) // ← скрываем Unsorted из Tümü
+        .filter((cat) => !cat.is_system)
         .map((cat) => ({
           categoryId: cat.id,
           categoryName: cat.name,
@@ -174,12 +175,12 @@ export default function MenuPage() {
     let defaultCategoryId: number | undefined =
       active && !(active as any).is_system ? active.id : undefined;
 
-
     const defaultCategoryName =
       defaultCategoryId
         ? categoriesRawSorted.find((c) => c.id === defaultCategoryId)?.name
         : undefined;
 
+    // ✅ FIX: добавлены is_vegetarian, is_vegan, is_gluten_free, is_spicy
     setEditingDish({
       id: 0,
       name_tr: "",
@@ -187,6 +188,10 @@ export default function MenuPage() {
       description_tr: "",
       description_en: "",
       is_active: true,
+      is_vegetarian: false,
+      is_vegan: false,
+      is_gluten_free: false,
+      is_spicy: false,
       price: 0,
       image: "",
       imageFile: null,
@@ -208,6 +213,7 @@ export default function MenuPage() {
       if (!dish.id) return;
       const full = await (dishesApi as any).get(dish.id);
 
+      // ✅ FIX: добавлены is_vegetarian, is_vegan, is_gluten_free, is_spicy
       setEditingDish({
         id: full.id,
         name_tr: full.name_tr ?? "",
@@ -215,6 +221,10 @@ export default function MenuPage() {
         description_tr: full.description_tr ?? "",
         description_en: full.description_en ?? "",
         is_active: typeof full.is_active === "boolean" ? full.is_active : true,
+        is_vegetarian: full.is_vegetarian ?? false,
+        is_vegan: full.is_vegan ?? false,
+        is_gluten_free: full.is_gluten_free ?? false,
+        is_spicy: full.is_spicy ?? false,
         price: typeof full.price === "string" ? Number(full.price) : full.price ?? 0,
         image: full.image_url ?? full.image ?? "",
         imageFile: null,
@@ -255,6 +265,11 @@ export default function MenuPage() {
         fd.append("price", String(dish.price ?? 0));
         fd.append("category", String(Number(categoryId)));
         fd.append("is_active", dish.is_active ? "true" : "false");
+        // ✅ FIX: добавлены метки в FormData
+        fd.append("is_vegetarian", dish.is_vegetarian ? "true" : "false");
+        fd.append("is_vegan", dish.is_vegan ? "true" : "false");
+        fd.append("is_gluten_free", dish.is_gluten_free ? "true" : "false");
+        fd.append("is_spicy", dish.is_spicy ? "true" : "false");
         fd.append("image", dish.imageFile);
 
         if (dish.id && dish.id > 0) {
@@ -263,6 +278,7 @@ export default function MenuPage() {
           await (dishesApi as any).createForm(fd);
         }
       } else {
+        // ✅ FIX: добавлены метки в JSON payload
         const payload: any = {
           name_tr: dish.name_tr,
           name_en: dish.name_en ?? "",
@@ -271,6 +287,10 @@ export default function MenuPage() {
           price: String(dish.price ?? 0),
           category: Number(categoryId),
           is_active: !!dish.is_active,
+          is_vegetarian: !!dish.is_vegetarian,
+          is_vegan: !!dish.is_vegan,
+          is_gluten_free: !!dish.is_gluten_free,
+          is_spicy: !!dish.is_spicy,
         };
 
         if (dish.id && dish.id > 0) {
@@ -385,14 +405,7 @@ export default function MenuPage() {
           />
         </div>
 
-        {/*
-          FIX 1 + FIX 2:
-          - Шестерёнка (⚙️) — единственный sticky элемент, shrink-0
-          - Tümü переехал ВНУТРЬ overflow-x-auto контейнера первым элементом
-          - items-center на внешнем flex выравнивает скролл-бар по центру шестерёнки
-        */}
         <div className="flex items-center gap-2 mb-2">
-          {/* Только шестерёнка закреплена */}
           <button
             onClick={() => setShowCategoriesModal(true)}
             className="shrink-0 inline-flex h-10 w-10 items-center justify-center rounded-full bg-muted text-muted-foreground hover:bg-border transition-colors"
@@ -401,9 +414,7 @@ export default function MenuPage() {
             <Settings className="h-5 w-5" />
           </button>
 
-          {/* Tümü + все категории — единый scrollable ряд */}
           <div className="flex items-center gap-2 overflow-x-auto min-w-0 flex-1 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
-            {/* FIX 1: Tümü теперь скроллируется вместе с остальными */}
             <button
               onClick={() => setActiveCategoryId(null)}
               className={`inline-flex h-10 items-center justify-center px-5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
