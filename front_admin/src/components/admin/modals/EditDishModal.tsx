@@ -172,10 +172,10 @@ export function EditDishModal({
     let nextValue = value;
 
     if (typeof value === "string") {
-      if (key === "name_tr" || key === "name_en") {
+      if (key === "name_tr" || key === "name_en" || key === "name_ru") {
         nextValue = sanitizeDishName(value) as DishData[K];
       }
-      if (key === "description_tr" || key === "description_en") {
+      if (key === "description_tr" || key === "description_en" || key === "description_ru") {
         nextValue = sanitizeDishDescription(value) as DishData[K];
       }
     }
@@ -253,35 +253,26 @@ export function EditDishModal({
               </Button>
             </div>
 
-            {/* Переводы TR/EN */}
+            {/* Переводы TR / EN / RU */}
             <div>
               <Label>Çeviri</Label>
               <div className="flex gap-2 mt-2">
-                <button
-                  type="button"
-                  onClick={() => setActiveLang("tr")}
-                  className={`px-3 py-1 rounded-full text-sm ${activeLang === "tr" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}
-                >
-                  TR
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveLang("en")}
-                  className={`px-3 py-1 rounded-full text-sm ${activeLang === "en" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}
-                >
-                  EN
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setActiveLang("ru")}
-                  className={`px-3 py-1 rounded-full text-sm ${activeLang === "ru" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}
-                >
-                  RU
-                </button>
+                {(["tr", "en", "ru"] as Lang[]).map((l) => (
+                  <button
+                    key={l}
+                    type="button"
+                    onClick={() => setActiveLang(l)}
+                    className={`px-3 py-1 rounded-full text-sm uppercase ${
+                      activeLang === l ? "bg-primary text-white" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {l}
+                  </button>
+                ))}
               </div>
 
               <div className="mt-3 space-y-3">
-                {activeLang === "tr" ? (
+                {activeLang === "tr" && (
                   <>
                     <div>
                       <Label>İsim (TR)</Label>
@@ -303,7 +294,9 @@ export function EditDishModal({
                       />
                     </div>
                   </>
-                ) : (
+                )}
+
+                {activeLang === "en" && (
                   <>
                     <div>
                       <Label>İsim (EN)</Label>
@@ -324,6 +317,7 @@ export function EditDishModal({
                     </div>
                   </>
                 )}
+
                 {activeLang === "ru" && (
                   <>
                     <div>
@@ -345,7 +339,6 @@ export function EditDishModal({
                     </div>
                   </>
                 )}
-                
               </div>
             </div>
 
