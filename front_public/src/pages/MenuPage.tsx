@@ -152,7 +152,7 @@ export default function MenuPage() {
     queryKey: ["public-menu", slug, lang],
     queryFn: () => fetchPublicMenu(slug, lang),
     enabled: !!slug,
-    staleTime: 60_000,
+    staleTime: 0,  // ← всегда свежий запрос при смене lang
     refetchOnWindowFocus: false,
     retry: 1,
   });
