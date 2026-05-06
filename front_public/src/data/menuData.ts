@@ -3,7 +3,7 @@
 export type PublicLang = "en" | "tr";
 export type AllLang = PublicLang | "ru";
 
-export type Translations<T> = Record<PublicLang, T> & Partial<Record<"ru", T>>;
+export type Translations<T> = Record<"en" | "tr" | "ru", T>;
 
 export interface MenuItem {
   id: string;
@@ -56,6 +56,7 @@ const defaultMeta: RestaurantMeta = {
       translations: {
         en: "Very cozy, fresh food, friendly staff",
         tr: "Çok rahat, taze yemek, güler yüzlü personel",
+        ru: "Очень уютно, свежая еда, приветливый персонал",
       },
       author: "Sarah M.",
     },
@@ -65,6 +66,7 @@ const defaultMeta: RestaurantMeta = {
       translations: {
         en: "Nice atmosphere and good prices",
         tr: "Güzel atmosfer ve iyi fiyatlar",
+        ru: "Приятная атмосфера и хорошие цены",
       },
       author: "Ahmed K.",
     },
@@ -82,6 +84,7 @@ const restaurantMetaBySlug: Record<string, RestaurantMeta> = {
         translations: {
           en: "Very cozy, fresh food, friendly staff",
           tr: "Çok rahat, taze yemek, güler yüzlü personel",
+          ru: "Очень уютно, свежая еда, приветливый персонал",
         },
         author: "Sarah M.",
       },
@@ -91,19 +94,12 @@ const restaurantMetaBySlug: Record<string, RestaurantMeta> = {
         translations: {
           en: "Nice atmosphere and good prices",
           tr: "Güzel atmosfer ve iyi fiyatlar",
+          ru: "Приятная атмосфера и хорошие цены",
         },
         author: "Ahmed K.",
       },
     ],
   },
-  // Сюда добавляй новые рестораны:
-  // myrestaurant: {
-  //   rating: 4.6,
-  //   reviewCount: 89,
-  //   reviews: [
-  //     { id: 1, rating: 5, translations: { en: "...", tr: "..." }, author: "..." },
-  //   ],
-  // },
 };
 
 export function getRestaurantMeta(slug: string): RestaurantMeta {
@@ -129,12 +125,19 @@ export const restaurantInfo: RestaurantInfo = {
       address: "123 Ana Cadde, İstanbul, Türkiye",
       hours: "Pzt–Paz 10:00–23:00",
     },
+    ru: {
+      name: "Тестовый ресторан",
+      description: "Традиционная турецкая кухня в уютной атмосфере",
+      address: "ул. Главная 123, Стамбул, Турция",
+      hours: "Пн–Вс 10:00–23:00",
+    },
   },
 };
 
 export const categories: Translations<string[]> = {
   en: ["All", "Main Dishes", "Appetizers", "Desserts", "Beverages"],
   tr: ["Tümü", "Ana Yemekler", "Mezeler", "Tatlılar", "İçecekler"],
+  ru: ["Все", "Основные блюда", "Закуски", "Десерты", "Напитки"],
 };
 
 export const menuItems: MenuItem[] = [
@@ -154,6 +157,11 @@ export const menuItems: MenuItem[] = [
         name: "Adana Kebap",
         description: "Baharatlı kıyma kebabı ızgarada pişirilmiş, lavaş ve sebzelerle servis edilir",
         category: "Ana Yemekler",
+      },
+      ru: {
+        name: "Кебаб Адана",
+        description: "Острый кебаб из рубленого мяса на гриле, подаётся с лавашом и овощами",
+        category: "Основные блюда",
       },
     },
   },
@@ -207,4 +215,20 @@ export const uiTranslations: Translations<{
     back: "Geri",
     allCategories: "Tümü",
   },
-};
+  ru: {
+    viewMenu: "Открыть меню",
+    search: "Поиск блюд...",
+    filters: "Фильтры",
+    vegan: "Веган",
+    vegetarian: "Вегетарианское",
+    spicy: "Острое",
+    glutenFree: "Без глютена",
+    currency: "₺",
+    reviews: "Отзывы",
+    openNow: "Открыто",
+    featuredDishes: "Рекомендует шеф",
+    fullMenu: "Всё меню",
+    back: "Назад",
+    allCategories: "Все",
+  },
+};  

@@ -14,12 +14,13 @@ import { Label } from "@/components/ui/label";
 
 import { restaurantApi, type RestaurantMe } from "@/api/endpoints";
 
-type Lang = "tr" | "en";
+type Lang = "tr" | "en" | "ru";
 
 type RestaurantWithExtraFields = RestaurantMe & {
   working_hours?: string | null;
   description_tr?: string | null;
   description_en?: string | null;
+  description_ru?: string | null;
 };
 
 type Props = {
@@ -37,12 +38,14 @@ type FormState = {
   working_hours: string;
   description_tr: string;
   description_en: string;
+  description_ru: string;
 };
 
 type RestaurantUpdatePayload = Partial<RestaurantMe> & {
   working_hours?: string;
   description_tr?: string;
   description_en?: string;
+  description_ru?: string;
 };
 
 const FIELD_LIMITS = {
@@ -64,6 +67,7 @@ const INITIAL_FORM: FormState = {
   working_hours: "",
   description_tr: "",
   description_en: "",
+  description_ru: "",
 };
 
 const SINGLE_LINE_REGEX = /[^\p{L}\p{N}\s&.,'"()\-/:]/gu;
@@ -140,6 +144,7 @@ export function EditRestaurantInfoModal({
       working_hours: restaurant.working_hours ?? "",
       description_tr: restaurant.description_tr ?? "",
       description_en: restaurant.description_en ?? "",
+      description_ru: restaurant.description_ru ?? "",
     });
 
     setActiveLang("tr");
@@ -177,13 +182,18 @@ export function EditRestaurantInfoModal({
       working_hours: form.working_hours.trim(),
       description_tr: form.description_tr.trim(),
       description_en: form.description_en.trim(),
+      description_ru: form.description_ru.trim(),
     };
 
     mutation.mutate(payload);
   };
 
   const currentDescriptionLength =
-    activeLang === "tr" ? form.description_tr.length : form.description_en.length;
+    activeLang === "tr"
+      ? form.description_tr.length
+      : activeLang === "en"
+      ? form.description_en.length
+      : form.description_ru.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -299,30 +309,42 @@ export function EditRestaurantInfoModal({
                 >
                   EN
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setActiveLang("ru")}
+                  className={`px-3 py-1 rounded-full text-sm ${
+                    activeLang === "ru"
+                      ? "bg-primary text-white"
+                      : "bg-muted text-muted-foreground"
+                  }`}
+                >
+                  RU
+                </button>
               </div>
 
               {activeLang === "tr" ? (
                 <Textarea
                   value={form.description_tr}
                   maxLength={FIELD_LIMITS.description}
-                  onChange={handleInputChange(
-                    "description_tr",
-                    sanitizeMultilineText,
-                    FIELD_LIMITS.description,
-                  )}
+                  onChange={handleInputChange("description_tr", sanitizeMultilineText, FIELD_LIMITS.description)}
                   placeholder="Restoran açıklaması (Türkçe)"
+                  rows={4}
+                />
+              ) : activeLang === "en" ? (
+                <Textarea
+                  value={form.description_en}
+                  maxLength={FIELD_LIMITS.description}
+                  onChange={handleInputChange("description_en", sanitizeMultilineText, FIELD_LIMITS.description)}
+                  placeholder="Restoran açıklaması (İngilizce)"
                   rows={4}
                 />
               ) : (
                 <Textarea
-                  value={form.description_en}
+                  value={form.description_ru}
                   maxLength={FIELD_LIMITS.description}
-                  onChange={handleInputChange(
-                    "description_en",
-                    sanitizeMultilineText,
-                    FIELD_LIMITS.description,
-                  )}
-                  placeholder="Restoran açıklaması (İngilizce)"
+                  onChange={handleInputChange("description_ru", sanitizeMultilineText, FIELD_LIMITS.description)}
+                  placeholder="Описание ресторана (Русский)"
                   rows={4}
                 />
               )}

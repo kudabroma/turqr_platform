@@ -59,6 +59,7 @@ export interface RestaurantMe {
   address: string;
   description_tr?: string;
   description_en?: string;
+  description_ru?: string;
   logo: string;
   front_template: string;
   active: boolean;

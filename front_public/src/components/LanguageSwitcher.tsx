@@ -1,17 +1,18 @@
 import { useMemo } from "react";
 import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
-
-type Lang = "en" | "tr";
+import type { Lang } from "@/api/public";
 
 function normalizeLang(x: string | null): Lang {
   const v = (x ?? "tr").toLowerCase();
   if (v.startsWith("en")) return "en";
+  if (v.startsWith("ru")) return "ru";
   return "tr";
 }
 
 const LANGS: Array<{ code: Lang; label: string }> = [
   { code: "en", label: "EN" },
   { code: "tr", label: "TR" },
+  { code: "ru", label: "RU" },
 ];
 
 export function LanguageSwitcher() {
@@ -24,28 +25,17 @@ export function LanguageSwitcher() {
   const nextSearchFor = useMemo(() => {
     return (lang: Lang) => {
       const sp = new URLSearchParams(searchParams);
-
-      // ✅ меняем только язык
       sp.set("lang", lang);
-
-      // ✅ если slug существует — сохраняем его
       const slug = searchParams.get("slug");
-      if (slug) {
-        sp.set("slug", slug);
-      }
-
+      if (slug) sp.set("slug", slug);
       return sp.toString();
     };
   }, [searchParams]);
 
   function setLang(lang: Lang) {
     const search = nextSearchFor(lang);
-
     navigate(
-      {
-        pathname: location.pathname,
-        search: search ? `?${search}` : "",
-      },
+      { pathname: location.pathname, search: search ? `?${search}` : "" },
       { replace: true }
     );
   }
@@ -55,7 +45,6 @@ export function LanguageSwitcher() {
       <div className="inline-flex rounded-full bg-muted p-1">
         {LANGS.map((l) => {
           const active = l.code === current;
-
           return (
             <button
               key={l.code}

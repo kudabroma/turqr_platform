@@ -1,6 +1,7 @@
 import { MenuItem, uiTranslations } from "@/data/menuData";
 import { useLanguage } from "@/context/LanguageContext";
 import { Flame, Leaf } from "lucide-react";
+import type { Lang } from "@/api/public";
 
 interface DishCardProps {
   dish: MenuItem;
@@ -10,7 +11,7 @@ interface DishCardProps {
 
 function pickTranslation<T extends Record<string, any>>(
   translations: Partial<Record<"en" | "tr" | "ru", T>> | undefined,
-  lang: "en" | "tr"
+  lang: "en" | "tr" | "ru"
 ): T {
   if (!translations) return {} as T;
 
@@ -25,7 +26,7 @@ function pickTranslation<T extends Record<string, any>>(
 
 export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
   const { language } = useLanguage();
-  const lang: "en" | "tr" = language === "en" ? "en" : "tr";
+  const lang: Lang = language === "en" ? "en" : language === "ru" ? "ru" : "tr";
 
   const t = pickTranslation(dish.translations as any, lang);
   const ui = pickTranslation(uiTranslations as any, lang);

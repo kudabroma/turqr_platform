@@ -81,6 +81,7 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "working_hours",
             "description_tr",
             "description_en",
+            "description_ru",
             "logo",
             "logo_url",
             "front_template",
@@ -106,6 +107,7 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "working_hours",
             "description_tr",
             "description_en",
+            "description_ru",
             "front_template",
             "logo",
             "photo1", "photo2", "photo3",
@@ -140,12 +142,13 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system", "sort_order"]
+        fields = ["id", "name", "name_tr", "name_en", "name_ru", "restaurant", "is_system", "sort_order"]
         read_only_fields = ["id", "restaurant", "is_system", "sort_order"]
         extra_kwargs = {
             "name": {"required": False, "allow_blank": True},
             "name_tr": {"required": False, "allow_blank": True},
             "name_en": {"required": False, "allow_blank": True},
+            "name_ru": {"required": False, "allow_blank": True}
         }
 
     def validate(self, attrs):
@@ -225,8 +228,8 @@ class DishSerializer(serializers.ModelSerializer):
         fields = [
             "id",
             "name", "description",
-            "name_tr", "name_en",
-            "description_tr", "description_en",
+            "name_tr", "name_en", "name_ru",
+            "description_tr", "description_en", "description_ru",
             "price",
             "category",
             "restaurant",
@@ -245,6 +248,8 @@ class DishSerializer(serializers.ModelSerializer):
             "name_en": {"required": False, "allow_blank": True},
             "description_tr": {"required": False, "allow_blank": True},
             "description_en": {"required": False, "allow_blank": True},
+            "name_ru": {"required": False, "allow_blank": True},
+            "description_ru": {"required": False, "allow_blank": True},
         }
 
     def validate(self, attrs):
@@ -344,18 +349,26 @@ class DishReadSerializer(serializers.ModelSerializer):
 
     def _lang(self) -> str:
         raw = (self.context.get("lang") or "tr").lower()
-        return "en" if raw.startswith("en") else "tr"
+        if raw.startswith("en"):
+            return "en"
+        if raw.startswith("ru"):
+            return "ru"
+        return "tr"
 
     def get_name(self, obj: Dish):
         lang = self._lang()
         if lang == "en":
             return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
+        if lang == "ru":
+            return (getattr(obj, "name_ru", "") or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
         return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
 
     def get_description(self, obj: Dish):
         lang = self._lang()
         if lang == "en":
             return (obj.description_en or "").strip() or (obj.description_tr or "").strip() or (obj.description or "").strip()
+        if lang == "ru":
+            return (getattr(obj, "description_ru", "") or "").strip() or (obj.description_tr or "").strip() or (obj.description or "").strip()
         return (obj.description_tr or "").strip() or (obj.description or "").strip() or (obj.description_en or "").strip()
 
     def get_image_url(self, obj: Dish):
@@ -376,12 +389,18 @@ class CategoryWithDishesSerializer(serializers.ModelSerializer):
 
     def _lang(self) -> str:
         raw = (self.context.get("lang") or "tr").lower()
-        return "en" if raw.startswith("en") else "tr"
+        if raw.startswith("en"):
+            return "en"
+        if raw.startswith("ru"):
+            return "ru"
+        return "tr"
 
     def get_name(self, obj: Category):
         lang = self._lang()
         if lang == "en":
             return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
+        if lang == "ru":
+            return (getattr(obj, "name_ru", "") or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
         return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
 
     class Meta:

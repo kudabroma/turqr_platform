@@ -84,6 +84,7 @@ export default function MenuPage() {
         id: c.id,
         name_tr: c.name_tr ?? c.name ?? "",
         name_en: c.name_en ?? "",
+        name_ru: c.name_ru ?? "",  // ✅ RU
         is_system: c.is_system ?? false,
         sort_order: c.sort_order ?? 0,
       }));
@@ -100,15 +101,16 @@ export default function MenuPage() {
       }));
   }, [categoriesRawSorted]);
 
-  // ✅ FIX: добавлены is_vegetarian, is_vegan, is_gluten_free, is_spicy
   const dishes: DishData[] = useMemo(() => {
     return categoriesRawSorted.flatMap((c) =>
       (c.dishes ?? []).map((d: any) => ({
         id: d.id,
         name_tr: d.name_tr ?? d.name ?? "",
         name_en: d.name_en ?? "",
+        name_ru: d.name_ru ?? "",           // ✅ RU
         description_tr: d.description_tr ?? d.description ?? "",
         description_en: d.description_en ?? "",
+        description_ru: d.description_ru ?? "",  // ✅ RU
         is_active: typeof d.is_active === "boolean" ? d.is_active : true,
         is_vegetarian: d.is_vegetarian ?? false,
         is_vegan: d.is_vegan ?? false,
@@ -136,7 +138,7 @@ export default function MenuPage() {
     const q = search.trim().toLowerCase();
 
     return dishes.filter((d) => {
-      const hay = `${d.name_tr ?? ""} ${d.name_en ?? ""}`.toLowerCase();
+      const hay = `${d.name_tr ?? ""} ${d.name_en ?? ""} ${(d as any).name_ru ?? ""}`.toLowerCase();
       const matchesSearch = !q || hay.includes(q);
       const matchesCategory =
         activeCategoryId === null || d._categoryId === activeCategoryId;
@@ -172,7 +174,7 @@ export default function MenuPage() {
       ? categoriesRawSorted.find((c) => c.id === activeCategoryId)
       : undefined;
 
-    let defaultCategoryId: number | undefined =
+    const defaultCategoryId: number | undefined =
       active && !(active as any).is_system ? active.id : undefined;
 
     const defaultCategoryName =
@@ -180,13 +182,14 @@ export default function MenuPage() {
         ? categoriesRawSorted.find((c) => c.id === defaultCategoryId)?.name
         : undefined;
 
-    // ✅ FIX: добавлены is_vegetarian, is_vegan, is_gluten_free, is_spicy
     setEditingDish({
       id: 0,
       name_tr: "",
       name_en: "",
+      name_ru: "",           // ✅ RU
       description_tr: "",
       description_en: "",
+      description_ru: "",    // ✅ RU
       is_active: true,
       is_vegetarian: false,
       is_vegan: false,
@@ -213,13 +216,14 @@ export default function MenuPage() {
       if (!dish.id) return;
       const full = await (dishesApi as any).get(dish.id);
 
-      // ✅ FIX: добавлены is_vegetarian, is_vegan, is_gluten_free, is_spicy
       setEditingDish({
         id: full.id,
         name_tr: full.name_tr ?? "",
         name_en: full.name_en ?? "",
+        name_ru: full.name_ru ?? "",           // ✅ RU
         description_tr: full.description_tr ?? "",
         description_en: full.description_en ?? "",
+        description_ru: full.description_ru ?? "",  // ✅ RU
         is_active: typeof full.is_active === "boolean" ? full.is_active : true,
         is_vegetarian: full.is_vegetarian ?? false,
         is_vegan: full.is_vegan ?? false,
@@ -260,12 +264,13 @@ export default function MenuPage() {
         const fd = new FormData();
         fd.append("name_tr", dish.name_tr);
         fd.append("name_en", dish.name_en ?? "");
+        fd.append("name_ru", (dish as any).name_ru ?? "");
         fd.append("description_tr", dish.description_tr ?? "");
         fd.append("description_en", dish.description_en ?? "");
+        fd.append("description_ru", (dish as any).description_ru ?? "");
         fd.append("price", String(dish.price ?? 0));
         fd.append("category", String(Number(categoryId)));
         fd.append("is_active", dish.is_active ? "true" : "false");
-        // ✅ FIX: добавлены метки в FormData
         fd.append("is_vegetarian", dish.is_vegetarian ? "true" : "false");
         fd.append("is_vegan", dish.is_vegan ? "true" : "false");
         fd.append("is_gluten_free", dish.is_gluten_free ? "true" : "false");
@@ -278,12 +283,13 @@ export default function MenuPage() {
           await (dishesApi as any).createForm(fd);
         }
       } else {
-        // ✅ FIX: добавлены метки в JSON payload
         const payload: any = {
           name_tr: dish.name_tr,
           name_en: dish.name_en ?? "",
+          name_ru: (dish as any).name_ru ?? "",
           description_tr: dish.description_tr ?? "",
           description_en: dish.description_en ?? "",
+          description_ru: (dish as any).description_ru ?? "",
           price: String(dish.price ?? 0),
           category: Number(categoryId),
           is_active: !!dish.is_active,
@@ -322,8 +328,8 @@ export default function MenuPage() {
   };
 
   const handleSaveCategories = async (payload: {
-    create: { name_tr: string; name_en: string }[];
-    rename: { id: number; name_tr: string; name_en: string }[];
+    create: { name_tr: string; name_en: string; name_ru: string }[];
+    rename: { id: number; name_tr: string; name_en: string; name_ru: string }[];
     delete: { id: number }[];
     reorder: { id: number; sort_order: number }[];
   }) => {
@@ -334,6 +340,7 @@ export default function MenuPage() {
             categoriesApi.create({
               name_tr: c.name_tr,
               name_en: c.name_en ?? "",
+              name_ru: c.name_ru ?? "",  // ✅ RU
             } as any)
           )
         );
@@ -345,6 +352,7 @@ export default function MenuPage() {
             categoriesApi.update(c.id, {
               name_tr: c.name_tr,
               name_en: c.name_en ?? "",
+              name_ru: c.name_ru ?? "",  // ✅ RU
             } as any)
           )
         );

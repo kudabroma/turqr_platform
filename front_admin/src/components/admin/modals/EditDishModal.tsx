@@ -17,6 +17,8 @@ export interface DishData {
   name_en: string;
   description_tr: string;
   description_en: string;
+  name_ru: string;
+  description_ru: string;
   is_active: boolean;
   is_vegetarian: boolean;
   is_vegan: boolean;
@@ -41,7 +43,7 @@ interface EditDishModalProps {
   categories?: { id: number; name: string; is_system?: boolean }[];
 }
 
-type Lang = "tr" | "en";
+type Lang = "tr" | "en" | "ru";
 
 const FIELD_LIMITS = {
   name: 100,
@@ -74,6 +76,8 @@ const emptyDish: DishData = {
   name_en: "",
   description_tr: "",
   description_en: "",
+  name_ru: "",
+  description_ru: "",
   is_active: true,
   is_vegetarian: false,
   is_vegan: false,
@@ -138,6 +142,8 @@ export function EditDishModal({
         name_en: sanitizeDishName(dish.name_en ?? ""),
         description_tr: sanitizeDishDescription(dish.description_tr ?? ""),
         description_en: sanitizeDishDescription(dish.description_en ?? ""),
+        name_ru: sanitizeDishName((dish as any).name_ru ?? ""),
+        description_ru: sanitizeDishDescription((dish as any).description_ru ?? ""),
         is_active: (dish as any).is_active ?? true,
         is_vegetarian: (dish as any).is_vegetarian ?? false,
         is_vegan: (dish as any).is_vegan ?? false,
@@ -265,6 +271,13 @@ export function EditDishModal({
                 >
                   EN
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveLang("ru")}
+                  className={`px-3 py-1 rounded-full text-sm ${activeLang === "ru" ? "bg-primary text-white" : "bg-muted text-muted-foreground"}`}
+                >
+                  RU
+                </button>
               </div>
 
               <div className="mt-3 space-y-3">
@@ -311,6 +324,28 @@ export function EditDishModal({
                     </div>
                   </>
                 )}
+                {activeLang === "ru" && (
+                  <>
+                    <div>
+                      <Label>İsim (RU)</Label>
+                      <Input
+                        value={form.name_ru}
+                        maxLength={FIELD_LIMITS.name}
+                        onChange={(e) => update("name_ru", e.target.value)}
+                      />
+                    </div>
+                    <div>
+                      <Label>Açıklama (RU)</Label>
+                      <Textarea
+                        value={form.description_ru}
+                        maxLength={FIELD_LIMITS.description}
+                        onChange={(e) => update("description_ru", e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  </>
+                )}
+                
               </div>
             </div>
 

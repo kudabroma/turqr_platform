@@ -30,6 +30,7 @@ type CategoryOption = {
 function normalizeLang(x: string | null): Lang {
   const v = (x ?? "tr").toLowerCase();
   if (v.startsWith("en")) return "en";
+  if (v.startsWith("ru")) return "ru";
   return "tr";
 }
 
@@ -116,10 +117,16 @@ function ensureDishShape(
           description: String(input.translations.tr?.description ?? description),
           category: String(input.translations.tr?.category ?? category),
         },
+        ru: {
+          name: String(input.translations.ru?.name ?? name),
+          description: String(input.translations.ru?.description ?? description),
+          category: String(input.translations.ru?.category ?? category),
+        },
       }
     : {
         en: { name, description, category },
         tr: { name, description, category },
+        ru: { name, description, category },
       };
 
   return {
@@ -229,7 +236,7 @@ export default function MenuPage() {
     return [
       {
         id: null,
-        label: lang === "en" ? "All" : "Tümü",
+        label: lang === "en" ? "All" : lang === "ru" ? "Все" : "Tümü"
       },
       ...Array.from(map.entries()).map(([id, label]) => ({
         id,
@@ -271,8 +278,8 @@ export default function MenuPage() {
     return groups;
   }, [filteredItems, lang]);
 
-  const loadingText = lang === "en" ? "Loading menu..." : "Menü yükleniyor...";
-  const errorText = lang === "en" ? "Failed to load data" : "Menü şu anda yüklenemiyor. Lütfen tekrar deneyin.";
+  const loadingText = lang === "en" ? "Loading menu..." : lang === "ru" ? "Загрузка меню..." : "Menü yükleniyor...";
+  const errorText = lang === "en" ? "Failed to load data" : lang === "ru" ? "Ошибка загрузки" : "Menü şu anda yüklenemiyor. Lütfen tekrar deneyin.";
 
   if (!slug) {
     return (
@@ -326,7 +333,7 @@ export default function MenuPage() {
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder={lang === "tr" ? "Yemek ara..." : "Search dishes..."}
+              placeholder={lang === "tr" ? "Yemek ara..." : lang === "ru" ? "Поиск блюд..." : "Search dishes..."}
             />
           </div>
 
@@ -383,7 +390,7 @@ export default function MenuPage() {
         {filteredItems.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {lang === "en" ? "No dishes found" : "Yemek bulunamadı"}
+              {lang === "en" ? "No dishes found" : lang === "ru" ? "Блюда не найдены" : "Yemek bulunamadı"}
             </p>
           </div>
         )}

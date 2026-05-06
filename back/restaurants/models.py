@@ -19,6 +19,7 @@ class Restaurant(models.Model):
     # ✅ Двуязычное описание ресторана
     description_tr = models.TextField(blank=True, default="", verbose_name="Описание (TR)")
     description_en = models.TextField(blank=True, default="", verbose_name="Описание (EN)")
+    description_ru = models.TextField(blank=True, default="", verbose_name="Описание (RU)")
 
     contacts = models.TextField(blank=True, verbose_name="Контакты")
     phone = models.CharField(max_length=50, blank=True, default="", verbose_name="Телефон")
@@ -86,9 +87,10 @@ class Category(models.Model):
     # старое поле пока оставляем (для совместимости)
     name = models.CharField(max_length=255, verbose_name="Название категории")
 
-    # ✅ NEW: bilingual fields (TR + EN)
+    # ✅ NEW: bilingual fields (TR + EN + RU)
     name_tr = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (TR)")
     name_en = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (EN)")
+    name_ru = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (RU)")
 
     restaurant = models.ForeignKey(
         Restaurant,
@@ -118,12 +120,15 @@ class Dish(models.Model):
     description = models.TextField(blank=True, verbose_name="Описание")
     is_active = models.BooleanField(default=True, db_index=True, verbose_name="Активно (видно туристам)")
 
-    # ✅ Bilingual fields (TR + EN)
+    # ✅ Bilingual fields (TR + EN + RU)
     name_tr = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (TR)")
     name_en = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (EN)")
     description_tr = models.TextField(blank=True, default="", verbose_name="Описание (TR)")
     description_en = models.TextField(blank=True, default="", verbose_name="Описание (EN)")
+    name_ru = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (RU)")
+    description_ru = models.TextField(blank=True, default="", verbose_name="Описание (RU)")
 
+    
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
     image = models.ImageField(upload_to="dishes/images/", blank=True, null=True)
 

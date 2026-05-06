@@ -34,6 +34,7 @@ type Row = {
   id: number;
   name_tr: string;
   name_en: string;
+  name_ru: string;
   is_system?: boolean;
   _deleted?: boolean;
   _new?: boolean;
@@ -52,8 +53,8 @@ interface EditCategoriesModalProps {
   }[];
 
   onSave: (payload: {
-    create: { name_tr: string; name_en: string }[];
-    rename: { id: number; name_tr: string; name_en: string }[];
+    create: { name_tr: string; name_en: string; name_ru: string }[];
+    rename: { id: number; name_tr: string; name_en: string; name_ru: string }[];
     delete: { id: number }[];
     reorder: { id: number; sort_order: number }[];
   }) => Promise<void> | void;
@@ -89,10 +90,10 @@ function SortableRow({
   row,
   updateField,
   handleDelete,
+  
 }: {
   row: Row;
-  updateField: (id: number, field: "name_tr" | "name_en", value: string) => void;
-  handleDelete: (id: number) => void;
+  updateField: (id: number, field: "name_tr" | "name_en" | "name_ru", value: string) => void;  handleDelete: (id: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
@@ -137,6 +138,13 @@ function SortableRow({
             onChange={(e) => updateField(row.id, "name_en", e.target.value)}
             className="h-12 rounded-xl bg-white border-border text-base"
           />
+          <Input
+            placeholder="İsim (RU)"
+            value={row.name_ru}
+            maxLength={CATEGORY_NAME_MAX}
+            onChange={(e) => updateField(row.id, "name_ru", e.target.value)}
+            className="h-12 rounded-xl bg-white border-border text-base"
+          />
         </div>
 
         <button
@@ -173,6 +181,7 @@ export function EditCategoriesModal({
         id: c.id,
         name_tr: sanitizeCategoryName(c.name_tr ?? c.name ?? ""),
         name_en: sanitizeCategoryName(c.name_en ?? ""),
+        name_ru: sanitizeCategoryName((c as any).name_ru ?? ""),
         is_system: isSystemCategoryLikeUnsorted(c),
       }))
     );
@@ -185,7 +194,7 @@ export function EditCategoriesModal({
 
   const updateField = (
     id: number,
-    field: "name_tr" | "name_en",
+    field: "name_tr" | "name_en" | "name_ru",
     value: string
   ) => {
     const sanitizedValue = sanitizeCategoryName(value);
@@ -202,6 +211,7 @@ export function EditCategoriesModal({
         id: Date.now() * -1,
         name_tr: "",
         name_en: "",
+        name_ru: "",
         is_system: false,
         _new: true,
       },
@@ -236,6 +246,7 @@ export function EditCategoriesModal({
         .map((r) => ({
           name_tr: r.name_tr.trim(),
           name_en: r.name_en.trim(),
+          name_ru: r.name_ru.trim()
         }))
         .filter((x) => x.name_tr);
 
@@ -247,6 +258,7 @@ export function EditCategoriesModal({
             id: r.id,
             name_tr: r.name_tr.trim(),
             name_en: r.name_en.trim(),
+            name_ru: r.name_ru.trim(),
             original_tr: (original?.name_tr ?? original?.name ?? "").trim(),
             original_en: (original?.name_en ?? "").trim(),
           };
@@ -256,7 +268,7 @@ export function EditCategoriesModal({
             r.name_tr &&
             (r.name_tr !== r.original_tr || r.name_en !== r.original_en)
         )
-        .map(({ id, name_tr, name_en }) => ({ id, name_tr, name_en }));
+        .map(({ id, name_tr, name_en, name_ru }) => ({ id, name_tr, name_en, name_ru }));
 
       const del = rows
         .filter((r) => !r._new && r._deleted && !r.is_system)

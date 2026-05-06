@@ -84,12 +84,14 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
 
     def get_description(self, obj: Restaurant):
         lang = self._lang()
-
         desc_tr = (getattr(obj, "description_tr", "") or "").strip()
         desc_en = (getattr(obj, "description_en", "") or "").strip()
+        desc_ru = (getattr(obj, "description_ru", "") or "").strip()
 
         if lang == "en":
             return desc_en or desc_tr
+        if lang == "ru":
+            return desc_ru or desc_tr
         return desc_tr or desc_en
 
     def get_contacts(self, obj: Restaurant):
@@ -148,25 +150,28 @@ class PublicDishSerializer(serializers.ModelSerializer):
 
     def get_name(self, obj: Dish):
         lang = self._lang()
-
         name_tr = (obj.name_tr or "").strip()
         name_en = (obj.name_en or "").strip()
+        name_ru = (getattr(obj, "name_ru", "") or "").strip()
         name_old = (getattr(obj, "name", "") or "").strip()
 
         if lang == "en":
             return name_en or name_tr or name_old
-        # tr default
+        if lang == "ru":
+            return name_ru or name_tr or name_old
         return name_tr or name_old or name_en
 
     def get_description(self, obj: Dish):
         lang = self._lang()
-
         desc_tr = (obj.description_tr or "").strip()
         desc_en = (obj.description_en or "").strip()
+        desc_ru = (getattr(obj, "description_ru", "") or "").strip()
         desc_old = (getattr(obj, "description", "") or "").strip()
 
         if lang == "en":
             return desc_en or desc_tr or desc_old
+        if lang == "ru":
+            return desc_ru or desc_tr or desc_old
         return desc_tr or desc_old or desc_en
 
     def get_price(self, obj: Dish):
@@ -204,6 +209,8 @@ class PublicCategorySerializer(serializers.ModelSerializer):
         lang = self._lang()
         if lang == "en":
             return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (getattr(obj, "name", "") or "").strip()
+        if lang == "ru":
+            return (getattr(obj, "name_ru", "") or "").strip() or (obj.name_tr or "").strip() or (getattr(obj, "name", "") or "").strip()
         return (obj.name_tr or "").strip() or (getattr(obj, "name", "") or "").strip() or (obj.name_en or "").strip()
 
     def get_dishes(self, obj: Category):

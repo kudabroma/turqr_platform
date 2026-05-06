@@ -1,7 +1,7 @@
 import { useLanguage } from "@/context/LanguageContext";
 import { categories as demoCategories } from "@/data/menuData";
+import type { Lang } from "@/api/public";  // добавить в импорты вверху
 
-type Lang = "en" | "tr";
 
 type CategoryOption = {
   id: number | null;
@@ -18,11 +18,12 @@ interface CategoryTabsProps {
 function normalizeLang(x: unknown): Lang {
   const v = String(x ?? "tr").toLowerCase();
   if (v.startsWith("en")) return "en";
+  if (v.startsWith("ru")) return "ru";
   return "tr";
 }
 
 function getAllLabel(lang: Lang) {
-  return lang === "tr" ? 'Tümü' : "All";
+  return lang === "tr" ? "Tümü" : lang === "ru" ? "Все" : "All";
 }
 
 export function CategoryTabs({

@@ -23,13 +23,14 @@ type UiDish = {
   isVegan: boolean;
   isSpicy: boolean;
   image: string;
-  translations: Record<Lang, { name: string; description: string; category: string }>;
+    translations: Record<"en" | "tr" | "ru", { name: string; description: string; category: string }>;
   price: number;
 };
 
 function normalizeLang(x: unknown): Lang {
   const v = String(x ?? "tr").toLowerCase();
   if (v.startsWith("en")) return "en";
+  if (v.startsWith("ru")) return "ru";
   return "tr";
 }
 
@@ -77,9 +78,11 @@ function ensureDishShape(input: any, fallbackCategory: string): UiDish {
   const translations: UiDish["translations"] = input?.translations ? {
     en: { name: String(input.translations.en?.name ?? name), description: String(input.translations.en?.description ?? description), category: String(input.translations.en?.category ?? category) },
     tr: { name: String(input.translations.tr?.name ?? name), description: String(input.translations.tr?.description ?? description), category: String(input.translations.tr?.category ?? category) },
+    ru: { name: String(input.translations.ru?.name ?? name), description: String(input.translations.ru?.description ?? description), category: String(input.translations.ru?.category ?? category) },
   } : {
     en: { name, description, category },
     tr: { name, description, category },
+    ru: { name, description, category },
   };
   return { id, category, isVegan, isSpicy, image, translations, price };
 }
@@ -166,7 +169,9 @@ export default function PreviewPage() {
   if (restaurantQuery.isLoading || menuQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">{lang === "en" ? "Loading..." : "Yükleniyor..."}</p>
+        <p className="text-muted-foreground">
+          {lang === "en" ? "Loading..." : lang === "ru" ? "Загрузка..." : "Yükleniyor..."}
+        </p>
       </div>
     );
   }
@@ -176,7 +181,13 @@ export default function PreviewPage() {
   }
 
   const restaurantName = String(restaurantFromApi?.name ?? "Restaurant");
-  const restaurantDescription = String(restaurantFromApi?.description ?? "");
+  const restaurantDescription = String(
+    lang === "ru"
+      ? (restaurantFromApi?.description_ru || restaurantFromApi?.description_tr || restaurantFromApi?.description || "")
+      : lang === "en"
+      ? (restaurantFromApi?.description_en || restaurantFromApi?.description_tr || restaurantFromApi?.description || "")
+      : (restaurantFromApi?.description_tr || restaurantFromApi?.description || "")
+  );
   const restaurantWorkingHours = String(restaurantFromApi?.working_hours ?? restaurantFromApi?.hours ?? "").trim();
   const isOpenNow = isRestaurantOpenNow(restaurantWorkingHours);
   const phone = String(restaurantFromApi?.phone ?? "").trim();
@@ -245,7 +256,9 @@ export default function PreviewPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-foreground text-sm">{restaurantWorkingHours || "-"}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isOpenNow ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                  {isOpenNow ? (lang === "en" ? "Open" : "Açık") : (lang === "en" ? "Closed" : "Kapalı")}
+                  {isOpenNow
+                    ? (lang === "en" ? "Open" : lang === "ru" ? "Открыто" : "Açık")
+                    : (lang === "en" ? "Closed" : lang === "ru" ? "Закрыто" : "Kapalı")}
                 </span>
               </div>
             </div>
