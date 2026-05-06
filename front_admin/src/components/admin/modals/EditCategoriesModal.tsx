@@ -261,12 +261,13 @@ export function EditCategoriesModal({
             name_ru: r.name_ru.trim(),
             original_tr: (original?.name_tr ?? original?.name ?? "").trim(),
             original_en: (original?.name_en ?? "").trim(),
+            original_ru: ((original as any)?.name_ru ?? "").trim(),
           };
         })
         .filter(
           (r) =>
             r.name_tr &&
-            (r.name_tr !== r.original_tr || r.name_en !== r.original_en)
+            (r.name_tr !== r.original_tr || r.name_en !== r.original_en || r.name_ru !== r.original_ru)
         )
         .map(({ id, name_tr, name_en, name_ru }) => ({ id, name_tr, name_en, name_ru }));
 
