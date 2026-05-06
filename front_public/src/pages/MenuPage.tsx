@@ -105,29 +105,14 @@ function ensureDishShape(
       ? Number(categoryIdRaw)
       : null;
 
-  const translations: UiDish["translations"] = input?.translations
-    ? {
-        en: {
-          name: String(input.translations.en?.name ?? name),
-          description: String(input.translations.en?.description ?? description),
-          category: String(input.translations.en?.category ?? category),
-        },
-        tr: {
-          name: String(input.translations.tr?.name ?? name),
-          description: String(input.translations.tr?.description ?? description),
-          category: String(input.translations.tr?.category ?? category),
-        },
-        ru: {
-          name: String(input.translations.ru?.name ?? name),
-          description: String(input.translations.ru?.description ?? description),
-          category: String(input.translations.ru?.category ?? category),
-        },
-      }
-    : {
-        en: { name, description, category },
-        tr: { name, description, category },
-        ru: { name, description, category },
-      };
+  const localizedName = String(input?.name ?? name);
+  const localizedDescription = String(input?.description ?? description);
+
+  const translations: UiDish["translations"] = {
+    en: { name: localizedName, description: localizedDescription, category },
+    tr: { name: localizedName, description: localizedDescription, category },
+    ru: { name: localizedName, description: localizedDescription, category },
+  };
 
   return {
     id,
