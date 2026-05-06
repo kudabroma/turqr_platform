@@ -21,7 +21,7 @@ export interface Category {
   // bilingual fields (для CRUD)
   name_tr?: string;
   name_en?: string;
-
+  name_ru?: string;
   is_system?: boolean;
   restaurant?: number;
 }
@@ -38,7 +38,8 @@ export interface Dish {
   name_en?: string;
   description_tr?: string;
   description_en?: string;
-
+  name_ru?: string;
+  description_ru?: string;
   price: string; // DRF часто отдаёт как string
   category: number;
   restaurant?: number;
@@ -79,11 +80,13 @@ export interface CategoryWithDishes extends Category {
 export interface CreateCategoryData {
   name_tr: string;
   name_en?: string;
+  name_ru?: string;
 }
 
 export interface UpdateCategoryData {
   name_tr?: string;
   name_en?: string;
+  name_ru?: string;
 }
 
 export interface CreateDishData {
@@ -91,6 +94,8 @@ export interface CreateDishData {
   name_en?: string;
   description_tr?: string;
   description_en?: string;
+  name_ru?: string;
+  description_ru?: string;
   price: string;
   category: number;
 }
@@ -100,6 +105,8 @@ export interface UpdateDishData {
   name_en?: string;
   description_tr?: string;
   description_en?: string;
+  name_ru?: string;
+  description_ru?: string;
   price?: string;
   category?: number;
 }
