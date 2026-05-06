@@ -1,18 +1,13 @@
 def normalize_lang(raw: str | None) -> str:
-    """
-    Нормализует язык из query param.
-    По умолчанию возвращает 'tr'.
-    Поддержка: ?lang=en
-    """
     if not raw:
         return "tr"
-
     raw = raw.lower().strip()
-
     if raw.startswith("en"):
         return "en"
-
+    if raw.startswith("ru"):
+        return "ru"
     return "tr"
+    
 def get_lang(request, default: str = "tr") -> str:
     q = (request.query_params.get("lang") or "").strip().lower()
     if q in ("tr", "en", "ru"):
