@@ -362,7 +362,7 @@ export default function MenuPage() {
       </header>
 
       {/* pb-32 — отступ чтобы корзина не перекрывала последнее блюдо */}
-      <main className="container max-w-lg mx-auto px-4 pt-5 pb-32">
+      <main className="container max-w-lg mx-auto px-4 pt-5 pb-24">
         {activeCategoryId === null ? (
           Object.entries(groupedItems).map(([categoryName, dishes]) => (
             <section key={categoryName} className="mb-8">

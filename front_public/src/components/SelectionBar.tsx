@@ -26,15 +26,15 @@ export function SelectionBar({
   return (
     <>
       {/* Панель внизу */}
-      <div
-        className="fixed bottom-0 left-0 right-0 z-50 bg-primary text-white px-4 py-3 cursor-pointer"
-        onClick={() => setOpen(true)}
-      >
-        <div className="container max-w-lg mx-auto flex items-center justify-between">
-          <span className="font-semibold">{count} {t.items}</span>
-          <span className="font-bold">{total} ₺</span>
+      <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
+        <div
+            className="pointer-events-auto w-full max-w-sm bg-primary text-white px-5 py-4 rounded-2xl shadow-xl cursor-pointer flex items-center justify-between"
+            onClick={() => setOpen(true)}
+        >
+            <span className="font-semibold text-base">{count} {t.items}</span>
+            <span className="font-bold text-base">{total} ₺</span>
         </div>
-      </div>
+        </div>
 
       {/* Модалка со списком */}
       {open && (
