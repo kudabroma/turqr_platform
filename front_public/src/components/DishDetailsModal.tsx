@@ -36,11 +36,13 @@ export function DishDetailsModal({
   onOpenChange,
   dish,
   lang,
+  onAdd,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   dish: UiDishLike | null;
   lang: Lang;
+  onAdd?: () => void;
 }) {
   if (!dish) return null;
 
@@ -146,9 +148,16 @@ export function DishDetailsModal({
               </p>
             )}
           </div>
-
-          <div className="h-4" />
-        </div>
+          {onAdd && (
+            <button
+              type="button"
+              onClick={() => { onAdd(); onOpenChange(false); }}
+              className="w-full mt-6 py-4 rounded-2xl bg-primary text-white font-bold text-lg hover:bg-primary/90 transition-colors"
+            >
+              {lang === "ru" ? "Добавить в заказ" : lang === "en" ? "Add to order" : "Siparişe ekle"} +
+            </button>
+          )}
+          <div className="h-2" />        </div>
       </DialogContent>
     </Dialog>
   );

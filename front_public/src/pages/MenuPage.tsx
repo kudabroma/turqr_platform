@@ -424,6 +424,7 @@ export default function MenuPage() {
         }}
         dish={selectedDish}
         lang={lang}
+        onAdd={selectedDish ? () => handleAddToSelection(selectedDish) : undefined}
       />
 
       {/* ✅ Корзина — появляется автоматически когда есть выбранные блюда */}
