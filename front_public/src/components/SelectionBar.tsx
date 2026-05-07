@@ -3,9 +3,9 @@ import type { SelectedDish } from "@/hooks/useSelection";
 import type { Lang } from "@/api/public";
 
 const labels = {
-  en: { title: "Your order", clear: "Clear", show: "Show to waiter", items: "dishes selected" },
-  tr: { title: "Siparişiniz", clear: "Temizle", show: "Garsona göster", items: "yemek seçildi" },
-  ru: { title: "Ваш заказ", clear: "Очистить", show: "Показать официанту", items: "блюд выбрано" },
+  en: { title: "Your order", clear: "Clear",  items: "dishes selected" },
+  tr: { title: "Siparişiniz", clear: "Temizle",  items: "yemek seçildi" },
+  ru: { title: "Ваш заказ", clear: "Очистить",  items: "блюд выбрано" },
 };
 
 export function SelectionBar({
@@ -75,13 +75,6 @@ export function SelectionBar({
               className="w-full py-3 rounded-xl border border-border text-muted-foreground mb-3"
             >
               {t.clear}
-            </button>
-
-            <button
-              onClick={() => setOpen(false)}
-              className="w-full py-4 rounded-xl bg-primary text-white font-bold text-lg"
-            >
-              {t.show} 👋
             </button>
           </div>
         </div>
