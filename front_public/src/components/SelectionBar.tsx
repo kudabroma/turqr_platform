@@ -28,7 +28,7 @@ export function SelectionBar({
       {/* Панель внизу */}
       <div className="fixed bottom-6 left-0 right-0 z-50 flex justify-center px-4 pointer-events-none">
         <div
-            className="pointer-events-auto w-full max-w-sm bg-primary text-white px-5 py-4 rounded-2xl shadow-xl cursor-pointer flex items-center justify-between"
+              className="pointer-events-auto w-full max-w-sm bg-primary text-white px-5 py-4 rounded-2xl shadow-xl cursor-pointer flex items-center justify-between transition-all duration-300"
             onClick={() => setOpen(true)}
         >
             <span className="font-semibold text-base">{count} {t.items}</span>
@@ -38,8 +38,14 @@ export function SelectionBar({
 
       {/* Модалка со списком */}
       {open && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-end">
-          <div className="w-full bg-background rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto">
+        <div
+            className="fixed inset-0 z-50 bg-black/50 flex items-end animate-in fade-in duration-200"
+            onClick={() => setOpen(false)}  // ← клик на фон закрывает
+        >
+            <div
+            className="w-full bg-background rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto animate-in slide-in-from-bottom duration-300"
+            onClick={(e) => e.stopPropagation()}  // ← клик внутри не закрывает
+            >
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">{t.title}</h2>
               <button onClick={() => setOpen(false)} className="text-muted-foreground text-2xl">✕</button>

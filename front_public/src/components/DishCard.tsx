@@ -1,13 +1,13 @@
+import { useState } from "react";
 import { MenuItem, uiTranslations } from "@/data/menuData";
 import { useLanguage } from "@/context/LanguageContext";
-import { Flame, Leaf } from "lucide-react";
 import type { Lang } from "@/api/public";
 
 interface DishCardProps {
   dish: MenuItem & { categoryId?: number | null; ingredients?: string };
   variant?: "full" | "compact";
   onClick?: () => void;
-  onAdd?: () => void;  // ← добавить
+  onAdd?: () => void;
 }
 
 function pickTranslation<T extends Record<string, any>>(
@@ -15,7 +15,6 @@ function pickTranslation<T extends Record<string, any>>(
   lang: "en" | "tr" | "ru"
 ): T {
   if (!translations) return {} as T;
-
   return (
     translations[lang] ??
     translations.en ??
@@ -28,6 +27,7 @@ function pickTranslation<T extends Record<string, any>>(
 export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardProps) {
   const { language } = useLanguage();
   const lang: Lang = language === "en" ? "en" : language === "ru" ? "ru" : "tr";
+  const [popped, setPopped] = useState(false);
 
   const t = pickTranslation(dish.translations as any, lang);
   const ui = pickTranslation(uiTranslations as any, lang);
@@ -43,6 +43,14 @@ export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardPro
       }
     : {};
 
+  function handleAdd(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (!onAdd) return;
+    onAdd();
+    setPopped(true);
+    setTimeout(() => setPopped(false), 300);
+  }
+
   if (variant === "compact") {
     return (
       <div
@@ -51,11 +59,7 @@ export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardPro
       >
         <div className="w-20 h-20 rounded-2xl overflow-hidden flex-shrink-0 bg-muted">
           {dish.image ? (
-            <img
-              src={dish.image}
-              alt={t.name ?? ""}
-              className="w-full h-full object-cover"
-            />
+            <img src={dish.image} alt={t.name ?? ""} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20" />
           )}
@@ -63,15 +67,11 @@ export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardPro
 
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-3">
-            <h4 className="font-sans font-semibold text-foreground truncate">
-              {t.name}
-            </h4>
+            <h4 className="font-sans font-semibold text-foreground truncate">{t.name}</h4>
             <span className="whitespace-nowrap font-semibold text-primary">
-              {dish.price}
-              {ui.currency} 
+              {dish.price}{ui.currency}
             </span>
           </div>
-
           <p className="mt-1 text-sm text-muted-foreground line-clamp-2 overflow-hidden text-ellipsis">
             {t.description}
           </p>
@@ -88,11 +88,7 @@ export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardPro
       <div className="flex items-stretch gap-4">
         <div className="w-36 h-36 rounded-3xl overflow-hidden flex-shrink-0 bg-muted">
           {dish.image ? (
-            <img
-              src={dish.image}
-              alt={t.name ?? ""}
-              className="w-full h-full object-cover"
-            />
+            <img src={dish.image} alt={t.name ?? ""} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20" />
           )}
@@ -115,7 +111,7 @@ export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardPro
                 </span>
               )}
               {dish.isVegetarian && !dish.isVegan && (
-                <span classNamline-clamp-2 overflow-hidden text-ellipsise="inline-flex items-center gap-1 rounded-full bg-lime-50 px-2.5 py-1 text-xs font-medium text-lime-700">
+                <span className="inline-flex items-center gap-1 rounded-full bg-lime-50 px-2.5 py-1 text-xs font-medium text-lime-700">
                   🥗
                 </span>
               )}
@@ -132,21 +128,22 @@ export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardPro
             </div>
           )}
 
-          
-            <div className="flex items-center justify-between mt-2">
-              <span className="text-[18px] font-semibold text-primary">
-                {dish.price} {ui.currency}
-              </span>
-              {onAdd && (
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); onAdd(); }}
-                  className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold hover:bg-primary/90 transition-colors"
-                >
-                  +
-                </button>
-              )}
-            </div>
+          <div className="flex items-center justify-between mt-2">
+            <span className="text-[18px] font-semibold text-primary">
+              {dish.price} {ui.currency}
+            </span>
+            {onAdd && (
+              <button
+                type="button"
+                onClick={handleAdd}
+                className={`w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold transition-all duration-150 ${
+                  popped ? "scale-125 bg-primary/80" : "hover:scale-110 hover:bg-primary/90"
+                }`}
+              >
+                +
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
