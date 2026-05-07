@@ -4,9 +4,10 @@ import { Flame, Leaf } from "lucide-react";
 import type { Lang } from "@/api/public";
 
 interface DishCardProps {
-  dish: MenuItem;
+  dish: MenuItem & { categoryId?: number | null; ingredients?: string };
   variant?: "full" | "compact";
   onClick?: () => void;
+  onAdd?: () => void;  // ← добавить
 }
 
 function pickTranslation<T extends Record<string, any>>(
@@ -24,7 +25,7 @@ function pickTranslation<T extends Record<string, any>>(
   );
 }
 
-export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
+export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardProps) {
   const { language } = useLanguage();
   const lang: Lang = language === "en" ? "en" : language === "ru" ? "ru" : "tr";
 
@@ -132,9 +133,20 @@ export function DishCard({ dish, variant = "full", onClick }: DishCardProps) {
           )}
 
           
-            <span className="text-[18px] font-semibold text-primary">
-              {dish.price} {ui.currency}
-            </span>
+            <div className="flex items-center justify-between mt-2">
+              <span className="text-[18px] font-semibold text-primary">
+                {dish.price} {ui.currency}
+              </span>
+              {onAdd && (
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); onAdd(); }}
+                  className="w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold hover:bg-primary/90 transition-colors"
+                >
+                  +
+                </button>
+              )}
+            </div>
         </div>
       </div>
     </div>

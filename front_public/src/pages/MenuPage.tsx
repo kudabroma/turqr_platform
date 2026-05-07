@@ -5,7 +5,8 @@ import { useQuery } from "@tanstack/react-query";
 import NotFound from "@/pages/NotFound";
 import { fetchPublicMenu, fetchPublicRestaurant } from "@/api/public";
 import { adaptPublicMenuToUi } from "@/api/adapters/menuAdapter";
-
+import { useSelection } from "@/hooks/useSelection";
+import { SelectionBar } from "@/components/SelectionBar";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
 import { SearchBar } from "@/components/SearchBar";
 import { CategoryTabs } from "@/components/CategoryTabs";
@@ -20,6 +21,7 @@ import { getPublicSlugFromLocation } from "@/utils/publicSlug";
 type UiDish = MenuItem & {
   ingredients?: string;
   categoryId?: number | null;
+  name_tr?: string;
 };
 
 type CategoryOption = {
@@ -108,6 +110,9 @@ function ensureDishShape(
   const localizedName = String(input?.name ?? name);
   const localizedDescription = String(input?.description ?? description);
 
+  // Сохраняем name_tr для QR официанта (будущая фича)
+  const name_tr = String(input?.name_tr ?? localizedName);
+
   const translations: UiDish["translations"] = {
     en: { name: localizedName, description: localizedDescription, category },
     tr: { name: localizedName, description: localizedDescription, category },
@@ -126,6 +131,7 @@ function ensureDishShape(
     isGlutenFree,
     translations,
     ingredients: ingredients || undefined,
+    name_tr,
   };
 }
 
@@ -133,8 +139,8 @@ export default function MenuPage() {
   useEffect(() => {
     window.scrollTo({ top: 0, left: 0, behavior: "auto" });
   }, []);
-  const [searchParams] = useSearchParams();
 
+  const [searchParams] = useSearchParams();
   const lang = normalizeLang(searchParams.get("lang"));
   const slug = getPublicSlugFromLocation();
 
@@ -144,15 +150,17 @@ export default function MenuPage() {
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
-
   const [selectedDish, setSelectedDish] = useState<UiDish | null>(null);
   const [dishOpen, setDishOpen] = useState(false);
+
+  // ✅ Корзина
+  const { selected, add, remove, clear, total, count } = useSelection();
 
   const menuQuery = useQuery({
     queryKey: ["public-menu", slug, lang],
     queryFn: () => fetchPublicMenu(slug, lang),
     enabled: !!slug,
-    staleTime: 0,  // ← всегда свежий запрос при смене lang
+    staleTime: 0,
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -221,7 +229,7 @@ export default function MenuPage() {
     return [
       {
         id: null,
-        label: lang === "en" ? "All" : lang === "ru" ? "Все" : "Tümü"
+        label: lang === "en" ? "All" : lang === "ru" ? "Все" : "Tümü",
       },
       ...Array.from(map.entries()).map(([id, label]) => ({
         id,
@@ -263,8 +271,12 @@ export default function MenuPage() {
     return groups;
   }, [filteredItems, lang]);
 
-  const loadingText = lang === "en" ? "Loading menu..." : lang === "ru" ? "Загрузка меню..." : "Menü yükleniyor...";
-  const errorText = lang === "en" ? "Failed to load data" : lang === "ru" ? "Ошибка загрузки" : "Menü şu anda yüklenemiyor. Lütfen tekrar deneyin.";
+  const loadingText =
+    lang === "en"
+      ? "Loading menu..."
+      : lang === "ru"
+      ? "Загрузка меню..."
+      : "Menü yükleniyor...";
 
   if (!slug) {
     return (
@@ -293,6 +305,16 @@ export default function MenuPage() {
   const restaurantName =
     restaurantFromApi?.name ?? restaurantDemo?.name ?? "Restaurant";
 
+  // ✅ Добавление в корзину — передаём локализованное имя + name_tr для официанта
+  function handleAddToSelection(dish: UiDish) {
+    add({
+      id: dish.id,
+      name: dish.translations[lang]?.name ?? dish.id,
+      name_tr: dish.name_tr ?? dish.translations.tr?.name ?? dish.id,
+      price: dish.price,
+    });
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-50 bg-background/95 backdrop-blur-lg border-b border-border shadow-sm">
@@ -318,7 +340,13 @@ export default function MenuPage() {
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder={lang === "tr" ? "Yemek ara..." : lang === "ru" ? "Поиск блюд..." : "Search dishes..."}
+              placeholder={
+                lang === "tr"
+                  ? "Yemek ara..."
+                  : lang === "ru"
+                  ? "Поиск блюд..."
+                  : "Search dishes..."
+              }
             />
           </div>
 
@@ -333,7 +361,8 @@ export default function MenuPage() {
         </div>
       </header>
 
-      <main className="container max-w-lg mx-auto px-4 pt-5 pb-6">
+      {/* pb-32 — отступ чтобы корзина не перекрывала последнее блюдо */}
+      <main className="container max-w-lg mx-auto px-4 pt-5 pb-32">
         {activeCategoryId === null ? (
           Object.entries(groupedItems).map(([categoryName, dishes]) => (
             <section key={categoryName} className="mb-8">
@@ -347,6 +376,7 @@ export default function MenuPage() {
                     key={dish.id}
                     dish={dish}
                     variant="full"
+                    onAdd={() => handleAddToSelection(dish)}
                     onClick={() => {
                       setSelectedDish(dish);
                       setDishOpen(true);
@@ -363,6 +393,7 @@ export default function MenuPage() {
                 key={dish.id}
                 dish={dish}
                 variant="full"
+                onAdd={() => handleAddToSelection(dish)}
                 onClick={() => {
                   setSelectedDish(dish);
                   setDishOpen(true);
@@ -375,7 +406,11 @@ export default function MenuPage() {
         {filteredItems.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {lang === "en" ? "No dishes found" : lang === "ru" ? "Блюда не найдены" : "Yemek bulunamadı"}
+              {lang === "en"
+                ? "No dishes found"
+                : lang === "ru"
+                ? "Блюда не найдены"
+                : "Yemek bulunamadı"}
             </p>
           </div>
         )}
@@ -388,6 +423,16 @@ export default function MenuPage() {
           if (!v) setSelectedDish(null);
         }}
         dish={selectedDish}
+        lang={lang}
+      />
+
+      {/* ✅ Корзина — появляется автоматически когда есть выбранные блюда */}
+      <SelectionBar
+        selected={selected}
+        count={count}
+        total={total}
+        onRemove={remove}
+        onClear={clear}
         lang={lang}
       />
     </div>
