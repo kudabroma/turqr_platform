@@ -8,6 +8,8 @@ interface DishCardProps {
   variant?: "full" | "compact";
   onClick?: () => void;
   onAdd?: () => void;
+  onRemove?: () => void;
+  quantity?: number;
 }
 
 function pickTranslation<T extends Record<string, any>>(
@@ -24,7 +26,7 @@ function pickTranslation<T extends Record<string, any>>(
   );
 }
 
-export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardProps) {
+export function DishCard({ dish, variant = "full", onClick, onAdd, onRemove, quantity = 0 }: DishCardProps) {
   const { language } = useLanguage();
   const lang: Lang = language === "en" ? "en" : language === "ru" ? "ru" : "tr";
   const [popped, setPopped] = useState(false);
@@ -48,8 +50,53 @@ export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardPro
     if (!onAdd) return;
     onAdd();
     setPopped(true);
-    setTimeout(() => setPopped(false), 300);
+    setTimeout(() => setPopped(false), 200);
   }
+
+  function handleRemove(e: React.MouseEvent) {
+    e.stopPropagation();
+    onRemove?.();
+  }
+
+  // Стeppер — показывается когда quantity > 0
+  const stepper = onAdd ? (
+    quantity > 0 ? (
+      <div
+        className="flex items-center gap-1 bg-primary rounded-full px-1 py-1 transition-all duration-200"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={handleRemove}
+          className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center text-lg font-bold hover:bg-white/30 transition-colors"
+        >
+          −
+        </button>
+        <span className="text-white font-bold text-base min-w-[20px] text-center">
+          {quantity}
+        </span>
+        <button
+          type="button"
+          onClick={handleAdd}
+          className={`w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center text-lg font-bold hover:bg-white/30 transition-all duration-150 ${
+            popped ? "scale-125" : ""
+          }`}
+        >
+          +
+        </button>
+      </div>
+    ) : (
+      <button
+        type="button"
+        onClick={handleAdd}
+        className={`w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold transition-all duration-150 ${
+          popped ? "scale-125 bg-primary/80" : "hover:scale-110 hover:bg-primary/90"
+        }`}
+      >
+        +
+      </button>
+    )
+  ) : null;
 
   if (variant === "compact") {
     return (
@@ -132,17 +179,7 @@ export function DishCard({ dish, variant = "full", onClick, onAdd }: DishCardPro
             <span className="text-[18px] font-semibold text-primary">
               {dish.price} {ui.currency}
             </span>
-            {onAdd && (
-              <button
-                type="button"
-                onClick={handleAdd}
-                className={`w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center text-xl font-bold transition-all duration-150 ${
-                  popped ? "scale-125 bg-primary/80" : "hover:scale-110 hover:bg-primary/90"
-                }`}
-              >
-                +
-              </button>
-            )}
+            {stepper}
           </div>
         </div>
       </div>

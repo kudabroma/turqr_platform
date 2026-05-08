@@ -109,8 +109,6 @@ function ensureDishShape(
 
   const localizedName = String(input?.name ?? name);
   const localizedDescription = String(input?.description ?? description);
-
-  // Сохраняем name_tr для QR официанта (будущая фича)
   const name_tr = String(input?.name_tr ?? localizedName);
 
   const translations: UiDish["translations"] = {
@@ -153,8 +151,8 @@ export default function MenuPage() {
   const [selectedDish, setSelectedDish] = useState<UiDish | null>(null);
   const [dishOpen, setDishOpen] = useState(false);
 
-  // ✅ Корзина
-  const { selected, add, remove, clear, total, count } = useSelection();
+  // ✅ Корзина — добавлены getQuantity
+  const { selected, add, remove, clear, total, count, getQuantity } = useSelection();
 
   const menuQuery = useQuery({
     queryKey: ["public-menu", slug, lang],
@@ -305,7 +303,7 @@ export default function MenuPage() {
   const restaurantName =
     restaurantFromApi?.name ?? restaurantDemo?.name ?? "Restaurant";
 
-  // ✅ Добавление в корзину — передаём локализованное имя + name_tr для официанта
+  // ✅ Добавление в корзину
   function handleAddToSelection(dish: UiDish) {
     add({
       id: dish.id,
@@ -361,7 +359,6 @@ export default function MenuPage() {
         </div>
       </header>
 
-      {/* pb-32 — отступ чтобы корзина не перекрывала последнее блюдо */}
       <main className="container max-w-lg mx-auto px-4 pt-5 pb-24">
         {activeCategoryId === null ? (
           Object.entries(groupedItems).map(([categoryName, dishes]) => (
@@ -376,7 +373,9 @@ export default function MenuPage() {
                     key={dish.id}
                     dish={dish}
                     variant="full"
+                    quantity={getQuantity(dish.id)}
                     onAdd={() => handleAddToSelection(dish)}
+                    onRemove={() => remove(dish.id)}
                     onClick={() => {
                       setSelectedDish(dish);
                       setDishOpen(true);
@@ -393,7 +392,9 @@ export default function MenuPage() {
                 key={dish.id}
                 dish={dish}
                 variant="full"
+                quantity={getQuantity(dish.id)}
                 onAdd={() => handleAddToSelection(dish)}
+                onRemove={() => remove(dish.id)}
                 onClick={() => {
                   setSelectedDish(dish);
                   setDishOpen(true);
@@ -427,12 +428,18 @@ export default function MenuPage() {
         onAdd={selectedDish ? () => handleAddToSelection(selectedDish) : undefined}
       />
 
-      {/* ✅ Корзина — появляется автоматически когда есть выбранные блюда */}
+      {/* ✅ Корзина с onAdd для степпера внутри модалки */}
       <SelectionBar
         selected={selected}
         count={count}
         total={total}
         onRemove={remove}
+        onAdd={(dish) => add({
+          id: dish.id,
+          name: dish.name,
+          name_tr: dish.name_tr,
+          price: dish.price,
+        })}
         onClear={clear}
         lang={lang}
       />

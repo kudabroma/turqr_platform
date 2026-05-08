@@ -3,7 +3,7 @@ import { useState } from "react";
 export type SelectedDish = {
   id: string;
   name: string;
-  name_tr: string;  // ← добавить
+  name_tr: string;
   price: number;
   quantity: number;
 };
@@ -11,7 +11,7 @@ export type SelectedDish = {
 export function useSelection() {
   const [selected, setSelected] = useState<SelectedDish[]>([]);
 
-    const add = (dish: { id: string; name: string; name_tr: string; price: number }) => {
+  const add = (dish: { id: string; name: string; name_tr: string; price: number }) => {
     setSelected(prev => {
       const existing = prev.find(d => d.id === dish.id);
       if (existing) {
@@ -31,8 +31,13 @@ export function useSelection() {
 
   const clear = () => setSelected([]);
 
+  // ✅ Возвращает количество конкретного блюда в корзине (0 если нет)
+  const getQuantity = (id: string): number => {
+    return selected.find(d => d.id === id)?.quantity ?? 0;
+  };
+
   const total = selected.reduce((sum, d) => sum + d.price * d.quantity, 0);
   const count = selected.reduce((sum, d) => sum + d.quantity, 0);
 
-  return { selected, add, remove, clear, total, count };
+  return { selected, add, remove, clear, total, count, getQuantity };
 }
