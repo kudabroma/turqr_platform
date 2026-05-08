@@ -58,27 +58,27 @@ export function DishCard({ dish, variant = "full", onClick, onAdd, onRemove, qua
     onRemove?.();
   }
 
-  // Стeppер — показывается когда quantity > 0
+  // ✅ Редизайн степпера — светлый фон, нейтральный минус, акцентный плюс
   const stepper = onAdd ? (
     quantity > 0 ? (
       <div
-        className="flex items-center gap-1 bg-primary rounded-full px-1 py-1 transition-all duration-200"
+        className="flex items-center gap-1 rounded-full border border-border bg-background px-1 py-1 transition-all duration-200 shadow-sm"
         onClick={(e) => e.stopPropagation()}
       >
         <button
           type="button"
           onClick={handleRemove}
-          className="w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center text-lg font-bold hover:bg-white/30 transition-colors"
+          className="w-8 h-8 rounded-full bg-muted text-foreground flex items-center justify-center text-lg font-bold hover:bg-border transition-colors"
         >
           −
         </button>
-        <span className="text-white font-bold text-base min-w-[20px] text-center">
+        <span className="text-foreground font-bold text-base min-w-[20px] text-center select-none">
           {quantity}
         </span>
         <button
           type="button"
           onClick={handleAdd}
-          className={`w-8 h-8 rounded-full bg-white/20 text-white flex items-center justify-center text-lg font-bold hover:bg-white/30 transition-all duration-150 ${
+          className={`w-8 h-8 rounded-full bg-primary text-white flex items-center justify-center text-lg font-bold transition-all duration-150 hover:bg-primary/90 ${
             popped ? "scale-125" : ""
           }`}
         >

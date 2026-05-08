@@ -63,53 +63,58 @@ export function SelectionBar({
                 </button>
               </div>
 
-              {/* Список блюд — крупный для официанта */}
-              <div className="space-y-4 mb-6">
+              {/* ✅ Список блюд — редизайн: название полное сверху, степпер снизу */}
+              <div className="space-y-1 mb-4">
                 {selected.map(dish => (
-                  <div key={dish.id} className="flex items-center justify-between gap-3 py-2 border-b border-border last:border-0">
-                    {/* Название и цена */}
-                    <div className="flex-1 min-w-0">
-                      <p className="font-semibold text-lg leading-tight truncate">{dish.name}</p>
-                      <p className="text-sm text-muted-foreground mt-0.5">{dish.price} ₺ × {dish.quantity}</p>
-                    </div>
+                  <div key={dish.id} className="py-4 border-b border-border last:border-0">
+                    {/* Название полное — не обрезается */}
+                    <p className="font-semibold text-lg leading-tight mb-3">{dish.name}</p>
 
-                    {/* Степпер крупный */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="font-bold text-lg text-primary min-w-[60px] text-right">
-                        {dish.price * dish.quantity} ₺
+                    {/* Цена × кол + степпер */}
+                    <div className="flex items-center justify-between">
+                      <span className="text-muted-foreground text-sm">
+                        {dish.price} ₺ × {dish.quantity}
                       </span>
-                      <div className="flex items-center gap-2 bg-muted rounded-2xl px-2 py-1">
-                        <button
-                          onClick={() => onRemove(dish.id)}
-                          className="w-10 h-10 rounded-xl bg-background flex items-center justify-center text-2xl font-bold text-foreground hover:bg-border transition-colors shadow-sm"
-                        >
-                          −
-                        </button>
-                        <span className="text-2xl font-bold min-w-[32px] text-center">
-                          {dish.quantity}
+
+                      <div className="flex items-center gap-3">
+                        <span className="font-bold text-lg text-primary">
+                          {dish.price * dish.quantity} ₺
                         </span>
-                        <button
-                          onClick={() => onAdd(dish)}
-                          className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center text-2xl font-bold hover:bg-primary/90 transition-colors shadow-sm"
-                        >
-                          +
-                        </button>
+
+                        {/* ✅ Степпер: нейтральный минус, акцентный плюс */}
+                        <div className="flex items-center gap-2 bg-muted rounded-2xl px-2 py-1">
+                          <button
+                            onClick={() => onRemove(dish.id)}
+                            className="w-10 h-10 rounded-xl bg-background text-foreground flex items-center justify-center text-2xl font-bold hover:bg-border transition-colors shadow-sm"
+                          >
+                            −
+                          </button>
+                          <span className="text-2xl font-bold min-w-[28px] text-center select-none">
+                            {dish.quantity}
+                          </span>
+                          <button
+                            onClick={() => onAdd(dish)}
+                            className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center text-2xl font-bold hover:bg-primary/90 transition-colors shadow-sm"
+                          >
+                            +
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </div>
                 ))}
               </div>
 
-              {/* Итого */}
-              <div className="flex items-center justify-between text-xl font-bold mb-6 pt-3">
-                <span>{t.total}</span>
-                <span className="text-primary">{total} ₺</span>
+              {/* ✅ Итого — крупнее, с разделителем, акцентная сумма */}
+              <div className="flex items-center justify-between pt-4 border-t-2 border-border mb-5">
+                <span className="text-xl font-bold">{t.total}</span>
+                <span className="text-2xl font-bold text-primary">{total} ₺</span>
               </div>
 
               {/* Кнопка очистить */}
               <button
                 onClick={() => { onClear(); setOpen(false); }}
-                className="w-full py-3 rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors"
+                className="w-full py-3 rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors text-base"
               >
                 {t.clear}
               </button>
