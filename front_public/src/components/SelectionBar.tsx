@@ -24,6 +24,9 @@ export function SelectionBar({
 
   if (count === 0) return null;
 
+  // Показываем name_tr только если язык не турецкий
+  const showTrName = lang !== "tr";
+
   return (
     <>
       {/* Плавающая панель */}
@@ -52,7 +55,7 @@ export function SelectionBar({
               className="w-full bg-background rounded-t-3xl max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* ✅ Фикс 1 — заголовок крупный, с drag-handle сверху */}
+              {/* Заголовок с drag-handle */}
               <div className="flex flex-col items-center pt-3 pb-2 px-6">
                 <div className="w-10 h-1 rounded-full bg-border mb-4" />
                 <div className="flex items-center justify-between w-full">
@@ -76,11 +79,21 @@ export function SelectionBar({
                 <div className="mt-4 space-y-1">
                   {selected.map(dish => (
                     <div key={dish.id} className="py-4 border-b border-border last:border-0">
-                      {/* Название полное */}
-                      <p className="font-semibold text-base leading-tight mb-3">{dish.name}</p>
+
+                      {/* Название на языке гостя */}
+                      <p className="font-semibold text-base leading-tight">
+                        {dish.name}
+                      </p>
+
+                      {/* ✅ Название на турецком для официанта — только если язык не TR */}
+                      {showTrName && dish.name_tr && dish.name_tr !== dish.name && (
+                        <p className="text-sm text-muted-foreground mt-0.5">
+                          {dish.name_tr}
+                        </p>
+                      )}
 
                       {/* Цена + степпер */}
-                      <div className="flex items-center justify-between">
+                      <div className="flex items-center justify-between mt-3">
                         <span className="text-muted-foreground text-sm">
                           {dish.price} ₺ × {dish.quantity}
                         </span>
@@ -90,7 +103,7 @@ export function SelectionBar({
                             {dish.price * dish.quantity} ₺
                           </span>
 
-                          {/* ✅ Фикс 2 — компактный степпер */}
+                          {/* Степпер */}
                           <div className="flex items-center gap-1 bg-muted rounded-xl px-1 py-1">
                             <button
                               onClick={() => onRemove(dish.id)}
@@ -114,13 +127,13 @@ export function SelectionBar({
                   ))}
                 </div>
 
-                {/* ✅ Фикс 5 — итого как отдельный акцентный блок */}
+                {/* Итого */}
                 <div className="mt-4 rounded-2xl bg-orange-50 px-4 py-4 flex items-center justify-between">
                   <span className="text-lg font-bold text-foreground">{t.total}</span>
                   <span className="text-2xl font-bold text-primary">{total} ₺</span>
                 </div>
 
-                {/* ✅ Фикс 4 — кнопка очистить с деструктивным стилем */}
+                {/* Кнопка очистить */}
                 <button
                   onClick={() => { onClear(); setOpen(false); }}
                   className="w-full mt-4 py-3.5 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors text-base"
