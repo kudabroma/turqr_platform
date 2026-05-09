@@ -115,9 +115,9 @@ export function SelectionBar({
                 </div>
 
                 {/* ✅ Фикс 5 — итого как отдельный акцентный блок */}
-                <div className="mt-4 rounded-2xl bg-primary/8 px-4 py-4 flex items-center justify-between">
+                <div className="mt-4 rounded-2xl bg-orange-50 px-4 py-4 flex items-center justify-between">
                   <span className="text-lg font-bold text-foreground">{t.total}</span>
-                  <span className="text-3xl font-bold text-primary">{total} ₺</span>
+                  <span className="text-2xl font-bold text-primary">{total} ₺</span>
                 </div>
 
                 {/* ✅ Фикс 4 — кнопка очистить с деструктивным стилем */}
