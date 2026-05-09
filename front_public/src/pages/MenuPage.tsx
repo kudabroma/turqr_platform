@@ -151,7 +151,6 @@ export default function MenuPage() {
   const [selectedDish, setSelectedDish] = useState<UiDish | null>(null);
   const [dishOpen, setDishOpen] = useState(false);
 
-  // ✅ Корзина — добавлены getQuantity
   const { selected, add, remove, clear, total, count, getQuantity } = useSelection();
 
   const menuQuery = useQuery({
@@ -159,6 +158,17 @@ export default function MenuPage() {
     queryFn: () => fetchPublicMenu(slug, lang),
     enabled: !!slug,
     staleTime: 0,
+    refetchOnWindowFocus: false,
+    retry: 1,
+  });
+
+  // ✅ Отдельный запрос на турецком — для name_tr в корзине
+  // Делается только когда язык не турецкий
+  const menuQueryTr = useQuery({
+    queryKey: ["public-menu", slug, "tr"],
+    queryFn: () => fetchPublicMenu(slug, "tr"),
+    enabled: !!slug && lang !== "tr",
+    staleTime: 300_000, // 5 минут — турецкие названия меняются редко
     refetchOnWindowFocus: false,
     retry: 1,
   });
@@ -173,6 +183,20 @@ export default function MenuPage() {
   });
 
   const restaurantFromApi = restaurantQuery.data as any;
+
+  // ✅ Map id → name_tr для быстрого поиска турецкого названия
+  const trNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    if (lang === "tr") return map;
+
+    const adaptedTr = adaptPublicMenuToUi(menuQueryTr.data);
+    adaptedTr.forEach((cat: any) => {
+      (Array.isArray(cat?.dishes) ? cat.dishes : []).forEach((d: any) => {
+        if (d?.id) map.set(String(d.id), String(d.name ?? ""));
+      });
+    });
+    return map;
+  }, [menuQueryTr.data, lang]);
 
   const enhancedMenuItems: UiDish[] = useMemo(() => {
     const adaptedCategories = adaptPublicMenuToUi(menuQuery.data);
@@ -303,12 +327,12 @@ export default function MenuPage() {
   const restaurantName =
     restaurantFromApi?.name ?? restaurantDemo?.name ?? "Restaurant";
 
-  // ✅ Добавление в корзину
+  // ✅ Добавление в корзину — name_tr берётся из trNameMap
   function handleAddToSelection(dish: UiDish) {
     add({
       id: dish.id,
       name: dish.translations[lang]?.name ?? dish.id,
-      name_tr: dish.name_tr ?? dish.translations.tr?.name ?? dish.id,
+      name_tr: trNameMap.get(dish.id) || dish.name_tr || dish.id,
       price: dish.price,
     });
   }
@@ -428,7 +452,6 @@ export default function MenuPage() {
         onAdd={selectedDish ? () => handleAddToSelection(selectedDish) : undefined}
       />
 
-      {/* ✅ Корзина с onAdd для степпера внутри модалки */}
       <SelectionBar
         selected={selected}
         count={count}
