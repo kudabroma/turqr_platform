@@ -3,9 +3,9 @@ import type { SelectedDish } from "@/hooks/useSelection";
 import type { Lang } from "@/api/public";
 
 const labels = {
-  en: { title: "Your order", clear: "Clear", items: "dishes selected", total: "Total" },
-  tr: { title: "Siparişiniz", clear: "Temizle", items: "yemek seçildi", total: "Toplam" },
-  ru: { title: "Ваш заказ", clear: "Очистить", items: "блюд выбрано", total: "Итого" },
+  en: { title: "Your order", clear: "Clear order", items: "dishes selected", total: "Total" },
+  tr: { title: "Siparişiniz", clear: "Siparişi temizle", items: "yemek seçildi", total: "Toplam" },
+  ru: { title: "Ваш заказ", clear: "Очистить заказ", items: "блюд выбрано", total: "Итого" },
 };
 
 export function SelectionBar({
@@ -49,75 +49,85 @@ export function SelectionBar({
           {/* Контент */}
           <div className="fixed bottom-0 left-0 right-0 z-50 animate-in slide-in-from-bottom duration-300">
             <div
-              className="w-full bg-background rounded-t-3xl p-6 max-h-[80vh] overflow-y-auto"
+              className="w-full bg-background rounded-t-3xl max-h-[85vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Заголовок */}
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold">{t.title}</h2>
-                <button
-                  onClick={() => setOpen(false)}
-                  className="w-8 h-8 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-border transition-colors"
-                >
-                  ✕
-                </button>
+              {/* ✅ Фикс 1 — заголовок крупный, с drag-handle сверху */}
+              <div className="flex flex-col items-center pt-3 pb-2 px-6">
+                <div className="w-10 h-1 rounded-full bg-border mb-4" />
+                <div className="flex items-center justify-between w-full">
+                  <div>
+                    <h2 className="text-2xl font-bold">{t.title}</h2>
+                    <p className="text-sm text-muted-foreground mt-0.5">
+                      {count} {t.items}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setOpen(false)}
+                    className="w-9 h-9 rounded-full bg-muted flex items-center justify-center text-muted-foreground hover:bg-border transition-colors text-lg"
+                  >
+                    ✕
+                  </button>
+                </div>
               </div>
 
-              {/* ✅ Список блюд — редизайн: название полное сверху, степпер снизу */}
-              <div className="space-y-1 mb-4">
-                {selected.map(dish => (
-                  <div key={dish.id} className="py-4 border-b border-border last:border-0">
-                    {/* Название полное — не обрезается */}
-                    <p className="font-semibold text-lg leading-tight mb-3">{dish.name}</p>
+              <div className="px-6 pb-6">
+                {/* Список блюд */}
+                <div className="mt-4 space-y-1">
+                  {selected.map(dish => (
+                    <div key={dish.id} className="py-4 border-b border-border last:border-0">
+                      {/* Название полное */}
+                      <p className="font-semibold text-base leading-tight mb-3">{dish.name}</p>
 
-                    {/* Цена × кол + степпер */}
-                    <div className="flex items-center justify-between">
-                      <span className="text-muted-foreground text-sm">
-                        {dish.price} ₺ × {dish.quantity}
-                      </span>
-
-                      <div className="flex items-center gap-3">
-                        <span className="font-bold text-lg text-primary">
-                          {dish.price * dish.quantity} ₺
+                      {/* Цена + степпер */}
+                      <div className="flex items-center justify-between">
+                        <span className="text-muted-foreground text-sm">
+                          {dish.price} ₺ × {dish.quantity}
                         </span>
 
-                        {/* ✅ Степпер: нейтральный минус, акцентный плюс */}
-                        <div className="flex items-center gap-2 bg-muted rounded-2xl px-2 py-1">
-                          <button
-                            onClick={() => onRemove(dish.id)}
-                            className="w-10 h-10 rounded-xl bg-background text-foreground flex items-center justify-center text-2xl font-bold hover:bg-border transition-colors shadow-sm"
-                          >
-                            −
-                          </button>
-                          <span className="text-2xl font-bold min-w-[28px] text-center select-none">
-                            {dish.quantity}
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-base text-primary min-w-[52px] text-right">
+                            {dish.price * dish.quantity} ₺
                           </span>
-                          <button
-                            onClick={() => onAdd(dish)}
-                            className="w-10 h-10 rounded-xl bg-primary text-white flex items-center justify-center text-2xl font-bold hover:bg-primary/90 transition-colors shadow-sm"
-                          >
-                            +
-                          </button>
+
+                          {/* ✅ Фикс 2 — компактный степпер */}
+                          <div className="flex items-center gap-1 bg-muted rounded-xl px-1 py-1">
+                            <button
+                              onClick={() => onRemove(dish.id)}
+                              className="w-8 h-8 rounded-lg bg-background text-foreground flex items-center justify-center text-lg font-bold hover:bg-border transition-colors shadow-sm"
+                            >
+                              −
+                            </button>
+                            <span className="text-lg font-bold min-w-[24px] text-center select-none">
+                              {dish.quantity}
+                            </span>
+                            <button
+                              onClick={() => onAdd(dish)}
+                              className="w-8 h-8 rounded-lg bg-primary text-white flex items-center justify-center text-lg font-bold hover:bg-primary/90 transition-colors shadow-sm"
+                            >
+                              +
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
-              </div>
+                  ))}
+                </div>
 
-              {/* ✅ Итого — крупнее, с разделителем, акцентная сумма */}
-              <div className="flex items-center justify-between pt-4 border-t-2 border-border mb-5">
-                <span className="text-xl font-bold">{t.total}</span>
-                <span className="text-2xl font-bold text-primary">{total} ₺</span>
-              </div>
+                {/* ✅ Фикс 5 — итого как отдельный акцентный блок */}
+                <div className="mt-4 rounded-2xl bg-primary/8 px-4 py-4 flex items-center justify-between">
+                  <span className="text-lg font-bold text-foreground">{t.total}</span>
+                  <span className="text-3xl font-bold text-primary">{total} ₺</span>
+                </div>
 
-              {/* Кнопка очистить */}
-              <button
-                onClick={() => { onClear(); setOpen(false); }}
-                className="w-full py-3 rounded-xl border border-border text-muted-foreground hover:bg-muted transition-colors text-base"
-              >
-                {t.clear}
-              </button>
+                {/* ✅ Фикс 4 — кнопка очистить с деструктивным стилем */}
+                <button
+                  onClick={() => { onClear(); setOpen(false); }}
+                  className="w-full mt-4 py-3.5 rounded-xl bg-destructive/10 text-destructive font-semibold hover:bg-destructive/20 transition-colors text-base"
+                >
+                  {t.clear}
+                </button>
+              </div>
             </div>
           </div>
         </>
