@@ -86,7 +86,7 @@ export function SelectionBar({
                         </span>
 
                         <div className="flex items-center gap-2">
-                          <span className="font-bold text-base text-primary min-w-[52px] text-right">
+                          <span className="font-bold text-base text-foreground min-w-[52px] text-right">
                             {dish.price * dish.quantity} ₺
                           </span>
 
