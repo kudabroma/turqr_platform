@@ -4,6 +4,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { LanguageProvider } from "@/context/LanguageContext";
+import { Analytics } from "@vercel/analytics/react";
 import PreviewPage from "./pages/PreviewPage";
 import MenuPage from "./pages/MenuPage";
 import NotFound from "./pages/NotFound";
@@ -24,6 +25,7 @@ const App = () => (
           </Routes>
         </LanguageProvider>
       </BrowserRouter>
+      <Analytics />
     </TooltipProvider>
   </QueryClientProvider>
 );
