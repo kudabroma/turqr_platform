@@ -2,7 +2,7 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import { X, Check, Clock } from "lucide-react";
 import { useEffect, useState } from "react";
 
-const DISCOUNT_END_MS = new Date("2026-04-30T23:59:59").getTime();
+const DISCOUNT_END_MS = new Date("2026-06-30T23:59:59").getTime();
 
 function getTimeLeft() {
   const diff = DISCOUNT_END_MS - Date.now();

@@ -62,7 +62,7 @@ const t = {
       recommended: "Most Popular",
       coming_soon: "Coming Soon",
       basic_f6: "We fill your menu for you — once, free",
-      discount_until: "Offer ends Apr 30",
+      discount_until: "Offer ends Jun 30",
       // Печатное меню
       print_label: "Traditional",
       print_title: "Printed Menu",
@@ -182,7 +182,7 @@ const t = {
       recommended: "En Popüler",
       coming_soon: "Yakında",
       basic_f6: "Menünüzü sizin için bir kez ücretsiz dolduruyoruz",
-      discount_until: "Fırsat 30 Nisan'da sona eriyor",
+      discount_until: "Fırsat 30 Haziran'da sona eriyor",
       // Печатное меню
       print_label: "Geleneksel",
       print_title: "Basılı Menü",
