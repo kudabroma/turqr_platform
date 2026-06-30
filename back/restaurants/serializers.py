@@ -2,6 +2,7 @@ from django.contrib.auth import get_user_model
 from rest_framework import serializers
 
 from .models import Restaurant, Category, Dish, Subscription, PaymentHistory
+from .serializers_public import _resolve_i18n
 
 User = get_user_model()
 
@@ -82,6 +83,7 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "description_tr",
             "description_en",
             "description_ru",
+            "description_i18n",
             "logo",
             "logo_url",
             "front_template",
@@ -108,6 +110,7 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "description_tr",
             "description_en",
             "description_ru",
+            "description_i18n",
             "front_template",
             "logo",
             "photo1", "photo2", "photo3",
@@ -142,13 +145,14 @@ class CategorySerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "name_tr", "name_en", "name_ru", "restaurant", "is_system", "sort_order"]
+        fields = ["id", "name", "name_tr", "name_en", "name_ru", "name_i18n", "restaurant", "is_system", "sort_order"]
         read_only_fields = ["id", "restaurant", "is_system", "sort_order"]
         extra_kwargs = {
             "name": {"required": False, "allow_blank": True},
             "name_tr": {"required": False, "allow_blank": True},
             "name_en": {"required": False, "allow_blank": True},
-            "name_ru": {"required": False, "allow_blank": True}
+            "name_ru": {"required": False, "allow_blank": True},
+            "name_i18n": {"required": False},
         }
 
     def validate(self, attrs):
@@ -179,12 +183,13 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = Category
-        fields = ["id", "name", "name_tr", "name_en", "restaurant", "is_system", "sort_order"]
+        fields = ["id", "name", "name_tr", "name_en", "name_i18n", "restaurant", "is_system", "sort_order"]
         read_only_fields = ["id", "is_system", "sort_order"]
         extra_kwargs = {
             "name": {"required": False, "allow_blank": True},
             "name_tr": {"required": False, "allow_blank": True},
             "name_en": {"required": False, "allow_blank": True},
+            "name_i18n": {"required": False},
         }
 
     def validate(self, attrs):
@@ -230,6 +235,7 @@ class DishSerializer(serializers.ModelSerializer):
             "name", "description",
             "name_tr", "name_en", "name_ru",
             "description_tr", "description_en", "description_ru",
+            "name_i18n", "description_i18n",
             "price",
             "category",
             "restaurant",
@@ -250,6 +256,8 @@ class DishSerializer(serializers.ModelSerializer):
             "description_en": {"required": False, "allow_blank": True},
             "name_ru": {"required": False, "allow_blank": True},
             "description_ru": {"required": False, "allow_blank": True},
+            "name_i18n": {"required": False},
+            "description_i18n": {"required": False},
         }
 
     def validate(self, attrs):
@@ -296,6 +304,7 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
             "name", "description",
             "name_tr", "name_en",
             "description_tr", "description_en",
+            "name_i18n", "description_i18n",
             "price",
             "category",
             "restaurant",
@@ -313,6 +322,8 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
             "name_en": {"required": False, "allow_blank": True},
             "description_tr": {"required": False, "allow_blank": True},
             "description_en": {"required": False, "allow_blank": True},
+            "name_i18n": {"required": False},
+            "description_i18n": {"required": False},
         }
 
     def validate(self, attrs):
@@ -356,20 +367,22 @@ class DishReadSerializer(serializers.ModelSerializer):
         return "tr"
 
     def get_name(self, obj: Dish):
-        lang = self._lang()
-        if lang == "en":
-            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
-        if lang == "ru":
-            return (getattr(obj, "name_ru", "") or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
-        return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
+        return _resolve_i18n(
+            obj.name_i18n,
+            self._lang(),
+            obj.name_tr,
+            obj.name_en,
+            obj.name,
+        )
 
     def get_description(self, obj: Dish):
-        lang = self._lang()
-        if lang == "en":
-            return (obj.description_en or "").strip() or (obj.description_tr or "").strip() or (obj.description or "").strip()
-        if lang == "ru":
-            return (getattr(obj, "description_ru", "") or "").strip() or (obj.description_tr or "").strip() or (obj.description or "").strip()
-        return (obj.description_tr or "").strip() or (obj.description or "").strip() or (obj.description_en or "").strip()
+        return _resolve_i18n(
+            obj.description_i18n,
+            self._lang(),
+            obj.description_tr,
+            obj.description_en,
+            obj.description,
+        )
 
     def get_image_url(self, obj: Dish):
         return _build_url(obj.image)
@@ -396,12 +409,13 @@ class CategoryWithDishesSerializer(serializers.ModelSerializer):
         return "tr"
 
     def get_name(self, obj: Category):
-        lang = self._lang()
-        if lang == "en":
-            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
-        if lang == "ru":
-            return (getattr(obj, "name_ru", "") or "").strip() or (obj.name_tr or "").strip() or (obj.name or "").strip()
-        return (obj.name_tr or "").strip() or (obj.name or "").strip() or (obj.name_en or "").strip()
+        return _resolve_i18n(
+            obj.name_i18n,
+            self._lang(),
+            obj.name_tr,
+            obj.name_en,
+            obj.name,
+        )
 
     class Meta:
         model = Category

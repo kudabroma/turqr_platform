@@ -20,6 +20,7 @@ class Restaurant(models.Model):
     description_tr = models.TextField(blank=True, default="", verbose_name="Описание (TR)")
     description_en = models.TextField(blank=True, default="", verbose_name="Описание (EN)")
     description_ru = models.TextField(blank=True, default="", verbose_name="Описание (RU)")
+    description_i18n = models.JSONField(default=dict, verbose_name="Описание (i18n JSON)")
 
     contacts = models.TextField(blank=True, verbose_name="Контакты")
     phone = models.CharField(max_length=50, blank=True, default="", verbose_name="Телефон")
@@ -91,6 +92,7 @@ class Category(models.Model):
     name_tr = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (TR)")
     name_en = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (EN)")
     name_ru = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (RU)")
+    name_i18n = models.JSONField(default=dict, verbose_name="Название (i18n JSON)")
 
     restaurant = models.ForeignKey(
         Restaurant,
@@ -127,6 +129,8 @@ class Dish(models.Model):
     description_en = models.TextField(blank=True, default="", verbose_name="Описание (EN)")
     name_ru = models.CharField(max_length=255, blank=True, default="", verbose_name="Название (RU)")
     description_ru = models.TextField(blank=True, default="", verbose_name="Описание (RU)")
+    name_i18n = models.JSONField(default=dict, verbose_name="Название (i18n JSON)")
+    description_i18n = models.JSONField(default=dict, verbose_name="Описание (i18n JSON)")
 
     
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")

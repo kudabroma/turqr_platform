@@ -2,6 +2,27 @@ from rest_framework import serializers
 from .models import Restaurant, Category, Dish
 
 
+def _resolve_i18n(i18n: dict, lang: str, *flat_fallbacks: str) -> str:
+    """
+    Read from an i18n JSON dict with a 3-step fallback:
+      1. i18n[requested lang]
+      2. i18n["en"]
+      3. i18n["tr"]
+      4. Any non-empty flat_fallbacks (old columns, safety net)
+    Returns "" if everything is empty.
+    """
+    i18n = i18n or {}
+    for key in (lang, "en", "tr"):
+        val = (i18n.get(key) or "").strip()
+        if val:
+            return val
+    for val in flat_fallbacks:
+        val = (val or "").strip()
+        if val:
+            return val
+    return ""
+
+
 class PublicRestaurantSerializer(serializers.ModelSerializer):
     contacts = serializers.SerializerMethodField()
     logo_url = serializers.SerializerMethodField()
@@ -83,16 +104,13 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         return self._file_url(getattr(obj, "photo6", None))
 
     def get_description(self, obj: Restaurant):
-        lang = self._lang()
-        desc_tr = (getattr(obj, "description_tr", "") or "").strip()
-        desc_en = (getattr(obj, "description_en", "") or "").strip()
-        desc_ru = (getattr(obj, "description_ru", "") or "").strip()
-
-        if lang == "en":
-            return desc_en or desc_tr
-        if lang == "ru":
-            return desc_ru or desc_tr
-        return desc_tr or desc_en
+        return _resolve_i18n(
+            obj.description_i18n,
+            self._lang(),
+            obj.description_tr,
+            obj.description_en,
+            obj.description_ru,
+        )
 
     def get_contacts(self, obj: Restaurant):
         # ✅ сначала берем то, что ресторан реально ввел в поле contacts
@@ -149,30 +167,22 @@ class PublicDishSerializer(serializers.ModelSerializer):
         return "tr"
 
     def get_name(self, obj: Dish):
-        lang = self._lang()
-        name_tr = (obj.name_tr or "").strip()
-        name_en = (obj.name_en or "").strip()
-        name_ru = (getattr(obj, "name_ru", "") or "").strip()
-        name_old = (getattr(obj, "name", "") or "").strip()
-
-        if lang == "en":
-            return name_en or name_tr or name_old
-        if lang == "ru":
-            return name_ru or name_tr or name_old
-        return name_tr or name_old or name_en
+        return _resolve_i18n(
+            obj.name_i18n,
+            self._lang(),
+            obj.name_tr,
+            obj.name_en,
+            obj.name,
+        )
 
     def get_description(self, obj: Dish):
-        lang = self._lang()
-        desc_tr = (obj.description_tr or "").strip()
-        desc_en = (obj.description_en or "").strip()
-        desc_ru = (getattr(obj, "description_ru", "") or "").strip()
-        desc_old = (getattr(obj, "description", "") or "").strip()
-
-        if lang == "en":
-            return desc_en or desc_tr or desc_old
-        if lang == "ru":
-            return desc_ru or desc_tr or desc_old
-        return desc_tr or desc_old or desc_en
+        return _resolve_i18n(
+            obj.description_i18n,
+            self._lang(),
+            obj.description_tr,
+            obj.description_en,
+            obj.description,
+        )
 
     def get_price(self, obj: Dish):
         # DecimalField -> string ok for frontend
@@ -206,12 +216,13 @@ class PublicCategorySerializer(serializers.ModelSerializer):
         return "tr"
 
     def get_name(self, obj: Category):
-        lang = self._lang()
-        if lang == "en":
-            return (obj.name_en or "").strip() or (obj.name_tr or "").strip() or (getattr(obj, "name", "") or "").strip()
-        if lang == "ru":
-            return (getattr(obj, "name_ru", "") or "").strip() or (obj.name_tr or "").strip() or (getattr(obj, "name", "") or "").strip()
-        return (obj.name_tr or "").strip() or (getattr(obj, "name", "") or "").strip() or (obj.name_en or "").strip()
+        return _resolve_i18n(
+            obj.name_i18n,
+            self._lang(),
+            obj.name_tr,
+            obj.name_en,
+            obj.name,
+        )
 
     def get_dishes(self, obj: Category):
         # ✅ важно: используем prefetched relation "dishes" (из get_public_categories_queryset)
