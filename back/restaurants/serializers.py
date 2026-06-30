@@ -84,6 +84,7 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "description_en",
             "description_ru",
             "description_i18n",
+            "enabled_languages",
             "logo",
             "logo_url",
             "front_template",
@@ -95,6 +96,7 @@ class RestaurantMeSerializer(serializers.ModelSerializer):
             "photo1_url", "photo2_url", "photo3_url",
             "photo4_url", "photo5_url", "photo6_url",
         ]
+        read_only_fields = ["enabled_languages"]
 
 
 class RestaurantUpdateSerializer(serializers.ModelSerializer):

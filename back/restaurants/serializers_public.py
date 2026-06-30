@@ -41,6 +41,7 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
             "slug",
             "name",
             "description",
+            "enabled_languages",
             "logo",
             "logo_url",
             "phone",

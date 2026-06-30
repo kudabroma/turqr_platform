@@ -17,6 +17,7 @@ from .superadmin_serializers import (
     SuperAdminResetPasswordSerializer,
     SuperAdminRestaurantCreateSerializer,
     SuperAdminRestaurantSerializer,
+    SuperAdminRestaurantUpdateSerializer,
 )
 
 User = get_user_model()
@@ -53,9 +54,13 @@ class SuperAdminRestaurantListCreateView(generics.ListCreateAPIView):
 
 
 class SuperAdminRestaurantDetailView(RetrieveUpdateDestroyAPIView):
-    permission_classes = [IsSuperUser]  # было IsAdminUser — исправлено
+    permission_classes = [IsSuperUser]
     queryset = Restaurant.objects.all()
-    serializer_class = SuperAdminRestaurantSerializer
+
+    def get_serializer_class(self):
+        if self.request.method in ("PUT", "PATCH"):
+            return SuperAdminRestaurantUpdateSerializer
+        return SuperAdminRestaurantSerializer
 
 
 class SuperAdminRestaurantToggleActiveView(APIView):

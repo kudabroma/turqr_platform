@@ -125,7 +125,7 @@ def get_public_categories_queryset(restaurant: Restaurant):
 
 
 def build_public_payload(request, restaurant: Restaurant, categories_qs):
-    lang = normalize_lang(request.query_params.get("lang"))
+    lang = normalize_lang(request.query_params.get("lang"), restaurant.enabled_languages)
     ctx = {"request": request, "lang": lang}
 
     return {
@@ -149,7 +149,7 @@ class PublicRestaurantView(APIView):
     def get(self, request, slug: str | None = None):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=slug)
 
-        lang = normalize_lang(request.query_params.get("lang"))
+        lang = normalize_lang(request.query_params.get("lang"), restaurant.enabled_languages)
         ctx = {"request": request, "lang": lang}
         return Response(PublicRestaurantSerializer(restaurant, context=ctx).data)
 
@@ -197,7 +197,7 @@ class PublicRestaurantBySubdomainView(APIView):
 
     def get(self, request):
         restaurant = get_public_restaurant_or_404(request, slug_from_url=None)
-        lang = normalize_lang(request.query_params.get("lang"))
+        lang = normalize_lang(request.query_params.get("lang"), restaurant.enabled_languages)
         ctx = {"request": request, "lang": lang}
         return Response(PublicRestaurantSerializer(restaurant, context=ctx).data)
 

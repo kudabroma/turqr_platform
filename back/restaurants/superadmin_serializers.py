@@ -24,6 +24,9 @@ User = get_user_model()
 # Restaurants
 # -------------------------
 
+_VALID_LANGUAGES = {"tr", "en", "ru"}
+
+
 class SuperAdminRestaurantSerializer(serializers.ModelSerializer):
     active = serializers.SerializerMethodField()
     plan = serializers.SerializerMethodField()
@@ -35,12 +38,13 @@ class SuperAdminRestaurantSerializer(serializers.ModelSerializer):
             "id",
             "slug",
             "name",
-            "active",      # теперь безопасно
+            "active",
+            "enabled_languages",
             "created_at",
             "plan",
             "paid_until",
         ]
-        read_only_fields = ["id", "created_at", "plan", "paid_until", "active"]
+        read_only_fields = ["id", "created_at", "plan", "paid_until", "active", "enabled_languages"]
 
     def get_active(self, obj: Restaurant):
         # поддержка разных схем модели
@@ -64,6 +68,29 @@ class SuperAdminRestaurantSerializer(serializers.ModelSerializer):
     def get_paid_until(self, obj: Restaurant):
         sub = self._get_subscription(obj)
         return getattr(sub, "expires_at", None) if sub else None
+
+
+class SuperAdminRestaurantUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Restaurant
+        fields = ["name", "slug", "enabled_languages"]
+        extra_kwargs = {
+            "name": {"required": False},
+            "slug": {"required": False},
+            "enabled_languages": {"required": False},
+        }
+
+    def validate_enabled_languages(self, value):
+        if not isinstance(value, list):
+            raise serializers.ValidationError("Должен быть список.")
+        if not value:
+            raise serializers.ValidationError("Список не может быть пустым.")
+        invalid = [v for v in value if v not in _VALID_LANGUAGES]
+        if invalid:
+            raise serializers.ValidationError(
+                f"Недопустимые коды языков: {invalid}. Допустимые: {sorted(_VALID_LANGUAGES)}"
+            )
+        return value
 
 
 class SuperAdminRestaurantCreateSerializer(serializers.ModelSerializer):

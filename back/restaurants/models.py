@@ -3,6 +3,10 @@ from django.db import models
 from django.utils import timezone
 
 
+def _default_languages():
+    return ["tr", "ru", "en"]
+
+
 class Restaurant(models.Model):
     """
     Ресторан, для которого создаётся QR-меню.
@@ -21,6 +25,12 @@ class Restaurant(models.Model):
     description_en = models.TextField(blank=True, default="", verbose_name="Описание (EN)")
     description_ru = models.TextField(blank=True, default="", verbose_name="Описание (RU)")
     description_i18n = models.JSONField(default=dict, verbose_name="Описание (i18n JSON)")
+
+    enabled_languages = models.JSONField(
+        default=_default_languages,
+        verbose_name="Доступные языки",
+        help_text='Список языков меню, например ["tr", "ru", "en"]',
+    )
 
     contacts = models.TextField(blank=True, verbose_name="Контакты")
     phone = models.CharField(max_length=50, blank=True, default="", verbose_name="Телефон")
