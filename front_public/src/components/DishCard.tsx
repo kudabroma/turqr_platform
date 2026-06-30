@@ -13,8 +13,8 @@ interface DishCardProps {
 }
 
 function pickTranslation<T extends Record<string, any>>(
-  translations: Partial<Record<"en" | "tr" | "ru", T>> | undefined,
-  lang: "en" | "tr" | "ru"
+  translations: Partial<Record<string, T>> | undefined,
+  lang: string
 ): T {
   if (!translations) return {} as T;
   return (
@@ -28,7 +28,7 @@ function pickTranslation<T extends Record<string, any>>(
 
 export function DishCard({ dish, variant = "full", onClick, onAdd, onRemove, quantity = 0 }: DishCardProps) {
   const { language } = useLanguage();
-  const lang: Lang = language === "en" ? "en" : language === "ru" ? "ru" : "tr";
+  const lang: Lang = language;
   const [popped, setPopped] = useState(false);
 
   const t = pickTranslation(dish.translations as any, lang);

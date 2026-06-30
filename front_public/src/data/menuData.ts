@@ -1,9 +1,9 @@
 // src/data/menuData.ts
 
-export type PublicLang = "en" | "tr";
-export type AllLang = PublicLang | "ru";
+export type PublicLang = string;
+export type AllLang = string;
 
-export type Translations<T> = Record<"en" | "tr" | "ru", T>;
+export type Translations<T> = Record<string, T>;
 
 export interface MenuItem {
   id: string;

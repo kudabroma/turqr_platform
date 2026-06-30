@@ -1,6 +1,6 @@
 const API_PREFIX = import.meta.env.VITE_API_URL ?? "/api";
 
-export type Lang = "en" | "tr" | "ru";
+export type Lang = string;
 
 function buildUrl(path: string, slug?: string | null, lang?: Lang) {
   const params = new URLSearchParams();

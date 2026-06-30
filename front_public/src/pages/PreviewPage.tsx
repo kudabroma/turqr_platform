@@ -126,6 +126,7 @@ export default function PreviewPage() {
   });
 
   const restaurantFromApi = restaurantQuery.data as any;
+  const enabledLanguages: string[] = restaurantFromApi?.enabled_languages ?? ["tr", "ru", "en"];
 
   const galleryPhotos: string[] = useMemo(() => {
     const r: any = restaurantFromApi;
@@ -211,7 +212,7 @@ export default function PreviewPage() {
               onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
           </div>
-          <LanguageSwitcher />
+          <LanguageSwitcher enabledLanguages={enabledLanguages} />
         </div>
       </header>
 

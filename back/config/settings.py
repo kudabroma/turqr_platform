@@ -196,7 +196,10 @@ TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 # =========================
 # LOGGING
 # =========================
-
+if DEBUG:
+    REST_FRAMEWORK["DEFAULT_THROTTLE_RATES"] = {
+        "anon": "10000/hour",
+    }
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,

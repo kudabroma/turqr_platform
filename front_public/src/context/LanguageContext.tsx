@@ -9,16 +9,15 @@ interface LanguageContextType {
 
 const LanguageContext = createContext<LanguageContextType | undefined>(undefined);
 
-function normalizeLang(x: string | null): Lang {
-  const v = (x ?? "tr").toLowerCase();
-  if (v.startsWith("en")) return "en";
-  if (v.startsWith("ru")) return "ru";
-  return "tr";
+function normalizeLang(x: string | null): string {
+  if (!x) return "tr";
+  // strip region suffix ("en-US" → "en") and lowercase
+  return x.toLowerCase().trim().split("-")[0] || "tr";
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const [searchParams, setSearchParams] = useSearchParams();
-  
+
   const language = normalizeLang(searchParams.get("lang"));
 
   const setLanguage = (lang: Lang) => {

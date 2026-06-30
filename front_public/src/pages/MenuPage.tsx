@@ -1,5 +1,5 @@
 import { useMemo, useState, useEffect } from "react";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Home } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import NotFound from "@/pages/NotFound";
@@ -29,11 +29,10 @@ type CategoryOption = {
   label: string;
 };
 
-function normalizeLang(x: string | null): Lang {
-  const v = (x ?? "tr").toLowerCase();
-  if (v.startsWith("en")) return "en";
-  if (v.startsWith("ru")) return "ru";
-  return "tr";
+function normalizeLang(x: string | null, enabled: string[]): string {
+  const v = (x ?? "").toLowerCase().trim().split("-")[0];
+  if (v && enabled.includes(v)) return v;
+  return enabled[0] ?? "tr";
 }
 
 function ensureDishShape(
@@ -139,12 +138,12 @@ export default function MenuPage() {
   }, []);
 
   const [searchParams] = useSearchParams();
-  const lang = normalizeLang(searchParams.get("lang"));
+  const navigate = useNavigate();
+  const location = useLocation();
   const slug = getPublicSlugFromLocation();
 
-  const restaurantDemo = (restaurantInfo as any)?.translations?.[lang];
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const ui = (uiTranslations as any)?.[lang];
+  // Raw lang from URL — used for API query keys before restaurant data is available
+  const rawLang = (searchParams.get("lang") ?? "tr").toLowerCase().trim().split("-")[0] || "tr";
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
@@ -154,8 +153,8 @@ export default function MenuPage() {
   const { selected, add, remove, clear, total, count, getQuantity } = useSelection();
 
   const menuQuery = useQuery({
-    queryKey: ["public-menu", slug, lang],
-    queryFn: () => fetchPublicMenu(slug, lang),
+    queryKey: ["public-menu", slug, rawLang],
+    queryFn: () => fetchPublicMenu(slug, rawLang),
     enabled: !!slug,
     staleTime: 0,
     refetchOnWindowFocus: false,
@@ -167,22 +166,39 @@ export default function MenuPage() {
   const menuQueryTr = useQuery({
     queryKey: ["public-menu", slug, "tr"],
     queryFn: () => fetchPublicMenu(slug, "tr"),
-    enabled: !!slug && lang !== "tr",
+    enabled: !!slug && rawLang !== "tr",
     staleTime: 300_000, // 5 минут — турецкие названия меняются редко
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
   const restaurantQuery = useQuery({
-    queryKey: ["public-restaurant", slug, lang],
-    queryFn: () => fetchPublicRestaurant(slug, lang),
+    queryKey: ["public-restaurant", slug, rawLang],
+    queryFn: () => fetchPublicRestaurant(slug, rawLang),
     enabled: !!slug,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
     retry: 1,
   });
 
+  // Derive enabled languages and effective lang once restaurant data is available
   const restaurantFromApi = restaurantQuery.data as any;
+  const enabledLanguages: string[] = restaurantFromApi?.enabled_languages ?? ["tr", "ru", "en"];
+  const lang = normalizeLang(searchParams.get("lang"), enabledLanguages);
+  const ui = (uiTranslations as Record<string, any>)[lang] ?? uiTranslations.tr;
+  const restaurantDemo = (restaurantInfo as any)?.translations?.[lang];
+
+  // Redirect to first enabled lang if URL lang is not in the restaurant's list
+  useEffect(() => {
+    if (!restaurantFromApi) return;
+    const enabled = restaurantFromApi.enabled_languages as string[] | undefined;
+    if (!enabled?.length) return;
+    if (rawLang && !enabled.includes(rawLang)) {
+      const sp = new URLSearchParams(searchParams);
+      sp.set("lang", enabled[0]);
+      navigate({ pathname: location.pathname, search: `?${sp.toString()}` }, { replace: true });
+    }
+  }, [restaurantFromApi]);
 
   // ✅ Map id → name_tr для быстрого поиска турецкого названия
   const trNameMap = useMemo(() => {
@@ -251,7 +267,7 @@ export default function MenuPage() {
     return [
       {
         id: null,
-        label: lang === "en" ? "All" : lang === "ru" ? "Все" : "Tümü",
+        label: ui?.allCategories ?? "Tümü",
       },
       ...Array.from(map.entries()).map(([id, label]) => ({
         id,
@@ -293,12 +309,11 @@ export default function MenuPage() {
     return groups;
   }, [filteredItems, lang]);
 
-  const loadingText =
-    lang === "en"
-      ? "Loading menu..."
-      : lang === "ru"
-      ? "Загрузка меню..."
-      : "Menü yükleniyor...";
+  const LOADING_TEXT: Record<string, string> = {
+    en: "Loading menu...",
+    ru: "Загрузка меню...",
+  };
+  const loadingText = LOADING_TEXT[lang] ?? "Menü yükleniyor...";
 
   if (!slug) {
     return (
@@ -355,20 +370,14 @@ export default function MenuPage() {
               </h1>
             </div>
 
-            <LanguageSwitcher />
+            <LanguageSwitcher enabledLanguages={enabledLanguages} />
           </div>
 
           <div className="mt-4">
             <SearchBar
               value={searchQuery}
               onChange={setSearchQuery}
-              placeholder={
-                lang === "tr"
-                  ? "Yemek ara..."
-                  : lang === "ru"
-                  ? "Поиск блюд..."
-                  : "Search dishes..."
-              }
+              placeholder={ui?.search ?? "Yemek ara..."}
             />
           </div>
 
@@ -431,11 +440,7 @@ export default function MenuPage() {
         {filteredItems.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {lang === "en"
-                ? "No dishes found"
-                : lang === "ru"
-                ? "Блюда не найдены"
-                : "Yemek bulunamadı"}
+              {{ en: "No dishes found", ru: "Блюда не найдены" }[lang] ?? "Yemek bulunamadı"}
             </p>
           </div>
         )}
