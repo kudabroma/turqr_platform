@@ -6,6 +6,7 @@ import {
   extendSubscription,
   getRestaurants,
   toggleRestaurantActive,
+  updateRestaurantLanguages,
 } from "@/superadmin/api/superadmin";
 import type { CreateRestaurantPayload, Restaurant } from "@/superadmin/types/superadmin";
 
@@ -29,7 +30,7 @@ import {
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { Calendar, ExternalLink, Link2, Plus, Trash2, UserCheck, UserX } from "lucide-react";
+import { Calendar, ExternalLink, Globe, Link2, Plus, Trash2, UserCheck, UserX } from "lucide-react";
 
 function toSlug(input: string) {
   return input
@@ -48,6 +49,37 @@ function normalizeSlug(input: string) {
     .replace(/[^a-z0-9-]+/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-+|-+$/g, "");
+}
+
+const ALL_LANGUAGES = [
+  { code: "tr", flag: "🇹🇷", label: "Turkish" },
+  { code: "ru", flag: "🇷🇺", label: "Russian" },
+  { code: "en", flag: "🇬🇧", label: "English" },
+  { code: "de", flag: "🇩🇪", label: "German" },
+  { code: "no", flag: "🇳🇴", label: "Norwegian" },
+  { code: "da", flag: "🇩🇰", label: "Danish" },
+  { code: "sv", flag: "🇸🇪", label: "Swedish" },
+  { code: "fi", flag: "🇫🇮", label: "Finnish" },
+] as const;
+
+const FLAG_MAP = Object.fromEntries(ALL_LANGUAGES.map((l) => [l.code, l.flag]));
+const LANG_DISPLAY_MAX = 3;
+
+function LanguageChips({ langs }: { langs: string[] }) {
+  const shown = langs.slice(0, LANG_DISPLAY_MAX);
+  const extra = langs.length - shown.length;
+  return (
+    <span className="inline-flex items-center gap-0.5 text-base leading-none">
+      {shown.map((code) => (
+        <span key={code} title={code.toUpperCase()}>
+          {FLAG_MAP[code] ?? code.toUpperCase()}
+        </span>
+      ))}
+      {extra > 0 && (
+        <span className="ml-1 text-xs text-muted-foreground font-medium">+{extra}</span>
+      )}
+    </span>
+  );
 }
 
 function publicUrl(slug: string) {
@@ -139,6 +171,46 @@ export default function RestaurantsPage() {
   });
   // ────────────────────────────────────────────────────────────────────────
 
+  // ── Languages ────────────────────────────────────────────────────────────
+  const [langOpen, setLangOpen] = useState(false);
+  const [langTarget, setLangTarget] = useState<Restaurant | null>(null);
+  const [langSelection, setLangSelection] = useState<string[]>(["tr", "ru", "en"]);
+
+  const langMut = useMutation({
+    mutationFn: () =>
+      updateRestaurantLanguages(
+        langTarget!.id,
+        langSelection.includes("tr") ? langSelection : ["tr", ...langSelection]
+      ),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: ["superadmin", "restaurants"] });
+      toast({ title: "Languages updated" });
+      setLangOpen(false);
+      setLangTarget(null);
+    },
+    onError: (e: any) => {
+      toast({
+        title: "Failed to update languages",
+        description: e?.message ?? "Unknown error",
+        variant: "destructive",
+      });
+    },
+  });
+
+  function openLangModal(r: Restaurant) {
+    setLangTarget(r);
+    setLangSelection(r.enabled_languages?.length ? [...r.enabled_languages] : ["tr", "ru", "en"]);
+    setLangOpen(true);
+  }
+
+  function toggleLang(code: string, checked: boolean) {
+    if (code === "tr") return; // always on
+    setLangSelection((prev) =>
+      checked ? [...prev, code] : prev.filter((c) => c !== code)
+    );
+  }
+  // ────────────────────────────────────────────────────────────────────────
+
   const [open, setOpen] = useState(false);
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
@@ -227,6 +299,7 @@ export default function RestaurantsPage() {
               <TableHead>Active</TableHead>
               <TableHead>Plan</TableHead>
               <TableHead>Paid until</TableHead>
+              <TableHead>Languages</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -246,6 +319,9 @@ export default function RestaurantsPage() {
                 <TableCell>{planBadge(r.plan)}</TableCell>
                 <TableCell className="text-muted-foreground">
                   {r.paid_until ?? "—"}
+                </TableCell>
+                <TableCell>
+                  <LanguageChips langs={r.enabled_languages ?? ["tr"]} />
                 </TableCell>
                 <TableCell className="text-right">
                   <div className="inline-flex flex-wrap justify-end gap-2">
@@ -279,7 +355,16 @@ export default function RestaurantsPage() {
                       Django admin
                     </Button>
 
-                    {/* ── NEW: Extend subscription ── */}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openLangModal(r)}
+                      className="gap-2"
+                    >
+                      <Globe size={16} />
+                      Languages
+                    </Button>
+
                     <Button
                       variant="outline"
                       size="sm"
@@ -487,6 +572,76 @@ export default function RestaurantsPage() {
               disabled={extendMut.isPending || extendDays < 1}
             >
               {extendMut.isPending ? "Extending..." : `Extend ${extendDays} days`}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* LANGUAGES */}
+      <Dialog
+        open={langOpen}
+        onOpenChange={(v) => {
+          if (langMut.isPending) return;
+          setLangOpen(v);
+          if (!v) setLangTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Languages — {langTarget?.name ?? "—"}</DialogTitle>
+          </DialogHeader>
+
+          <p className="text-sm text-muted-foreground">
+            Choose which languages appear in the public menu switcher.
+            Turkish is always enabled.
+          </p>
+
+          <div className="grid grid-cols-2 gap-3 py-2">
+            {ALL_LANGUAGES.map(({ code, flag, label }) => {
+              const isForced = code === "tr";
+              const checked = isForced || langSelection.includes(code);
+              return (
+                <label
+                  key={code}
+                  className={[
+                    "flex items-center gap-2.5 rounded-lg border px-3 py-2.5 cursor-pointer select-none transition-colors",
+                    checked && !isForced
+                      ? "border-primary bg-primary/5"
+                      : isForced
+                      ? "border-border bg-muted/40 opacity-70 cursor-not-allowed"
+                      : "border-border hover:bg-muted/30",
+                  ].join(" ")}
+                >
+                  <input
+                    type="checkbox"
+                    className="accent-primary w-4 h-4 shrink-0"
+                    checked={checked}
+                    disabled={isForced}
+                    onChange={(e) => toggleLang(code, e.target.checked)}
+                  />
+                  <span className="text-base leading-none">{flag}</span>
+                  <span className="text-sm font-medium">{label}</span>
+                </label>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => {
+                setLangOpen(false);
+                setLangTarget(null);
+              }}
+              disabled={langMut.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => langMut.mutate()}
+              disabled={langMut.isPending}
+            >
+              {langMut.isPending ? "Saving..." : "Save"}
             </Button>
           </DialogFooter>
         </DialogContent>

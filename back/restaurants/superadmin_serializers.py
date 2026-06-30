@@ -24,7 +24,7 @@ User = get_user_model()
 # Restaurants
 # -------------------------
 
-_VALID_LANGUAGES = {"tr", "en", "ru"}
+_VALID_LANGUAGES = {"tr", "en", "ru", "de", "no", "da", "sv", "fi"}
 
 
 class SuperAdminRestaurantSerializer(serializers.ModelSerializer):

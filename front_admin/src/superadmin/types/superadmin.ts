@@ -6,6 +6,7 @@ export interface Restaurant {
   plan: string | null;
   paid_until: string | null;
   created_at: string;
+  enabled_languages: string[];
 }
 
 export interface BusinessUser {

@@ -73,6 +73,9 @@ function normalizeRestaurant(raw: any): Restaurant {
     plan: raw.plan ?? null,
     paid_until: raw.paid_until ?? null,
     created_at: raw.created_at ?? raw.created ?? raw.createdAt ?? null,
+    enabled_languages: Array.isArray(raw.enabled_languages)
+      ? raw.enabled_languages
+      : ["tr", "ru", "en"],
   };
 }
 
@@ -237,6 +240,16 @@ export async function getPaymentHistory(): Promise<Payment[]> {
   await delay();
   return [...payments];
 }
+export async function updateRestaurantLanguages(
+  id: number,
+  enabledLanguages: string[]
+): Promise<void> {
+  await api(`/superadmin/restaurants/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify({ enabled_languages: enabledLanguages }),
+  });
+}
+
 export async function extendSubscription(restaurantId: number, days: number): Promise<Restaurant> {
   const data = await api<any>(`/superadmin/restaurants/${restaurantId}/extend-subscription/`, {
     method: "POST",
