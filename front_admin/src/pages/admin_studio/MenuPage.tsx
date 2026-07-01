@@ -199,6 +199,7 @@ export default function MenuPage() {
       description_tr: "",
       description_en: "",
       description_ru: "",    // ✅ RU
+      name_i18n: {},
       description_i18n: {},
       is_active: true,
       is_vegetarian: false,
@@ -234,6 +235,7 @@ export default function MenuPage() {
         description_tr: full.description_tr ?? "",
         description_en: full.description_en ?? "",
         description_ru: full.description_ru ?? "",  // ✅ RU
+        name_i18n: { ...((full as any).name_i18n ?? {}) },
         description_i18n: { ...((full as any).description_i18n ?? {}) },
         is_active: typeof full.is_active === "boolean" ? full.is_active : true,
         is_vegetarian: full.is_vegetarian ?? false,
@@ -279,6 +281,7 @@ export default function MenuPage() {
         fd.append("description_tr", dish.description_tr ?? "");
         fd.append("description_en", dish.description_en ?? "");
         fd.append("description_ru", (dish as any).description_ru ?? "");
+        fd.append("name_i18n", JSON.stringify(dish.name_i18n ?? {}));
         fd.append("description_i18n", JSON.stringify(dish.description_i18n ?? {}));
         fd.append("price", String(dish.price ?? 0));
         fd.append("category", String(Number(categoryId)));
@@ -302,6 +305,7 @@ export default function MenuPage() {
           description_tr: dish.description_tr ?? "",
           description_en: dish.description_en ?? "",
           description_ru: (dish as any).description_ru ?? "",
+          name_i18n: dish.name_i18n ?? {},
           description_i18n: dish.description_i18n ?? {},
           price: String(dish.price ?? 0),
           category: Number(categoryId),

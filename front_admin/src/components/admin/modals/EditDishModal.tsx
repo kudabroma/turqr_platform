@@ -33,6 +33,7 @@ export interface DishData {
   name_ru: string;
   description_ru: string;
   // переводы для языков без отдельных flat-полей (de, no, da, sv, fi, ...)
+  name_i18n?: Record<string, string>;
   description_i18n?: Record<string, string>;
   is_active: boolean;
   is_vegetarian: boolean;
@@ -62,6 +63,7 @@ interface EditDishModalProps {
 
 type Lang = string;
 const DEFAULT_LANGS: Lang[] = ["tr", "en", "ru"];
+const AI_NAME_HINT = "AI çevirisini kontrol edin, gerekirse düzenleyin.";
 
 const FIELD_LIMITS = {
   name: 100,
@@ -96,6 +98,7 @@ const emptyDish: DishData = {
   description_en: "",
   name_ru: "",
   description_ru: "",
+  name_i18n: {},
   description_i18n: {},
   is_active: true,
   is_vegetarian: false,
@@ -178,6 +181,7 @@ export function EditDishModal({
         description_en: sanitizeDishDescription(dish.description_en ?? ""),
         name_ru: sanitizeDishName((dish as any).name_ru ?? ""),
         description_ru: sanitizeDishDescription((dish as any).description_ru ?? ""),
+        name_i18n: { ...(dish.name_i18n ?? {}) },
         description_i18n: { ...(dish.description_i18n ?? {}) },
         is_active: (dish as any).is_active ?? true,
         is_vegetarian: (dish as any).is_vegetarian ?? false,
@@ -223,6 +227,14 @@ export function EditDishModal({
     if (key === "_categoryId" && nextValue) setCategoryError("");
   };
 
+  const updateI18nName = (lang: string, value: string) => {
+    const sanitized = sanitizeDishName(value);
+    setForm((prev) => ({
+      ...prev,
+      name_i18n: { ...(prev.name_i18n ?? {}), [lang]: sanitized },
+    }));
+  };
+
   const updateI18nDescription = (lang: string, value: string) => {
     const sanitized = sanitizeDishDescription(value);
     setForm((prev) => ({
@@ -241,22 +253,37 @@ export function EditDishModal({
       const res = await dishesApi.translate(form.id, translatableLangs);
 
       setForm((prev) => {
-        const nextI18n = { ...(prev.description_i18n ?? {}) };
-        let next_en = prev.description_en;
-        let next_ru = prev.description_ru;
+        const nextNameI18n = { ...(prev.name_i18n ?? {}) };
+        const nextDescI18n = { ...(prev.description_i18n ?? {}) };
+        let next_name_en = prev.name_en;
+        let next_name_ru = prev.name_ru;
+        let next_desc_en = prev.description_en;
+        let next_desc_ru = prev.description_ru;
 
         for (const [lang, entry] of Object.entries(res.translations)) {
-          const text = sanitizeDishDescription(entry.description ?? "");
-          if (lang === "en") next_en = text;
-          else if (lang === "ru") next_ru = text;
-          else nextI18n[lang] = text;
+          const name = sanitizeDishName(entry.name ?? "");
+          const description = sanitizeDishDescription(entry.description ?? "");
+
+          if (lang === "en") {
+            next_name_en = name;
+            next_desc_en = description;
+          } else if (lang === "ru") {
+            next_name_ru = name;
+            next_desc_ru = description;
+          } else {
+            nextNameI18n[lang] = name;
+            nextDescI18n[lang] = description;
+          }
         }
 
         return {
           ...prev,
-          description_en: next_en,
-          description_ru: next_ru,
-          description_i18n: nextI18n,
+          name_en: next_name_en,
+          name_ru: next_name_ru,
+          description_en: next_desc_en,
+          description_ru: next_desc_ru,
+          name_i18n: nextNameI18n,
+          description_i18n: nextDescI18n,
         };
       });
 
@@ -426,6 +453,7 @@ export function EditDishModal({
                         maxLength={FIELD_LIMITS.name}
                         onChange={(e) => update("name_en", e.target.value)}
                       />
+                      <p className="mt-1 text-xs text-muted-foreground">{AI_NAME_HINT}</p>
                     </div>
                     <div>
                       <Label>Açıklama (EN)</Label>
@@ -448,6 +476,7 @@ export function EditDishModal({
                         maxLength={FIELD_LIMITS.name}
                         onChange={(e) => update("name_ru", e.target.value)}
                       />
+                      <p className="mt-1 text-xs text-muted-foreground">{AI_NAME_HINT}</p>
                     </div>
                     <div>
                       <Label>Açıklama (RU)</Label>
@@ -465,10 +494,12 @@ export function EditDishModal({
                   <>
                     <div>
                       <Label>İsim ({activeLang.toUpperCase()})</Label>
-                      <Input value={form.name_tr} disabled />
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        İsimler çevrilmez, her zaman Türkçe kalır.
-                      </p>
+                      <Input
+                        value={form.name_i18n?.[activeLang] ?? ""}
+                        maxLength={FIELD_LIMITS.name}
+                        onChange={(e) => updateI18nName(activeLang, e.target.value)}
+                      />
+                      <p className="mt-1 text-xs text-muted-foreground">{AI_NAME_HINT}</p>
                     </div>
                     <div>
                       <Label>Açıklama ({activeLang.toUpperCase()})</Label>
@@ -600,9 +631,9 @@ export function EditDishModal({
         <AlertDialogHeader>
           <AlertDialogTitle>Çeviri yapılsın mı?</AlertDialogTitle>
           <AlertDialogDescription>
-            Türkçe açıklama {translatableLangs.map((l) => l.toUpperCase()).join(", ")} diline/dillerine
-            çevrilecek. Mevcut çeviri alanlarının üzerine yazılacak — kaydetmeden önce
-            kontrol edebilirsiniz.
+            İsim ve açıklama {translatableLangs.map((l) => l.toUpperCase()).join(", ")} diline/dillerine
+            çevrilecek (AI, geleneksel Türk yemek isimlerini olduğu gibi bırakabilir). Mevcut
+            çeviri alanlarının üzerine yazılacak — kaydetmeden önce kontrol edebilirsiniz.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>

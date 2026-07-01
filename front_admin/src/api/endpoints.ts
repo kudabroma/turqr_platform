@@ -100,6 +100,7 @@ export interface CreateDishData {
   description_en?: string;
   name_ru?: string;
   description_ru?: string;
+  name_i18n?: Record<string, string>;
   description_i18n?: Record<string, string>;
   price: string;
   category: number;
@@ -112,13 +113,14 @@ export interface UpdateDishData {
   description_en?: string;
   name_ru?: string;
   description_ru?: string;
+  name_i18n?: Record<string, string>;
   description_i18n?: Record<string, string>;
   price?: string;
   category?: number;
 }
 
 export interface DishTranslateResponse {
-  translations: Record<string, { description: string }>;
+  translations: Record<string, { name: string; description: string }>;
 }
 
 // =====================
