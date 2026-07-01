@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, GripVertical } from "lucide-react";
+import { Plus, Trash2, GripVertical, Pencil } from "lucide-react";
 
 import {
   DndContext,
@@ -28,16 +28,20 @@ import {
 } from "@/components/ui/dialog";
 
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import {
+  EditCategoryTranslationModal,
+  type CategoryDraft,
+} from "@/components/admin/modals/EditCategoryTranslationModal";
+import type { Category } from "@/api/endpoints";
 
 type Row = {
   id: number;
   name_tr: string;
   name_en: string;
   name_ru: string;
+  name_i18n?: Record<string, string>;
   is_system?: boolean;
   _deleted?: boolean;
-  _new?: boolean;
 };
 
 interface EditCategoriesModalProps {
@@ -49,12 +53,19 @@ interface EditCategoriesModalProps {
     name_tr?: string;
     name_en?: string;
     name?: string;
+    name_i18n?: Record<string, string>;
     is_system?: boolean;
   }[];
 
+  /** Языки ресторана (из Restaurant.enabled_languages) — прокидывается в Уровень 2. */
+  enabledLanguages?: string[];
+
+  /**
+   * Категории уже создаются/редактируются напрямую через Уровень 2 (AI ile
+   * Çevir modalı) — сюда попадают только структурные изменения списка:
+   * удаление и порядок (drag-reorder).
+   */
   onSave: (payload: {
-    create: { name_tr: string; name_en: string; name_ru: string }[];
-    rename: { id: number; name_tr: string; name_en: string; name_ru: string }[];
     delete: { id: number }[];
     reorder: { id: number; sort_order: number }[];
   }) => Promise<void> | void;
@@ -88,12 +99,12 @@ function isSystemCategoryLikeUnsorted(c: {
 
 function SortableRow({
   row,
-  updateField,
-  handleDelete,
-  
+  onEdit,
+  onDelete,
 }: {
   row: Row;
-  updateField: (id: number, field: "name_tr" | "name_en" | "name_ru", value: string) => void;  handleDelete: (id: number) => void;
+  onEdit: (id: number) => void;
+  onDelete: (id: number) => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } =
     useSortable({
@@ -112,7 +123,7 @@ function SortableRow({
       style={style}
       className="rounded-2xl border border-gray-200 bg-gray-100 p-3"
     >
-      <div className="flex gap-3 items-stretch">
+      <div className="flex gap-3 items-center">
         <div
           {...attributes}
           {...listeners}
@@ -122,35 +133,23 @@ function SortableRow({
           <GripVertical size={18} />
         </div>
 
-        <div className="flex-1 space-y-3">
-          <Input
-            placeholder="İsim (TR)"
-            value={row.name_tr}
-            maxLength={CATEGORY_NAME_MAX}
-            onChange={(e) => updateField(row.id, "name_tr", e.target.value)}
-            className="h-12 rounded-xl bg-white border-border text-base"
-          />
-
-          <Input
-            placeholder="İsim (EN)"
-            value={row.name_en}
-            maxLength={CATEGORY_NAME_MAX}
-            onChange={(e) => updateField(row.id, "name_en", e.target.value)}
-            className="h-12 rounded-xl bg-white border-border text-base"
-          />
-          <Input
-            placeholder="İsim (RU)"
-            value={row.name_ru}
-            maxLength={CATEGORY_NAME_MAX}
-            onChange={(e) => updateField(row.id, "name_ru", e.target.value)}
-            className="h-12 rounded-xl bg-white border-border text-base"
-          />
+        <div className="flex-1 min-w-0 h-12 rounded-xl bg-white border border-border text-base flex items-center px-4 truncate">
+          {row.name_tr || <span className="text-muted-foreground">İsimsiz kategori</span>}
         </div>
 
         <button
           type="button"
-          onClick={() => handleDelete(row.id)}
-          className="w-14 shrink-0 rounded-xl border border-gray-200 bg-white flex items-center justify-center transition-colors text-destructive hover:bg-red-50"
+          onClick={() => onEdit(row.id)}
+          className="w-14 h-12 shrink-0 rounded-xl border border-gray-200 bg-white flex items-center justify-center transition-colors text-foreground hover:bg-gray-50"
+          title="Düzenle"
+        >
+          <Pencil className="h-5 w-5" />
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onDelete(row.id)}
+          className="w-14 h-12 shrink-0 rounded-xl border border-gray-200 bg-white flex items-center justify-center transition-colors text-destructive hover:bg-red-50"
           title="Sil"
         >
           <Trash2 className="h-5 w-5" />
@@ -164,12 +163,17 @@ export function EditCategoriesModal({
   open,
   onOpenChange,
   categories,
+  enabledLanguages,
   onSave,
 }: EditCategoriesModalProps) {
   const qc = useQueryClient();
 
   const [rows, setRows] = useState<Row[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Уровень 2: модалка перевода категории. null = закрыта.
+  const [editingRow, setEditingRow] = useState<CategoryDraft | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
@@ -182,41 +186,18 @@ export function EditCategoriesModal({
         name_tr: sanitizeCategoryName(c.name_tr ?? c.name ?? ""),
         name_en: sanitizeCategoryName(c.name_en ?? ""),
         name_ru: sanitizeCategoryName((c as any).name_ru ?? ""),
+        name_i18n: { ...(c.name_i18n ?? {}) },
         is_system: isSystemCategoryLikeUnsorted(c),
       }))
     );
+    setEditingRow(null);
+    setIsCreating(false);
   }, [open, categories]);
 
   const visibleRows = useMemo(
     () => rows.filter((r) => !r._deleted && !r.is_system),
     [rows]
   );
-
-  const updateField = (
-    id: number,
-    field: "name_tr" | "name_en" | "name_ru",
-    value: string
-  ) => {
-    const sanitizedValue = sanitizeCategoryName(value);
-
-    setRows((prev) =>
-      prev.map((r) => (r.id === id ? { ...r, [field]: sanitizedValue } : r))
-    );
-  };
-
-  const handleAdd = () => {
-    setRows((prev) => [
-      ...prev,
-      {
-        id: Date.now() * -1,
-        name_tr: "",
-        name_en: "",
-        name_ru: "",
-        is_system: false,
-        _new: true,
-      },
-    ]);
-  };
 
   const handleDelete = (id: number) => {
     setRows((prev) =>
@@ -237,54 +218,70 @@ export function EditCategoriesModal({
     setRows((items) => arrayMove(items, oldIndex, newIndex));
   }
 
+  // Открыть Уровень 2 — редактирование существующей строки
+  const openEdit = (id: number) => {
+    const row = rows.find((r) => r.id === id);
+    if (!row) return;
+    setIsCreating(false);
+    setEditingRow(row);
+  };
+
+  // Открыть Уровень 2 — сразу в режиме создания, без добавления пустой строки в список
+  const openCreate = () => {
+    setIsCreating(true);
+    setEditingRow({
+      // id намеренно отсутствует — категория ещё не существует на бэке
+      name_tr: "",
+      name_en: "",
+      name_ru: "",
+      name_i18n: {},
+    });
+  };
+
+  const closeLevel2 = () => {
+    setEditingRow(null);
+    setIsCreating(false);
+  };
+
+  // Уровень 2 уже сохранил категорию на бэке — просто отразить результат в списке
+  const handleLevel2Save = (saved: Category) => {
+    const newRow: Row = {
+      id: saved.id,
+      name_tr: saved.name_tr ?? saved.name ?? "",
+      name_en: saved.name_en ?? "",
+      name_ru: (saved as any).name_ru ?? "",
+      name_i18n: { ...(saved.name_i18n ?? {}) },
+      is_system: saved.is_system ?? false,
+    };
+
+    setRows((prev) => {
+      const idx = prev.findIndex((r) => r.id === saved.id);
+      if (idx === -1) return [...prev, newRow];
+      return prev.map((r, i) => (i === idx ? newRow : r));
+    });
+
+    qc.invalidateQueries({ queryKey: ["categories"] });
+    qc.invalidateQueries({ queryKey: ["menu"] });
+
+    closeLevel2();
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
 
     try {
-      const create = rows
-        .filter((r) => r._new && !r._deleted && !r.is_system)
-        .map((r) => ({
-          name_tr: r.name_tr.trim(),
-          name_en: r.name_en.trim(),
-          name_ru: r.name_ru.trim()
-        }))
-        .filter((x) => x.name_tr);
-
-      const rename = rows
-        .filter((r) => !r._new && !r._deleted && !r.is_system)
-        .map((r) => {
-          const original = categories.find((c) => c.id === r.id);
-          return {
-            id: r.id,
-            name_tr: r.name_tr.trim(),
-            name_en: r.name_en.trim(),
-            name_ru: r.name_ru.trim(),
-            original_tr: (original?.name_tr ?? original?.name ?? "").trim(),
-            original_en: (original?.name_en ?? "").trim(),
-            original_ru: ((original as any)?.name_ru ?? "").trim(),
-          };
-        })
-        .filter(
-          (r) =>
-            r.name_tr &&
-            (r.name_tr !== r.original_tr || r.name_en !== r.original_en || r.name_ru !== r.original_ru)
-        )
-        .map(({ id, name_tr, name_en, name_ru }) => ({ id, name_tr, name_en, name_ru }));
-
       const del = rows
-        .filter((r) => !r._new && r._deleted && !r.is_system)
+        .filter((r) => r._deleted && !r.is_system)
         .map((r) => ({ id: r.id }));
 
       const reorder = rows
-        .filter((r) => !r._new && !r._deleted && !r.is_system)
+        .filter((r) => !r._deleted && !r.is_system)
         .map((r, index) => ({
           id: r.id,
           sort_order: index,
         }));
 
       await onSave({
-        create,
-        rename,
         delete: del,
         reorder,
       });
@@ -298,70 +295,98 @@ export function EditCategoriesModal({
     }
   };
 
-  const canSave = useMemo(() => {
-    return visibleRows.every((r) => r.name_tr.trim().length > 0);
-  }, [visibleRows]);
+  const hasPendingDeletes = useMemo(
+    () => rows.some((r) => r._deleted && !r.is_system),
+    [rows]
+  );
+
+  const hasReorderChanged = useMemo(() => {
+    const currentOrder = rows
+      .filter((r) => !r._deleted && !r.is_system)
+      .map((r) => r.id);
+    const originalOrder = categories
+      .filter((c) => !isSystemCategoryLikeUnsorted(c))
+      .map((c) => c.id);
+
+    if (currentOrder.length !== originalOrder.length) return true;
+    return currentOrder.some((id, i) => id !== originalOrder[i]);
+  }, [rows, categories]);
+
+  const canSave = hasPendingDeletes || hasReorderChanged;
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-3xl p-0 overflow-hidden">
-        <DialogHeader className="px-6 pt-6 pb-2">
-          <DialogTitle className="text-2xl font-semibold">
-            Kategorileri Düzenle
-          </DialogTitle>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden">
+          <DialogHeader className="px-6 pt-6 pb-2">
+            <DialogTitle className="text-2xl font-semibold">
+              Kategorileri Düzenle
+            </DialogTitle>
+          </DialogHeader>
 
-        <div className="px-6 pb-6">
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={visibleRows.map((r) => r.id)}
-              strategy={verticalListSortingStrategy}
+          <div className="px-6 pb-6">
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
             >
-              <div className="mt-2 max-h-[52vh] overflow-y-auto pr-1 space-y-4">
-                {visibleRows.map((row) => (
-                  <SortableRow
-                    key={row.id}
-                    row={row}
-                    updateField={updateField}
-                    handleDelete={handleDelete}
-                  />
-                ))}
-              </div>
-            </SortableContext>
-          </DndContext>
-
-          <Button
-            onClick={handleAdd}
-            className="w-full mt-5 h-12 rounded-xl text-lg font-medium bg-orange-500 hover:bg-orange-600 text-white border-0"
-          >
-            <Plus className="h-5 w-5 mr-2" />
-            Kategori Ekle
-          </Button>
-
-          <div className="flex justify-end gap-3 mt-6">
-            <Button
-              variant="outline"
-              onClick={() => onOpenChange(false)}
-              disabled={isSaving}
-              className="h-11 px-6 rounded-xl text-base"
-            >
-              İptal
-            </Button>
+              <SortableContext
+                items={visibleRows.map((r) => r.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="mt-2 max-h-[52vh] overflow-y-auto pr-1 space-y-3">
+                  {visibleRows.map((row) => (
+                    <SortableRow
+                      key={row.id}
+                      row={row}
+                      onEdit={openEdit}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                </div>
+              </SortableContext>
+            </DndContext>
 
             <Button
-              onClick={handleSave}
-              disabled={isSaving || !canSave}
-              className="h-11 px-6 rounded-xl text-base"
+              onClick={openCreate}
+              className="w-full mt-5 h-12 rounded-xl text-lg font-medium bg-orange-500 hover:bg-orange-600 text-white border-0"
             >
-              {isSaving ? "Kaydediliyor..." : "Kaydet"}
+              <Plus className="h-5 w-5 mr-2" />
+              Kategori Ekle
             </Button>
+
+            <div className="flex justify-end gap-3 mt-6">
+              <Button
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                disabled={isSaving}
+                className="h-11 px-6 rounded-xl text-base"
+              >
+                İptal
+              </Button>
+
+              <Button
+                onClick={handleSave}
+                disabled={isSaving || !canSave}
+                className="h-11 px-6 rounded-xl text-base"
+              >
+                {isSaving ? "Kaydediliyor..." : "Kaydet"}
+              </Button>
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+      </Dialog>
+
+      <EditCategoryTranslationModal
+        open={editingRow !== null}
+        onOpenChange={(o) => {
+          if (!o) closeLevel2();
+        }}
+        category={editingRow}
+        isNew={isCreating}
+        enabledLanguages={enabledLanguages}
+        onSave={handleLevel2Save}
+      />
+    </>
   );
 }

@@ -94,6 +94,7 @@ export default function MenuPage() {
         name_tr: c.name_tr ?? c.name ?? "",
         name_en: c.name_en ?? "",
         name_ru: c.name_ru ?? "",  // ✅ RU
+        name_i18n: { ...(c.name_i18n ?? {}) },
         is_system: c.is_system ?? false,
         sort_order: c.sort_order ?? 0,
       }));
@@ -344,37 +345,13 @@ export default function MenuPage() {
     }
   };
 
+  // Kategori oluşturma/düzenleme artık EditCategoryTranslationModal (Seviye 2)
+  // üzerinden anında kaydediliyor — burada sadece liste yapısı (silme + sıralama).
   const handleSaveCategories = async (payload: {
-    create: { name_tr: string; name_en: string; name_ru: string }[];
-    rename: { id: number; name_tr: string; name_en: string; name_ru: string }[];
     delete: { id: number }[];
     reorder: { id: number; sort_order: number }[];
   }) => {
     try {
-      if (payload.create.length) {
-        await Promise.all(
-          payload.create.map((c) =>
-            categoriesApi.create({
-              name_tr: c.name_tr,
-              name_en: c.name_en ?? "",
-              name_ru: c.name_ru ?? "",  // ✅ RU
-            } as any)
-          )
-        );
-      }
-
-      if (payload.rename.length) {
-        await Promise.all(
-          payload.rename.map((c) =>
-            categoriesApi.update(c.id, {
-              name_tr: c.name_tr,
-              name_en: c.name_en ?? "",
-              name_ru: c.name_ru ?? "",  // ✅ RU
-            } as any)
-          )
-        );
-      }
-
       if (payload.delete.length) {
         await Promise.all(payload.delete.map((c) => categoriesApi.delete(c.id)));
       }
@@ -549,6 +526,7 @@ export default function MenuPage() {
         open={showCategoriesModal}
         onOpenChange={setShowCategoriesModal}
         categories={categoriesForModal as any}
+        enabledLanguages={enabledLanguages}
         onSave={handleSaveCategories as any}
       />
 

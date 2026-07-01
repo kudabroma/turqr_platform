@@ -218,6 +218,12 @@ class CategorySerializer(serializers.ModelSerializer):
         )
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
+
+        _sync_i18n_field(
+            attrs, self.instance, "name_i18n",
+            {"tr": "name_tr", "en": "name_en", "ru": "name_ru"},
+        )
+
         return attrs
 
 
@@ -255,6 +261,12 @@ class CategorySuperuserSerializer(serializers.ModelSerializer):
         )
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
+
+        _sync_i18n_field(
+            attrs, self.instance, "name_i18n",
+            {"tr": "name_tr", "en": "name_en"},
+        )
+
         return attrs
 
 

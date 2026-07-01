@@ -71,6 +71,45 @@ def _get_client() -> anthropic.Anthropic:
     return anthropic.Anthropic(api_key=api_key)
 
 
+def _call_claude(system_prompt: str, user_prompt: str, max_tokens: int = 2048) -> str:
+    """
+    Shared Claude Haiku call for every translation flavor (dish, category):
+    handles client creation, API error mapping to TranslationError, and
+    strips a markdown JSON fence from the response text if present.
+    Returns the raw (still unparsed) response text.
+    """
+    client = _get_client()
+
+    try:
+        response = client.messages.create(
+            model=MODEL,
+            max_tokens=max_tokens,
+            system=system_prompt,
+            messages=[{"role": "user", "content": user_prompt}],
+        )
+    except anthropic.AuthenticationError as exc:
+        logger.error("Anthropic auth error: %s", exc)
+        raise TranslationError("Неверный ANTHROPIC_API_KEY.") from exc
+    except anthropic.RateLimitError as exc:
+        logger.warning("Anthropic rate limit: %s", exc)
+        raise TranslationError("Сервис перевода перегружен, попробуйте позже.") from exc
+    except anthropic.APIConnectionError as exc:
+        logger.error("Anthropic connection error: %s", exc)
+        raise TranslationError("Не удалось подключиться к сервису перевода.") from exc
+    except anthropic.APIStatusError as exc:
+        logger.error("Anthropic API error: %s", exc)
+        raise TranslationError("Ошибка сервиса перевода.") from exc
+
+    text = "".join(
+        block.text for block in response.content if getattr(block, "type", None) == "text"
+    ).strip()
+
+    if not text:
+        raise TranslationError("Пустой ответ от сервиса перевода.")
+
+    return _JSON_FENCE_RE.sub("", text).strip()
+
+
 def _build_user_prompt(name_tr: str, description_tr: str, target_langs: list[str]) -> str:
     langs_str = ", ".join(target_langs)
     example = ", ".join(
@@ -104,41 +143,7 @@ def translate_dish_description(
     if not (description_tr or "").strip():
         raise TranslationError("Нет турецкого описания для перевода.")
 
-    client = _get_client()
-
-    try:
-        response = client.messages.create(
-            model=MODEL,
-            max_tokens=2048,
-            system=_SYSTEM_PROMPT,
-            messages=[
-                {
-                    "role": "user",
-                    "content": _build_user_prompt(name_tr, description_tr, target_langs),
-                }
-            ],
-        )
-    except anthropic.AuthenticationError as exc:
-        logger.error("Anthropic auth error: %s", exc)
-        raise TranslationError("Неверный ANTHROPIC_API_KEY.") from exc
-    except anthropic.RateLimitError as exc:
-        logger.warning("Anthropic rate limit: %s", exc)
-        raise TranslationError("Сервис перевода перегружен, попробуйте позже.") from exc
-    except anthropic.APIConnectionError as exc:
-        logger.error("Anthropic connection error: %s", exc)
-        raise TranslationError("Не удалось подключиться к сервису перевода.") from exc
-    except anthropic.APIStatusError as exc:
-        logger.error("Anthropic API error: %s", exc)
-        raise TranslationError("Ошибка сервиса перевода.") from exc
-
-    text = "".join(
-        block.text for block in response.content if getattr(block, "type", None) == "text"
-    ).strip()
-
-    if not text:
-        raise TranslationError("Пустой ответ от сервиса перевода.")
-
-    text = _JSON_FENCE_RE.sub("", text).strip()
+    text = _call_claude(_SYSTEM_PROMPT, _build_user_prompt(name_tr, description_tr, target_langs))
 
     try:
         parsed = json.loads(text)
@@ -165,6 +170,65 @@ def translate_dish_description(
             "name": name.strip(),
             "description": entry["description"].strip(),
         }
+
+    if not result:
+        raise TranslationError("Сервис перевода не вернул переводов для запрошенных языков.")
+
+    return result
+
+
+_CATEGORY_SYSTEM_PROMPT = (
+    "You are a translator for restaurant menu category names (e.g. "
+    "\"Starters\", \"Desserts\", \"Beverages\", \"Salads\"). These are "
+    "short, generic descriptive words — not branded or traditional dish "
+    "names — so always translate them naturally and completely into the "
+    "target language. Do not transliterate or leave any part in Turkish.\n"
+    "Return valid JSON only, with a plain string for each requested "
+    "language, in this exact shape: {\"ru\": \"...\", \"en\": \"...\"}"
+)
+
+
+def _build_category_user_prompt(name_tr: str, target_langs: list[str]) -> str:
+    langs_str = ", ".join(target_langs)
+    example = ", ".join(f'"{lang}": "..."' for lang in target_langs)
+    return (
+        f"Turkish menu category name: {name_tr!r}\n\n"
+        f"Translate it into these languages: {langs_str}.\n"
+        "Return strictly JSON, with no text before or after it, in this "
+        f"exact shape:\n{{{example}}}"
+    )
+
+
+def translate_category_name(name_tr: str, target_langs: list[str]) -> dict[str, str]:
+    """
+    Translate a Turkish menu category name into the given target languages
+    via Claude Haiku. Unlike dish names, category names are always fully and
+    naturally translated — no culinary judgement about keeping part of the
+    name in Turkish. Returns {"<lang>": "translated name", ...}.
+    Raises TranslationError with a user-safe message on any failure.
+    """
+    if not target_langs:
+        raise TranslationError("Не указаны целевые языки для перевода.")
+
+    if not (name_tr or "").strip():
+        raise TranslationError("Нет турецкого названия категории для перевода.")
+
+    text = _call_claude(_CATEGORY_SYSTEM_PROMPT, _build_category_user_prompt(name_tr, target_langs))
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        logger.error("Anthropic returned non-JSON: %s", text[:500])
+        raise TranslationError("Сервис перевода вернул некорректный формат.") from exc
+
+    if not isinstance(parsed, dict):
+        raise TranslationError("Сервис перевода вернул некорректный формат.")
+
+    result: dict[str, str] = {}
+    for lang in target_langs:
+        value = parsed.get(lang)
+        if isinstance(value, str) and value.strip():
+            result[lang] = value.strip()
 
     if not result:
         raise TranslationError("Сервис перевода не вернул переводов для запрошенных языков.")

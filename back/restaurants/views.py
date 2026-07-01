@@ -28,7 +28,7 @@ from .serializers import (
 )
 from .permissions import HasActiveSubscriptionOrReadOnly
 from .services.unsorted import get_unsorted_category
-from .services.ai_translate import translate_dish_description, TranslationError
+from .services.ai_translate import translate_dish_description, translate_category_name, TranslationError
 
 User = settings.AUTH_USER_MODEL
 from django.contrib.auth import get_user_model
@@ -335,6 +335,64 @@ class CategoryViewSet(viewsets.ModelViewSet):
             unsorted.save()
 
         return Response({"status": "ok"})
+
+    @action(detail=False, methods=["post"])
+    def translate(self, request):
+        """
+        POST /api/categories/translate/
+        Body: {"name_tr": "Başlangıçlar", "target_languages": ["ru", "en", ...]}
+        Стейтлес — не привязан к конкретной категории, поэтому работает
+        одинаково для новой (ещё не сохранённой) и уже существующей категории.
+        Переводит имя через Anthropic Claude Haiku на указанные языки
+        РЕСТОРАНА ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ (target_languages валидируется только
+        против его собственного enabled_languages — restaurant_id из запроса
+        не принимается). НЕ сохраняет — только возвращает переводы.
+        """
+        restaurant = _get_user_restaurant(request.user)
+        if not restaurant:
+            return Response(
+                {"detail": "У пользователя нет привязанного ресторана."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        name_tr = (request.data.get("name_tr") or "").strip()
+        if not name_tr:
+            return Response(
+                {"detail": "Укажите турецкое название категории (name_tr)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_languages = request.data.get("target_languages")
+        if not isinstance(target_languages, list) or not target_languages:
+            return Response(
+                {"detail": "Укажите список целевых языков (target_languages)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        enabled = set(restaurant.enabled_languages or [])
+        valid_targets = [
+            lang for lang in dict.fromkeys(target_languages)
+            if lang in enabled and lang != "tr"
+        ]
+        if not valid_targets:
+            return Response(
+                {"detail": "Нет допустимых целевых языков (проверьте enabled_languages ресторана)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            translations = translate_category_name(name_tr, valid_targets)
+        except TranslationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Unexpected AI translation error")
+            return Response(
+                {"detail": "Непредвиденная ошибка сервиса перевода."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"translations": translations})
 
 
 # =====================

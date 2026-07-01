@@ -22,6 +22,8 @@ export interface Category {
   name_tr?: string;
   name_en?: string;
   name_ru?: string;
+  // JSON-переводы для всех языков (включая tr/en/ru и языки без flat-колонок)
+  name_i18n?: Record<string, string>;
   is_system?: boolean;
   restaurant?: number;
 }
@@ -85,12 +87,18 @@ export interface CreateCategoryData {
   name_tr: string;
   name_en?: string;
   name_ru?: string;
+  name_i18n?: Record<string, string>;
 }
 
 export interface UpdateCategoryData {
   name_tr?: string;
   name_en?: string;
   name_ru?: string;
+  name_i18n?: Record<string, string>;
+}
+
+export interface CategoryTranslateResponse {
+  translations: Record<string, string>;
 }
 
 export interface CreateDishData {
@@ -212,6 +220,18 @@ export const categoriesApi = {
     apiClient<void>("/categories/reorder/", {
       method: "POST",
       body: { items },
+    }),
+
+  /**
+   * POST /categories/translate/
+   * Стейтлес: переводит переданное турецкое название категории на указанные
+   * языки. Работает и для ещё не сохранённой (новой) категории — id не нужен.
+   * Ничего не сохраняет — только возвращает переводы.
+   */
+  translate: (nameTr: string, targetLanguages: string[]) =>
+    apiClient<CategoryTranslateResponse>("/categories/translate/", {
+      method: "POST",
+      body: { name_tr: nameTr, target_languages: targetLanguages },
     }),
 };
 
