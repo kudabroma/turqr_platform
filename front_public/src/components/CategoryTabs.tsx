@@ -1,6 +1,7 @@
 import { useLanguage } from "@/context/LanguageContext";
 import { categories as demoCategories } from "@/data/menuData";
-import type { Lang } from "@/api/public";  // добавить в импорты вверху
+import { getRawLang } from "@/utils/lang";
+import type { Lang } from "@/api/public";
 
 
 type CategoryOption = {
@@ -15,17 +16,6 @@ interface CategoryTabsProps {
   lang?: Lang;
 }
 
-function normalizeLang(x: unknown): Lang {
-  const v = String(x ?? "tr").toLowerCase();
-  if (v.startsWith("en")) return "en";
-  if (v.startsWith("ru")) return "ru";
-  return "tr";
-}
-
-function getAllLabel(lang: Lang) {
-  return lang === "tr" ? "Tümü" : lang === "ru" ? "Все" : "All";
-}
-
 export function CategoryTabs({
   activeCategoryId,
   onCategoryChange,
@@ -33,9 +23,7 @@ export function CategoryTabs({
   lang: langProp,
 }: CategoryTabsProps) {
   const { language } = useLanguage();
-  const lang = langProp ?? normalizeLang(language);
-
-  const allLabel = getAllLabel(lang);
+  const lang = langProp ?? getRawLang(language);
 
   // ✅ если дали реальные категории из API/UI — используем их
   const apiList =
@@ -43,8 +31,10 @@ export function CategoryTabs({
       ? categories
       : null;
 
-  // ✅ fallback на демо-категории
-  const demoList = (demoCategories[lang] ?? demoCategories.en).map((label, index) => ({
+  // ✅ fallback на демо-категории (первый элемент списка — "All"/"Tümü"/...)
+  const demoLabels = demoCategories[lang] ?? demoCategories.en;
+  const [allLabel, ...restLabels] = demoLabels;
+  const demoList = restLabels.map((label, index) => ({
     id: index + 1,
     label,
   }));

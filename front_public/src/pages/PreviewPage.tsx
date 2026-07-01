@@ -14,8 +14,8 @@ import { adaptPublicMenuToUi } from "@/api/adapters/menuAdapter";
 
 import { uiTranslations, getRestaurantMeta } from "@/data/menuData";
 import { restaurantPhotos, dishImages } from "@/data/images";
-import type { Lang } from "@/api/public";
 import { getPublicSlugFromLocation } from "@/utils/publicSlug";
+import { getRawLang, normalizeLang } from "@/utils/lang";
 
 type UiDish = {
   id: string;
@@ -26,13 +26,6 @@ type UiDish = {
     translations: Record<"en" | "tr" | "ru", { name: string; description: string; category: string }>;
   price: number;
 };
-
-function normalizeLang(x: unknown): Lang {
-  const v = String(x ?? "tr").toLowerCase();
-  if (v.startsWith("en")) return "en";
-  if (v.startsWith("ru")) return "ru";
-  return "tr";
-}
 
 function parseTimeToMinutes(value: string): number | null {
   const normalized = value.trim().replace(".", ":");
@@ -98,18 +91,18 @@ function normalizePublicImageUrl(raw: unknown): string {
 
 export default function PreviewPage() {
   const [searchParams] = useSearchParams();
-  const lang = normalizeLang(searchParams.get("lang"));
   const slug = getPublicSlugFromLocation();
 
-  const ui = (uiTranslations as any)?.[lang];
-  const menuLink = `/menu?slug=${encodeURIComponent(slug)}&lang=${lang}`;
+  // Raw lang from URL — used for API query keys before restaurant data
+  // (and its enabled_languages) is available.
+  const rawLang = getRawLang(searchParams.get("lang"));
 
   // Получаем мета данные ресторана (рейтинг + отзывы) по slug
   const restaurantMeta = useMemo(() => getRestaurantMeta(slug), [slug]);
 
   const restaurantQuery = useQuery({
-    queryKey: ["public-restaurant", slug, lang],
-    queryFn: () => fetchPublicRestaurant(slug, lang),
+    queryKey: ["public-restaurant", slug, rawLang],
+    queryFn: () => fetchPublicRestaurant(slug, rawLang),
     enabled: !!slug,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
@@ -117,8 +110,8 @@ export default function PreviewPage() {
   });
 
   const menuQuery = useQuery({
-    queryKey: ["public-menu", slug, lang],
-    queryFn: () => fetchPublicMenu(slug, lang),
+    queryKey: ["public-menu", slug, rawLang],
+    queryFn: () => fetchPublicMenu(slug, rawLang),
     enabled: !!slug,
     staleTime: 60_000,
     refetchOnWindowFocus: false,
@@ -127,6 +120,12 @@ export default function PreviewPage() {
 
   const restaurantFromApi = restaurantQuery.data as any;
   const enabledLanguages: string[] = restaurantFromApi?.enabled_languages ?? ["tr", "ru", "en"];
+
+  // Validated against enabled_languages — resolves to "tr" until restaurant
+  // data arrives, then corrects itself (matches MenuPage.tsx's pattern).
+  const lang = normalizeLang(rawLang, enabledLanguages);
+  const ui = (uiTranslations as any)?.[lang] ?? uiTranslations.tr;
+  const menuLink = `/menu?slug=${encodeURIComponent(slug)}&lang=${lang}`;
 
   const galleryPhotos: string[] = useMemo(() => {
     const r: any = restaurantFromApi;
@@ -170,9 +169,7 @@ export default function PreviewPage() {
   if (restaurantQuery.isLoading || menuQuery.isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <p className="text-muted-foreground">
-          {lang === "en" ? "Loading..." : lang === "ru" ? "Загрузка..." : "Yükleniyor..."}
-        </p>
+        <p className="text-muted-foreground">{ui?.loading ?? "Yükleniyor..."}</p>
       </div>
     );
   }
@@ -182,13 +179,10 @@ export default function PreviewPage() {
   }
 
   const restaurantName = String(restaurantFromApi?.name ?? "Restaurant");
-  const restaurantDescription = String(
-    lang === "ru"
-      ? (restaurantFromApi?.description_ru || restaurantFromApi?.description_tr || restaurantFromApi?.description || "")
-      : lang === "en"
-      ? (restaurantFromApi?.description_en || restaurantFromApi?.description_tr || restaurantFromApi?.description || "")
-      : (restaurantFromApi?.description_tr || restaurantFromApi?.description || "")
-  );
+  // description is already fully resolved server-side (PublicRestaurantSerializer
+  // .get_description() picks the right language from description_i18n) — the
+  // public API never exposes description_ru/description_en flat fields.
+  const restaurantDescription = String(restaurantFromApi?.description ?? "");
   const restaurantWorkingHours = String(restaurantFromApi?.working_hours ?? restaurantFromApi?.hours ?? "").trim();
   const isOpenNow = isRestaurantOpenNow(restaurantWorkingHours);
   const phone = String(restaurantFromApi?.phone ?? "").trim();
@@ -257,9 +251,7 @@ export default function PreviewPage() {
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-foreground text-sm">{restaurantWorkingHours || "-"}</span>
                 <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${isOpenNow ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"}`}>
-                  {isOpenNow
-                    ? (lang === "en" ? "Open" : lang === "ru" ? "Открыто" : "Açık")
-                    : (lang === "en" ? "Closed" : lang === "ru" ? "Закрыто" : "Kapalı")}
+                  {isOpenNow ? (ui?.openNow ?? "Açık") : (ui?.closedNow ?? "Kapalı")}
                 </span>
               </div>
             </div>

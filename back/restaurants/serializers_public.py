@@ -1,5 +1,32 @@
 from rest_framework import serializers
 from .models import Restaurant, Category, Dish
+from .utils.lang import normalize_lang
+
+
+def _lang_from_context(context: dict) -> str:
+    """
+    Single source of truth for resolving the response language across every
+    public serializer. Prefers the already-normalized `context["lang"]` set
+    by the view (via `normalize_lang`, validated against the restaurant's
+    `enabled_languages`) — it must NOT be re-derived here.
+
+    Each serializer used to carry its own copy of this logic, hardcoded to
+    only recognize tr/en/ru — any other requested language (de/no/da/sv/fi)
+    silently collapsed to "tr" before `_resolve_i18n` ever got to look it up
+    in the i18n dict. Fixing `normalize_lang` alone wasn't enough while these
+    duplicates kept re-squashing its output.
+    """
+    lang = context.get("lang")
+    if lang:
+        return str(lang).lower()
+
+    # Fallback only for contexts that didn't go through the view helper
+    # (e.g. a serializer instantiated directly, without "lang" in context).
+    request = context.get("request")
+    raw = None
+    if request is not None:
+        raw = getattr(getattr(request, "query_params", None), "get", lambda *_: None)("lang", None)
+    return normalize_lang(raw)
 
 
 def _resolve_i18n(i18n: dict, lang: str, *flat_fallbacks: str) -> str:
@@ -58,21 +85,7 @@ class PublicRestaurantSerializer(serializers.ModelSerializer):
         ]
 
     def _lang(self) -> str:
-        raw = self.context.get("lang")
-        if not raw:
-            request = self.context.get("request")
-            raw = getattr(
-                getattr(request, "query_params", None),
-                "get",
-                lambda _k, _d=None: None
-            )("lang", None) if request else None
-
-        lang = (raw or "tr").lower()
-        if lang.startswith("en"):
-            return "en"
-        if lang.startswith("ru"):
-            return "ru"
-        return "tr"
+        return _lang_from_context(self.context)
 
     # ✅ возвращаем относительный URL
     def _file_url(self, file_field):
@@ -149,23 +162,7 @@ class PublicDishSerializer(serializers.ModelSerializer):
         ]
 
     def _lang(self) -> str:
-        """
-        Priority:
-        1) explicit context["lang"] (when view passes it)
-        2) request.query_params["lang"] (fallback)
-        3) default "tr"
-        """
-        raw = self.context.get("lang")
-        if not raw:
-            request = self.context.get("request")
-            raw = getattr(getattr(request, "query_params", None), "get", lambda _k, _d=None: None)("lang", None) if request else None
-
-        lang = (raw or "tr").lower()
-        if lang.startswith("en"):
-            return "en"
-        if lang.startswith("ru"):
-            return "ru"  # на будущее
-        return "tr"
+        return _lang_from_context(self.context)
 
     def get_name(self, obj: Dish):
         return _resolve_i18n(
@@ -209,12 +206,7 @@ class PublicCategorySerializer(serializers.ModelSerializer):
         fields = ("id", "name","sort_order", "dishes")
 
     def _lang(self) -> str:
-        lang = (self.context.get("lang") or "tr").lower()
-        if lang.startswith("en"):
-            return "en"
-        if lang.startswith("ru"):
-            return "ru"
-        return "tr"
+        return _lang_from_context(self.context)
 
     def get_name(self, obj: Category):
         return _resolve_i18n(

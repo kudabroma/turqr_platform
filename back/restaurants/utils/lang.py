@@ -6,6 +6,12 @@ def normalize_lang(raw: str | None, enabled_languages: list[str] | None = None) 
     Normalize a raw lang string to a canonical code, then validate against
     the restaurant's enabled_languages list.
 
+    Accepts ANY language code — strips a region/script suffix ("en-US" ->
+    "en") and lowercases. Recognizing only a hardcoded subset (tr/en/ru) here
+    was the bug: de/no/da/sv/fi silently collapsed to "tr" before ever being
+    checked against enabled_languages. This function must stay generic — all
+    valid-language logic lives in `enabled_languages`, not in this parser.
+
     Fallback chain:
       1. normalized code, if it's in enabled_languages
       2. first entry of enabled_languages
@@ -14,13 +20,7 @@ def normalize_lang(raw: str | None, enabled_languages: list[str] | None = None) 
     if not raw:
         normalized = "tr"
     else:
-        raw = raw.lower().strip()
-        if raw.startswith("en"):
-            normalized = "en"
-        elif raw.startswith("ru"):
-            normalized = "ru"
-        else:
-            normalized = "tr"
+        normalized = raw.strip().lower().split("-")[0].split("_")[0] or "tr"
 
     if not enabled_languages:
         return normalized
@@ -43,7 +43,7 @@ def get_lang(request, enabled_languages: list[str] | None = None, default: str =
     header = (request.headers.get("Accept-Language") or "").lower()
     for part in header.split(","):
         code = part.strip().split(";")[0].split("-")[0]
-        if code in ("tr", "en", "ru"):
+        if code:
             return normalize_lang(code, enabled_languages)
 
     return normalize_lang(default, enabled_languages)

@@ -17,6 +17,7 @@ import { restaurantInfo, uiTranslations, type MenuItem } from "@/data/menuData";
 import { dishImages } from "@/data/images";
 import type { Lang } from "@/api/public";
 import { getPublicSlugFromLocation } from "@/utils/publicSlug";
+import { getRawLang, normalizeLang } from "@/utils/lang";
 
 type UiDish = MenuItem & {
   ingredients?: string;
@@ -28,12 +29,6 @@ type CategoryOption = {
   id: number | null;
   label: string;
 };
-
-function normalizeLang(x: string | null, enabled: string[]): string {
-  const v = (x ?? "").toLowerCase().trim().split("-")[0];
-  if (v && enabled.includes(v)) return v;
-  return enabled[0] ?? "tr";
-}
 
 function ensureDishShape(
   input: any,
@@ -143,7 +138,7 @@ export default function MenuPage() {
   const slug = getPublicSlugFromLocation();
 
   // Raw lang from URL — used for API query keys before restaurant data is available
-  const rawLang = (searchParams.get("lang") ?? "tr").toLowerCase().trim().split("-")[0] || "tr";
+  const rawLang = getRawLang(searchParams.get("lang"));
 
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategoryId, setActiveCategoryId] = useState<number | null>(null);
@@ -309,11 +304,7 @@ export default function MenuPage() {
     return groups;
   }, [filteredItems, lang]);
 
-  const LOADING_TEXT: Record<string, string> = {
-    en: "Loading menu...",
-    ru: "Загрузка меню...",
-  };
-  const loadingText = LOADING_TEXT[lang] ?? "Menü yükleniyor...";
+  const loadingText = ui?.loadingMenu ?? "Menü yükleniyor...";
 
   if (!slug) {
     return (
@@ -440,7 +431,7 @@ export default function MenuPage() {
         {filteredItems.length === 0 && (
           <div className="text-center py-12">
             <p className="text-muted-foreground">
-              {{ en: "No dishes found", ru: "Блюда не найдены" }[lang] ?? "Yemek bulunamadı"}
+              {ui?.noDishesFound ?? "Yemek bulunamadı"}
             </p>
           </div>
         )}
