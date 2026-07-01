@@ -134,7 +134,7 @@ export function DishDetailsModal({
             {ingredients && (
               <div>
                 <h4 className="text-sm font-semibold text-foreground">
-                  {lang === "en" ? "Ingredients" : "İçindekiler"}
+                  {ui?.ingredients ?? "Ingredients"}
                 </h4>
                 <p className="text-base text-muted-foreground mt-2 whitespace-pre-line leading-8">
                   {ingredients}
@@ -144,7 +144,7 @@ export function DishDetailsModal({
 
             {!description && !ingredients && (
               <p className="text-base text-muted-foreground">
-                {lang === "en" ? "No details provided." : "Detay bilgisi yok."}
+                {ui?.noDetails ?? "No details provided."}
               </p>
             )}
           </div>
@@ -154,7 +154,7 @@ export function DishDetailsModal({
               onClick={() => { onAdd(); onOpenChange(false); }}
               className="w-full mt-6 py-4 rounded-2xl bg-primary text-white font-bold text-lg hover:bg-primary/90 transition-colors"
             >
-              {lang === "ru" ? "Добавить в заказ" : lang === "en" ? "Add to order" : "Siparişe ekle"} +
+              {ui?.addToOrder ?? "Add to order"} +
             </button>
           )}
           <div className="h-2" />        </div>

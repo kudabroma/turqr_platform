@@ -191,6 +191,9 @@ export const uiTranslations: Translations<{
   loadingMenu: string;
   loading: string;
   closedNow: string;
+  addToOrder: string;
+  ingredients: string;
+  noDetails: string;
 }> = {
   en: {
     viewMenu: "View Menu",
@@ -211,6 +214,9 @@ export const uiTranslations: Translations<{
     loadingMenu: "Loading menu...",
     loading: "Loading...",
     closedNow: "Closed",
+    addToOrder: "Add to order",
+    ingredients: "Ingredients",
+    noDetails: "No details provided.",
   },
   tr: {
     viewMenu: "Menüyü Görüntüle",
@@ -231,6 +237,9 @@ export const uiTranslations: Translations<{
     loadingMenu: "Menü yükleniyor...",
     loading: "Yükleniyor...",
     closedNow: "Kapalı",
+    addToOrder: "Siparişe ekle",
+    ingredients: "İçindekiler",
+    noDetails: "Detay bilgisi yok.",
   },
   ru: {
     viewMenu: "Открыть меню",
@@ -251,6 +260,9 @@ export const uiTranslations: Translations<{
     loadingMenu: "Загрузка меню...",
     loading: "Загрузка...",
     closedNow: "Закрыто",
+    addToOrder: "Добавить в заказ",
+    ingredients: "Состав",
+    noDetails: "Нет подробной информации.",
   },
   de: {
     viewMenu: "Speisekarte ansehen",
@@ -271,6 +283,9 @@ export const uiTranslations: Translations<{
     loadingMenu: "Speisekarte wird geladen...",
     loading: "Wird geladen...",
     closedNow: "Geschlossen",
+    addToOrder: "Zur Bestellung hinzufügen",
+    ingredients: "Zutaten",
+    noDetails: "Keine Details vorhanden.",
   },
   no: {
     viewMenu: "Vis meny",
@@ -291,6 +306,9 @@ export const uiTranslations: Translations<{
     loadingMenu: "Laster meny...",
     loading: "Laster...",
     closedNow: "Stengt",
+    addToOrder: "Legg til bestilling",
+    ingredients: "Ingredienser",
+    noDetails: "Ingen detaljer tilgjengelig.",
   },
   da: {
     viewMenu: "Se menu",
@@ -311,6 +329,9 @@ export const uiTranslations: Translations<{
     loadingMenu: "Indlæser menu...",
     loading: "Indlæser...",
     closedNow: "Lukket",
+    addToOrder: "Tilføj til bestilling",
+    ingredients: "Ingredienser",
+    noDetails: "Ingen detaljer angivet.",
   },
   sv: {
     viewMenu: "Visa meny",
@@ -331,6 +352,9 @@ export const uiTranslations: Translations<{
     loadingMenu: "Laddar menyn...",
     loading: "Laddar...",
     closedNow: "Stängt",
+    addToOrder: "Lägg till beställning",
+    ingredients: "Ingredienser",
+    noDetails: "Inga detaljer tillgängliga.",
   },
   fi: {
     viewMenu: "Näytä ruokalista",
@@ -351,5 +375,8 @@ export const uiTranslations: Translations<{
     loadingMenu: "Ladataan ruokalistaa...",
     loading: "Ladataan...",
     closedNow: "Suljettu",
+    addToOrder: "Lisää tilaukseen",
+    ingredients: "Ainesosat",
+    noDetails: "Ei lisätietoja.",
   },
 };

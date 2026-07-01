@@ -147,7 +147,7 @@ REST_FRAMEWORK = {
         "rest_framework.permissions.IsAuthenticated",
     ],
     "DEFAULT_THROTTLE_CLASSES": [
-        "rest_framework.throttling.AnonRateThrottle",
+        "restaurants.throttling.ClientIPAnonRateThrottle",
     ],
     "DEFAULT_THROTTLE_RATES": {
         "anon": "30/hour",
