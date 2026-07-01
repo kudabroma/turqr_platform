@@ -28,7 +28,12 @@ from .serializers import (
 )
 from .permissions import HasActiveSubscriptionOrReadOnly
 from .services.unsorted import get_unsorted_category
-from .services.ai_translate import translate_dish_description, translate_category_name, TranslationError
+from .services.ai_translate import (
+    translate_dish_description,
+    translate_category_name,
+    translate_restaurant_description,
+    TranslationError,
+)
 
 User = settings.AUTH_USER_MODEL
 from django.contrib.auth import get_user_model
@@ -132,6 +137,74 @@ class RestaurantMeView(APIView):
         return Response(
             RestaurantMeSerializer(restaurant, context={"request": request}).data
         )
+
+
+class RestaurantTranslateView(APIView):
+    """
+    POST /api/restaurants/me/translate/
+    Body: {"description_tr": "...", "target_languages": ["ru", "en", ...]}
+    Переводит описание ресторана через Anthropic Claude Haiku на указанные
+    языки ресторана текущего пользователя (target_languages валидируется
+    только против его собственного enabled_languages). НЕ сохраняет — только
+    возвращает переводы.
+    """
+
+    permission_classes = [permissions.IsAuthenticated, HasActiveSubscriptionOrReadOnly]
+
+    def post(self, request):
+        user = request.user
+
+        if user.is_superuser:
+            return Response(
+                {"detail": "Superuser has no single restaurant."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        restaurant = _get_user_restaurant(user)
+        if restaurant is None:
+            return Response(
+                {"detail": "User has no associated restaurant."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        description_tr = (request.data.get("description_tr") or "").strip()
+        if not description_tr:
+            return Response(
+                {"detail": "Введите турецкое описание ресторана."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        target_languages = request.data.get("target_languages")
+        if not isinstance(target_languages, list) or not target_languages:
+            return Response(
+                {"detail": "Укажите список целевых языков (target_languages)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        enabled = set(restaurant.enabled_languages or [])
+        valid_targets = [
+            lang for lang in dict.fromkeys(target_languages)
+            if lang in enabled and lang != "tr"
+        ]
+        if not valid_targets:
+            return Response(
+                {"detail": "Нет допустимых целевых языков (проверьте enabled_languages ресторана)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            translations = translate_restaurant_description(description_tr, valid_targets)
+        except TranslationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Unexpected AI translation error")
+            return Response(
+                {"detail": "Непредвиденная ошибка сервиса перевода."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"translations": translations})
 
 
 # =====================
@@ -553,18 +626,36 @@ class DishViewSet(viewsets.ModelViewSet):
 
         instance.delete()
 
-    @action(detail=True, methods=["post"])
-    def translate(self, request, pk=None):
+    @action(detail=False, methods=["post"])
+    def translate(self, request):
         """
-        POST /api/dishes/{id}/translate/
-        Body: {"target_languages": ["ru", "en", "de", ...]}
-        Переводит название (с учётом кулинарного контекста — устоявшиеся турецкие
-        названия блюд не переводятся дословно) и описание блюда через Anthropic
-        Claude Haiku на указанные языки ресторана. НЕ сохраняет результат — только
-        возвращает переводы, ресторатор сам решает сохранять их или нет.
+        POST /api/dishes/translate/
+        Body: {"name_tr": "...", "description_tr": "...", "target_languages": [...]}
+        Стейтлес — не привязан к конкретному блюду, поэтому работает одинаково
+        для нового (ещё не сохранённого) и уже существующего блюда, и всегда
+        переводит именно то, что сейчас в форме, а не последнее сохранённое в БД
+        значение. Переводит название (с учётом кулинарного контекста —
+        устоявшиеся турецкие названия блюд не переводятся дословно) и описание
+        через Anthropic Claude Haiku на указанные языки РЕСТОРАНА ТЕКУЩЕГО
+        ПОЛЬЗОВАТЕЛЯ (target_languages валидируется только против его
+        собственного enabled_languages — restaurant_id из запроса не
+        принимается). НЕ сохраняет — только возвращает переводы.
         """
-        dish = self.get_object()
-        restaurant = dish.restaurant
+        restaurant = _get_user_restaurant(request.user)
+        if not restaurant:
+            return Response(
+                {"detail": "У пользователя нет привязанного ресторана."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        name_tr = (request.data.get("name_tr") or "").strip()
+        description_tr = (request.data.get("description_tr") or "").strip()
+
+        if not description_tr:
+            return Response(
+                {"detail": "Введите турецкое описание блюда."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         target_languages = request.data.get("target_languages")
         if not isinstance(target_languages, list) or not target_languages:
@@ -581,19 +672,6 @@ class DishViewSet(viewsets.ModelViewSet):
         if not valid_targets:
             return Response(
                 {"detail": "Нет допустимых целевых языков (проверьте enabled_languages ресторана)."},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        name_tr = (dish.name_i18n or {}).get("tr") or dish.name_tr or dish.name
-        description_tr = (
-            (dish.description_i18n or {}).get("tr")
-            or dish.description_tr
-            or dish.description
-        )
-
-        if not (description_tr or "").strip():
-            return Response(
-                {"detail": "У блюда нет турецкого описания для перевода."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 

@@ -162,6 +162,13 @@ class RestaurantUpdateSerializer(serializers.ModelSerializer):
             "photo4", "photo5", "photo6",
         ]
 
+    def validate(self, attrs):
+        _sync_i18n_field(
+            attrs, self.instance, "description_i18n",
+            {"tr": "description_tr", "en": "description_en", "ru": "description_ru"},
+        )
+        return attrs
+
 
 # =========================
 # Auth / Users

@@ -66,12 +66,18 @@ export interface RestaurantMe {
   description_tr?: string;
   description_en?: string;
   description_ru?: string;
+  // переводы для языков без отдельных flat-полей (de, no, da, sv, fi, ...)
+  description_i18n?: Record<string, string>;
   enabled_languages?: string[];
   logo: string;
   front_template: string;
   active: boolean;
   plan: string;
   paid_until: string | null;
+}
+
+export interface RestaurantTranslateResponse {
+  translations: Record<string, string>;
 }
 
 // /api/menu/ -> список категорий с dishes
@@ -180,6 +186,17 @@ export const restaurantApi = {
       method: "PATCH",
       body: fd,
     }),
+
+  /**
+   * POST /restaurants/me/translate/
+   * Стейтлес: переводит переданное турецкое описание ресторана на указанные
+   * языки (собственного ресторана пользователя). Ничего не сохраняет.
+   */
+  translate: (descriptionTr: string, targetLanguages: string[]) =>
+    apiClient<RestaurantTranslateResponse>("/restaurants/me/translate/", {
+      method: "POST",
+      body: { description_tr: descriptionTr, target_languages: targetLanguages },
+    }),
 };
 
 // =====================
@@ -280,13 +297,14 @@ export const dishesApi = {
     }),
 
   /**
-   * POST /dishes/:id/translate/
-   * Переводит турецкое описание блюда через AI на указанные языки.
-   * Ничего не сохраняет — только возвращает переводы.
+   * POST /dishes/translate/
+   * Стейтлес: переводит переданные название/описание блюда на указанные языки.
+   * Работает и для ещё не сохранённого (нового) блюда — id не нужен, всегда
+   * переводит именно то, что сейчас в форме. Ничего не сохраняет.
    */
-  translate: (id: number, targetLanguages: string[]) =>
-    apiClient<DishTranslateResponse>(`/dishes/${id}/translate/`, {
+  translate: (nameTr: string, descriptionTr: string, targetLanguages: string[]) =>
+    apiClient<DishTranslateResponse>("/dishes/translate/", {
       method: "POST",
-      body: { target_languages: targetLanguages },
+      body: { name_tr: nameTr, description_tr: descriptionTr, target_languages: targetLanguages },
     }),
 };

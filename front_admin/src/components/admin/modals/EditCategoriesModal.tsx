@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, GripVertical, Pencil } from "lucide-react";
 
@@ -171,17 +171,32 @@ export function EditCategoriesModal({
   const [rows, setRows] = useState<Row[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
+  // true только когда пользователь реально перетащил строку или пометил
+  // удаление — то есть когда есть что сохранять через кнопку списка.
+  const [structuralDirty, setStructuralDirty] = useState(false);
+
   // Уровень 2: модалка перевода категории. null = закрыта.
   const [editingRow, setEditingRow] = useState<CategoryDraft | null>(null);
   const [isCreating, setIsCreating] = useState(false);
 
   const sensors = useSensors(useSensor(PointerSensor));
 
+  // Держим последний проп в ref, чтобы эффект инициализации ниже мог читать
+  // актуальные данные, но НЕ пересоздавать rows при каждом обновлении пропа.
+  const categoriesRef = useRef(categories);
+  useEffect(() => {
+    categoriesRef.current = categories;
+  }, [categories]);
+
+  // Инициализируем rows только при СВЕЖЕМ открытии модалки — не при каждом
+  // изменении пропа categories. Иначе фоновый refetch, вызванный сохранением
+  // на Уровне 2 (или просто refetchOnWindowFocus), молча перезаписывает ещё
+  // не сохранённые локальные изменения (перетаскивание, пометки на удаление).
   useEffect(() => {
     if (!open) return;
 
     setRows(
-      categories.map((c) => ({
+      categoriesRef.current.map((c) => ({
         id: c.id,
         name_tr: sanitizeCategoryName(c.name_tr ?? c.name ?? ""),
         name_en: sanitizeCategoryName(c.name_en ?? ""),
@@ -192,7 +207,9 @@ export function EditCategoriesModal({
     );
     setEditingRow(null);
     setIsCreating(false);
-  }, [open, categories]);
+    setStructuralDirty(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const visibleRows = useMemo(
     () => rows.filter((r) => !r._deleted && !r.is_system),
@@ -203,6 +220,7 @@ export function EditCategoriesModal({
     setRows((prev) =>
       prev.map((r) => (r.id === id ? { ...r, _deleted: true } : r))
     );
+    setStructuralDirty(true);
   };
 
   function handleDragEnd(event: DragEndEvent) {
@@ -216,6 +234,7 @@ export function EditCategoriesModal({
     if (oldIndex === -1 || newIndex === -1) return;
 
     setRows((items) => arrayMove(items, oldIndex, newIndex));
+    setStructuralDirty(true);
   }
 
   // Открыть Уровень 2 — редактирование существующей строки
@@ -289,30 +308,16 @@ export function EditCategoriesModal({
       await qc.invalidateQueries({ queryKey: ["menu"] });
       await qc.invalidateQueries({ queryKey: ["categories"] });
 
+      setStructuralDirty(false);
       onOpenChange(false);
     } finally {
       setIsSaving(false);
     }
   };
 
-  const hasPendingDeletes = useMemo(
-    () => rows.some((r) => r._deleted && !r.is_system),
-    [rows]
-  );
-
-  const hasReorderChanged = useMemo(() => {
-    const currentOrder = rows
-      .filter((r) => !r._deleted && !r.is_system)
-      .map((r) => r.id);
-    const originalOrder = categories
-      .filter((c) => !isSystemCategoryLikeUnsorted(c))
-      .map((c) => c.id);
-
-    if (currentOrder.length !== originalOrder.length) return true;
-    return currentOrder.some((id, i) => id !== originalOrder[i]);
-  }, [rows, categories]);
-
-  const canSave = hasPendingDeletes || hasReorderChanged;
+  // Единственное, что эта кнопка сохраняет — удаление и порядок (drag-reorder).
+  // Название/переводы категорий уже сохранены напрямую через Уровень 2.
+  const canSave = structuralDirty;
 
   return (
     <>
@@ -369,8 +374,9 @@ export function EditCategoriesModal({
                 onClick={handleSave}
                 disabled={isSaving || !canSave}
                 className="h-11 px-6 rounded-xl text-base"
+                title="Sıralama ve silme değişikliklerini kaydeder — kategori isimleri zaten anında kaydedildi"
               >
-                {isSaving ? "Kaydediliyor..." : "Kaydet"}
+                {isSaving ? "Kaydediliyor..." : "Liste Değişikliklerini Kaydet"}
               </Button>
             </div>
           </div>

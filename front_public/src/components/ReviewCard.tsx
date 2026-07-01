@@ -1,14 +1,25 @@
 import { Star } from 'lucide-react';
 import { useLanguage } from '@/context/LanguageContext';
-import { Language } from '@/data/menuData';
 
 interface ReviewCardProps {
   review: {
     id: number;
     rating: number;
-    translations: { [key in Language]: string };
+    translations: Record<string, string>;
     author: string;
   };
+}
+
+// Демо-отзывы захардкожены только на паре языков (en/tr/ru) — для остальных
+// enabled_languages показываем ближайший доступный перевод вместо пустоты.
+function pickReviewText(translations: Record<string, string>, lang: string): string {
+  return (
+    translations[lang] ||
+    translations.en ||
+    translations.tr ||
+    Object.values(translations).find(Boolean) ||
+    ''
+  );
 }
 
 export function ReviewCard({ review }: ReviewCardProps) {
@@ -26,7 +37,7 @@ export function ReviewCard({ review }: ReviewCardProps) {
           />
         ))}
       </div>
-      <p className="text-foreground text-sm mb-3 italic">"{review.translations[language]}"</p>
+      <p className="text-foreground text-sm mb-3 italic">"{pickReviewText(review.translations, language)}"</p>
       <p className="text-muted-foreground text-sm font-medium">— {review.author}</p>
     </div>
   );

@@ -234,3 +234,65 @@ def translate_category_name(name_tr: str, target_langs: list[str]) -> dict[str, 
         raise TranslationError("Сервис перевода не вернул переводов для запрошенных языков.")
 
     return result
+
+
+_RESTAURANT_DESCRIPTION_SYSTEM_PROMPT = (
+    "You translate restaurant profile descriptions for a tourist-facing menu "
+    "app. This is plain descriptive prose about the restaurant itself (its "
+    "atmosphere, cuisine, history) — not a dish or category name, so there is "
+    "no naming judgement to apply. Translate the full text naturally and "
+    "completely into the target language, preserving tone and meaning. Do "
+    "not leave any part untranslated.\n"
+    "Return valid JSON only, with a plain string for each requested "
+    "language, in this exact shape: {\"ru\": \"...\", \"en\": \"...\"}"
+)
+
+
+def _build_restaurant_description_user_prompt(description_tr: str, target_langs: list[str]) -> str:
+    langs_str = ", ".join(target_langs)
+    example = ", ".join(f'"{lang}": "..."' for lang in target_langs)
+    return (
+        f"Turkish restaurant description: {description_tr!r}\n\n"
+        f"Translate it into these languages: {langs_str}.\n"
+        "Return strictly JSON, with no text before or after it, in this "
+        f"exact shape:\n{{{example}}}"
+    )
+
+
+def translate_restaurant_description(description_tr: str, target_langs: list[str]) -> dict[str, str]:
+    """
+    Translate a Turkish restaurant description into the given target
+    languages via Claude Haiku. Plain, complete, natural translation — no
+    dish/category-style naming judgement. Returns {"<lang>": "...", ...}.
+    Raises TranslationError with a user-safe message on any failure.
+    """
+    if not target_langs:
+        raise TranslationError("Не указаны целевые языки для перевода.")
+
+    if not (description_tr or "").strip():
+        raise TranslationError("Нет турецкого описания ресторана для перевода.")
+
+    text = _call_claude(
+        _RESTAURANT_DESCRIPTION_SYSTEM_PROMPT,
+        _build_restaurant_description_user_prompt(description_tr, target_langs),
+    )
+
+    try:
+        parsed = json.loads(text)
+    except json.JSONDecodeError as exc:
+        logger.error("Anthropic returned non-JSON: %s", text[:500])
+        raise TranslationError("Сервис перевода вернул некорректный формат.") from exc
+
+    if not isinstance(parsed, dict):
+        raise TranslationError("Сервис перевода вернул некорректный формат.")
+
+    result: dict[str, str] = {}
+    for lang in target_langs:
+        value = parsed.get(lang)
+        if isinstance(value, str) and value.strip():
+            result[lang] = value.strip()
+
+    if not result:
+        raise TranslationError("Сервис перевода не вернул переводов для запрошенных языков.")
+
+    return result

@@ -246,11 +246,15 @@ export function EditDishModal({
   const runTranslate = async () => {
     setConfirmTranslateOpen(false);
 
-    if (!form.id || translatableLangs.length === 0) return;
+    if (!form.description_tr.trim() || translatableLangs.length === 0) return;
 
     setTranslating(true);
     try {
-      const res = await dishesApi.translate(form.id, translatableLangs);
+      const res = await dishesApi.translate(
+        form.name_tr.trim(),
+        form.description_tr.trim(),
+        translatableLangs
+      );
 
       setForm((prev) => {
         const nextNameI18n = { ...(prev.name_i18n ?? {}) };
@@ -384,15 +388,9 @@ export function EditDishModal({
                     type="button"
                     variant="outline"
                     size="sm"
-                    disabled={!form.id || translating || !form.description_tr.trim()}
+                    disabled={translating || !form.description_tr.trim()}
                     onClick={() => setConfirmTranslateOpen(true)}
-                    title={
-                      !form.id
-                        ? "Önce yemeği kaydedin"
-                        : !form.description_tr.trim()
-                        ? "Önce Türkçe açıklama girin"
-                        : undefined
-                    }
+                    title={!form.description_tr.trim() ? "Önce Türkçe açıklama girin" : undefined}
                   >
                     {translating ? (
                       <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />

@@ -17,6 +17,7 @@ from .views import (
     SubscriptionView,
     MeView,
     RestaurantMeView,
+    RestaurantTranslateView,
     AdminQrPngView,
     AdminQrTableStickerView,
     AdminQrMenuA5DownloadView,
@@ -45,6 +46,7 @@ urlpatterns = [
     path("menu/", MenuView.as_view(), name="menu"),
     path("subscription/", SubscriptionView.as_view(), name="subscription"),
     path("restaurants/me/", RestaurantMeView.as_view(), name="restaurant-me"),
+    path("restaurants/me/translate/", RestaurantTranslateView.as_view(), name="restaurant-translate"),
     path("lead/", create_lead),
 
     # QR
