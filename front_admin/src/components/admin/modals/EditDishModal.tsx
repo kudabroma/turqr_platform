@@ -1,15 +1,28 @@
 import { useEffect, useMemo, useState, useRef } from "react";
-import { Upload } from "lucide-react";
+import { Upload, Sparkles, Loader2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { useToast } from "@/hooks/use-toast";
+import { dishesApi } from "@/api/endpoints";
+import { ApiError } from "@/api/apiClient";
 
 export interface DishData {
   id?: number;
@@ -19,6 +32,8 @@ export interface DishData {
   description_en: string;
   name_ru: string;
   description_ru: string;
+  // переводы для языков без отдельных flat-полей (de, no, da, sv, fi, ...)
+  description_i18n?: Record<string, string>;
   is_active: boolean;
   is_vegetarian: boolean;
   is_vegan: boolean;
@@ -41,9 +56,12 @@ interface EditDishModalProps {
   onSave: (dish: DishData) => void;
   onDelete?: (id: number) => void;
   categories?: { id: number; name: string; is_system?: boolean }[];
+  /** Языки ресторана (из Restaurant.enabled_languages). tr всегда первый. */
+  enabledLanguages?: string[];
 }
 
-type Lang = "tr" | "en" | "ru";
+type Lang = string;
+const DEFAULT_LANGS: Lang[] = ["tr", "en", "ru"];
 
 const FIELD_LIMITS = {
   name: 100,
@@ -78,6 +96,7 @@ const emptyDish: DishData = {
   description_en: "",
   name_ru: "",
   description_ru: "",
+  description_i18n: {},
   is_active: true,
   is_vegetarian: false,
   is_vegan: false,
@@ -105,7 +124,10 @@ export function EditDishModal({
   onSave,
   onDelete,
   categories,
+  enabledLanguages,
 }: EditDishModalProps) {
+  const { toast } = useToast();
+
   const [form, setForm] = useState<DishData>(emptyDish);
   const [activeLang, setActiveLang] = useState<Lang>("tr");
 
@@ -114,7 +136,19 @@ export function EditDishModal({
 
   const [priceInput, setPriceInput] = useState<string>("0");
 
+  const [translating, setTranslating] = useState(false);
+  const [confirmTranslateOpen, setConfirmTranslateOpen] = useState(false);
+
   const isNew = !dish;
+
+  // tr всегда первый и всегда присутствует
+  const langs = useMemo<Lang[]>(() => {
+    const base = enabledLanguages && enabledLanguages.length > 0 ? enabledLanguages : DEFAULT_LANGS;
+    const uniq = Array.from(new Set(base));
+    return uniq.includes("tr") ? ["tr", ...uniq.filter((l) => l !== "tr")] : ["tr", ...uniq];
+  }, [enabledLanguages]);
+
+  const translatableLangs = useMemo(() => langs.filter((l) => l !== "tr"), [langs]);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -144,6 +178,7 @@ export function EditDishModal({
         description_en: sanitizeDishDescription(dish.description_en ?? ""),
         name_ru: sanitizeDishName((dish as any).name_ru ?? ""),
         description_ru: sanitizeDishDescription((dish as any).description_ru ?? ""),
+        description_i18n: { ...(dish.description_i18n ?? {}) },
         is_active: (dish as any).is_active ?? true,
         is_vegetarian: (dish as any).is_vegetarian ?? false,
         is_vegan: (dish as any).is_vegan ?? false,
@@ -162,6 +197,8 @@ export function EditDishModal({
     setImagePreview(null);
     setNameTrError("");
     setCategoryError("");
+    setTranslating(false);
+    setConfirmTranslateOpen(false);
   }, [open, dish]);
 
   const categoryOptions = useMemo(() => {
@@ -184,6 +221,63 @@ export function EditDishModal({
 
     if (key === "name_tr" && String(nextValue).trim()) setNameTrError("");
     if (key === "_categoryId" && nextValue) setCategoryError("");
+  };
+
+  const updateI18nDescription = (lang: string, value: string) => {
+    const sanitized = sanitizeDishDescription(value);
+    setForm((prev) => ({
+      ...prev,
+      description_i18n: { ...(prev.description_i18n ?? {}), [lang]: sanitized },
+    }));
+  };
+
+  const runTranslate = async () => {
+    setConfirmTranslateOpen(false);
+
+    if (!form.id || translatableLangs.length === 0) return;
+
+    setTranslating(true);
+    try {
+      const res = await dishesApi.translate(form.id, translatableLangs);
+
+      setForm((prev) => {
+        const nextI18n = { ...(prev.description_i18n ?? {}) };
+        let next_en = prev.description_en;
+        let next_ru = prev.description_ru;
+
+        for (const [lang, entry] of Object.entries(res.translations)) {
+          const text = sanitizeDishDescription(entry.description ?? "");
+          if (lang === "en") next_en = text;
+          else if (lang === "ru") next_ru = text;
+          else nextI18n[lang] = text;
+        }
+
+        return {
+          ...prev,
+          description_en: next_en,
+          description_ru: next_ru,
+          description_i18n: nextI18n,
+        };
+      });
+
+      toast({
+        title: "Çeviri tamamlandı",
+        description: "Metinleri kontrol edip Kaydet'e basın.",
+      });
+    } catch (e) {
+      const message =
+        e instanceof ApiError
+          ? (e.data as any)?.detail || e.message
+          : "Çeviri sırasında hata oluştu.";
+
+      toast({
+        title: "Çeviri başarısız",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setTranslating(false);
+    }
   };
 
   const handleSave = () => {
@@ -217,6 +311,7 @@ export function EditDishModal({
   };
 
   return (
+    <>
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg max-h-[85vh] p-0 overflow-hidden">
         <DialogHeader className="px-6 pt-6">
@@ -253,11 +348,37 @@ export function EditDishModal({
               </Button>
             </div>
 
-            {/* Переводы TR / EN / RU */}
+            {/* Переводы (динамически из enabled_languages ресторана) */}
             <div>
-              <Label>Çeviri</Label>
-              <div className="flex gap-2 mt-2">
-                {(["tr", "en", "ru"] as Lang[]).map((l) => (
+              <div className="flex items-center justify-between gap-2">
+                <Label>Çeviri</Label>
+                {translatableLangs.length > 0 && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!form.id || translating || !form.description_tr.trim()}
+                    onClick={() => setConfirmTranslateOpen(true)}
+                    title={
+                      !form.id
+                        ? "Önce yemeği kaydedin"
+                        : !form.description_tr.trim()
+                        ? "Önce Türkçe açıklama girin"
+                        : undefined
+                    }
+                  >
+                    {translating ? (
+                      <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+                    ) : (
+                      <Sparkles className="h-4 w-4 mr-1.5" />
+                    )}
+                    AI ile Çevir
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex gap-2 mt-2 flex-wrap">
+                {langs.map((l) => (
                   <button
                     key={l}
                     type="button"
@@ -334,6 +455,27 @@ export function EditDishModal({
                         value={form.description_ru}
                         maxLength={FIELD_LIMITS.description}
                         onChange={(e) => update("description_ru", e.target.value)}
+                        rows={3}
+                      />
+                    </div>
+                  </>
+                )}
+
+                {activeLang !== "tr" && activeLang !== "en" && activeLang !== "ru" && (
+                  <>
+                    <div>
+                      <Label>İsim ({activeLang.toUpperCase()})</Label>
+                      <Input value={form.name_tr} disabled />
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        İsimler çevrilmez, her zaman Türkçe kalır.
+                      </p>
+                    </div>
+                    <div>
+                      <Label>Açıklama ({activeLang.toUpperCase()})</Label>
+                      <Textarea
+                        value={form.description_i18n?.[activeLang] ?? ""}
+                        maxLength={FIELD_LIMITS.description}
+                        onChange={(e) => updateI18nDescription(activeLang, e.target.value)}
                         rows={3}
                       />
                     </div>
@@ -452,5 +594,23 @@ export function EditDishModal({
         </div>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={confirmTranslateOpen} onOpenChange={setConfirmTranslateOpen}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Çeviri yapılsın mı?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Türkçe açıklama {translatableLangs.map((l) => l.toUpperCase()).join(", ")} diline/dillerine
+            çevrilecek. Mevcut çeviri alanlarının üzerine yazılacak — kaydetmeden önce
+            kontrol edebilirsiniz.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>İptal</AlertDialogCancel>
+          <AlertDialogAction onClick={runTranslate}>Çevir</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }

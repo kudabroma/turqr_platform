@@ -9,6 +9,49 @@ User = get_user_model()
 MEDIA_BASE = "https://media.turqr.com"
 
 
+def _sync_i18n_field(attrs: dict, instance, json_field: str, lang_flat_map: dict) -> None:
+    """
+    Keeps a JSON i18n field (name_i18n/description_i18n) consistent with its
+    flat per-language columns whenever either side of the save touches them:
+
+    - Starts from the instance's current i18n dict, so languages without flat
+      columns (e.g. AI-translated de/no/da/sv/fi) survive saves that only
+      touch tr/en/ru.
+    - Merges in any i18n dict explicitly present in attrs (e.g. the frontend
+      saving AI translations for languages without flat columns).
+    - Flat columns present in attrs are the final authority for their
+      language (tr/en/ru): a non-empty value overwrites that key, an explicit
+      empty value clears it — this is what keeps flat columns and i18n from
+      diverging.
+    - On create (instance is None), always runs so a new dish/category starts
+      with i18n populated from whatever flat data it was given.
+    """
+    if instance is not None:
+        touched = (
+            (json_field in attrs and isinstance(attrs.get(json_field), dict))
+            or any(flat_field in attrs for flat_field in lang_flat_map.values())
+        )
+        if not touched:
+            return
+
+    base = dict(getattr(instance, json_field, None) or {}) if instance is not None else {}
+
+    incoming = attrs.get(json_field)
+    if isinstance(incoming, dict):
+        base.update(incoming)
+
+    for lang, flat_field in lang_flat_map.items():
+        if flat_field not in attrs:
+            continue
+        value = (attrs.get(flat_field) or "").strip()
+        if value:
+            base[lang] = value
+        else:
+            base.pop(lang, None)
+
+    attrs[json_field] = base
+
+
 def _build_url(field_value) -> str | None:
     """
     Возвращает полный публичный URL файла.
@@ -283,6 +326,16 @@ class DishSerializer(serializers.ModelSerializer):
         final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
+
+        _sync_i18n_field(
+            attrs, self.instance, "name_i18n",
+            {"tr": "name_tr", "en": "name_en", "ru": "name_ru"},
+        )
+        _sync_i18n_field(
+            attrs, self.instance, "description_i18n",
+            {"tr": "description_tr", "en": "description_en", "ru": "description_ru"},
+        )
+
         return attrs
 
 
@@ -349,6 +402,16 @@ class DishSuperuserSerializer(serializers.ModelSerializer):
         final_name = (attrs.get("name") or "").strip() or (attrs.get("name_tr") or "").strip() or name_en
         if not final_name:
             raise serializers.ValidationError({"name": "Обязательное поле."})
+
+        _sync_i18n_field(
+            attrs, self.instance, "name_i18n",
+            {"tr": "name_tr", "en": "name_en"},
+        )
+        _sync_i18n_field(
+            attrs, self.instance, "description_i18n",
+            {"tr": "description_tr", "en": "description_en"},
+        )
+
         return attrs
 
 

@@ -40,6 +40,9 @@ export interface Dish {
   description_en?: string;
   name_ru?: string;
   description_ru?: string;
+  // JSON-переводы для всех языков (включая tr/en/ru и языки без flat-колонок)
+  name_i18n?: Record<string, string>;
+  description_i18n?: Record<string, string>;
   price: string; // DRF часто отдаёт как string
   category: number;
   restaurant?: number;
@@ -61,6 +64,7 @@ export interface RestaurantMe {
   description_tr?: string;
   description_en?: string;
   description_ru?: string;
+  enabled_languages?: string[];
   logo: string;
   front_template: string;
   active: boolean;
@@ -96,6 +100,7 @@ export interface CreateDishData {
   description_en?: string;
   name_ru?: string;
   description_ru?: string;
+  description_i18n?: Record<string, string>;
   price: string;
   category: number;
 }
@@ -107,8 +112,13 @@ export interface UpdateDishData {
   description_en?: string;
   name_ru?: string;
   description_ru?: string;
+  description_i18n?: Record<string, string>;
   price?: string;
   category?: number;
+}
+
+export interface DishTranslateResponse {
+  translations: Record<string, { description: string }>;
 }
 
 // =====================
@@ -245,5 +255,16 @@ export const dishesApi = {
     apiClient<Dish>(`/dishes/${id}/`, {
       method: "PATCH",
       body: fd,
+    }),
+
+  /**
+   * POST /dishes/:id/translate/
+   * Переводит турецкое описание блюда через AI на указанные языки.
+   * Ничего не сохраняет — только возвращает переводы.
+   */
+  translate: (id: number, targetLanguages: string[]) =>
+    apiClient<DishTranslateResponse>(`/dishes/${id}/translate/`, {
+      method: "POST",
+      body: { target_languages: targetLanguages },
     }),
 };

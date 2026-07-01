@@ -28,6 +28,7 @@ from .serializers import (
 )
 from .permissions import HasActiveSubscriptionOrReadOnly
 from .services.unsorted import get_unsorted_category
+from .services.ai_translate import translate_dish_description, TranslationError
 
 User = settings.AUTH_USER_MODEL
 from django.contrib.auth import get_user_model
@@ -493,6 +494,63 @@ class DishViewSet(viewsets.ModelViewSet):
             raise serializers.ValidationError({"detail": "You cannot delete this dish."})
 
         instance.delete()
+
+    @action(detail=True, methods=["post"])
+    def translate(self, request, pk=None):
+        """
+        POST /api/dishes/{id}/translate/
+        Body: {"target_languages": ["ru", "en", "de", ...]}
+        Переводит турецкое описание блюда через Anthropic Claude Haiku
+        на указанные языки ресторана. НЕ сохраняет результат — только возвращает
+        переводы, ресторатор сам решает сохранять их или нет.
+        """
+        dish = self.get_object()
+        restaurant = dish.restaurant
+
+        target_languages = request.data.get("target_languages")
+        if not isinstance(target_languages, list) or not target_languages:
+            return Response(
+                {"detail": "Укажите список целевых языков (target_languages)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        enabled = set(restaurant.enabled_languages or [])
+        valid_targets = [
+            lang for lang in dict.fromkeys(target_languages)
+            if lang in enabled and lang != "tr"
+        ]
+        if not valid_targets:
+            return Response(
+                {"detail": "Нет допустимых целевых языков (проверьте enabled_languages ресторана)."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        name_tr = (dish.name_i18n or {}).get("tr") or dish.name_tr or dish.name
+        description_tr = (
+            (dish.description_i18n or {}).get("tr")
+            or dish.description_tr
+            or dish.description
+        )
+
+        if not (description_tr or "").strip():
+            return Response(
+                {"detail": "У блюда нет турецкого описания для перевода."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        try:
+            translations = translate_dish_description(name_tr, description_tr, valid_targets)
+        except TranslationError as exc:
+            return Response({"detail": str(exc)}, status=status.HTTP_502_BAD_GATEWAY)
+        except Exception:
+            import logging
+            logging.getLogger(__name__).exception("Unexpected AI translation error")
+            return Response(
+                {"detail": "Непредвиденная ошибка сервиса перевода."},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response({"translations": translations})
 
 
 # =====================
