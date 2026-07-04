@@ -335,10 +335,15 @@ export default function MenuPage() {
 
   // ✅ Добавление в корзину — name_tr берётся из trNameMap
   function handleAddToSelection(dish: UiDish) {
+    const dishName =
+      dish.translations[lang]?.name ??
+      dish.translations.en?.name ??
+      dish.translations.tr?.name ??
+      dish.name_tr;
     add({
       id: dish.id,
-      name: dish.translations[lang]?.name ?? dish.id,
-      name_tr: trNameMap.get(dish.id) || dish.name_tr || dish.id,
+      name: dishName || `Dish ${dish.id}`,
+      name_tr: trNameMap.get(dish.id) || dish.name_tr || dishName || `Dish ${dish.id}`,
       price: dish.price,
     });
   }

@@ -1,7 +1,9 @@
 type UnknownRecord = Record<string, unknown>;
 
 function asString(v: unknown, fallback = ""): string {
-  return typeof v === "string" ? v : fallback;
+  if (typeof v === "string") return v;
+  if (typeof v === "number") return String(v);
+  return fallback;
 }
 
 function asNumberLike(v: unknown, fallback = 0): number {
