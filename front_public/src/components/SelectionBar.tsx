@@ -2,10 +2,15 @@ import { useState } from "react";
 import type { SelectedDish } from "@/hooks/useSelection";
 import type { Lang } from "@/api/public";
 
-const labels = {
+const labels: Record<string, { title: string; clear: string; items: string; total: string }> = {
   en: { title: "Your order", clear: "Clear order", items: "dishes selected", total: "Total" },
   tr: { title: "Siparişiniz", clear: "Siparişi temizle", items: "yemek seçildi", total: "Toplam" },
   ru: { title: "Ваш заказ", clear: "Очистить заказ", items: "блюд выбрано", total: "Итого" },
+  de: { title: "Ihre Bestellung", clear: "Bestellung leeren", items: "Gerichte ausgewählt", total: "Gesamt" },
+  no: { title: "Din bestilling", clear: "Tøm bestilling", items: "retter valgt", total: "Totalt" },
+  da: { title: "Din bestilling", clear: "Ryd bestilling", items: "retter valgt", total: "I alt" },
+  sv: { title: "Din beställning", clear: "Rensa beställning", items: "rätter valda", total: "Totalt" },
+  fi: { title: "Tilauksesi", clear: "Tyhjennä tilaus", items: "ruokaa valittu", total: "Yhteensä" },
 };
 
 export function SelectionBar({
@@ -20,7 +25,7 @@ export function SelectionBar({
   lang: Lang;
 }) {
   const [open, setOpen] = useState(false);
-  const t = labels[lang];
+  const t = labels[lang] ?? labels.en ?? labels.tr;
 
   if (count === 0) return null;
 
