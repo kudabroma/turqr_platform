@@ -265,3 +265,28 @@ python -m pytest
 - `_resolve_i18n` никогда не возвращает пустую строку если есть хоть какое-то значение в цепочке.
 - Публичные эндпойнты (`/api/public/`) не требуют аутентификации, но проверяют активность подписки ресторана (в DEBUG разрешено без подписки).
 - Суперадмин-эндпойнты (`/api/superadmin/`) защищены permission `IsSuperUser` (`permissions.py`).
+
+---
+
+## 11. Технические грабли (важно не наступить повторно)
+
+### Django 6: `DEFAULT_FILE_STORAGE`/`STATICFILES_STORAGE` больше не работают
+
+Начиная с Django 6.0, legacy-настройки `DEFAULT_FILE_STORAGE` и `STATICFILES_STORAGE` **полностью игнорируются** (в 4.2–5.x был shim, автоматически конвертировавший их в `STORAGES`, — в 6.0 он удалён). Если задать только `DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"`, Django молча продолжит использовать дефолтный `FileSystemStorage` — без ошибок, без warning, файлы просто пишутся на локальный (на Railway — эфемерный) диск вместо R2.
+
+**Единственный правильный способ задать storage backend в Django 6:**
+```python
+STORAGES = {
+    "default": {"BACKEND": "storages.backends.s3boto3.S3Boto3Storage"},
+    "staticfiles": {"BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage"},
+}
+```
+См. `back/config/settings.py` (секция MEDIA — Cloudflare R2).
+
+Это была настоящая причина, по которой в проекте долго держался дублирующий ручной `boto3.upload_fileobj()`-путь в `views.py` — штатный путь через `ImageField` тогда реально не работал, и ручной boto3-код был единственным, что доставляло файлы в R2 (хотя выглядел как забытый debug-код). После исправления `STORAGES` ручной путь стал не нужен и был удалён (см. `022f59e`).
+
+**Если снова "файлы не долетают до R2"** — первым делом проверь: `settings.STORAGES` (не `DEFAULT_FILE_STORAGE`!), и что `default_storage.__class__` в `manage.py shell` реально резолвится в S3-класс, а не в `FileSystemStorage`.
+
+### Уникальность ключей файлов в R2
+
+`Dish.image`, `Restaurant.logo/photo1-6` используют callable `upload_to` (`dish_image_upload_to`, `restaurant_photo_upload_to`, `restaurant_logo_upload_to` в `models.py`) — генерируют ключ `{prefix}/{restaurant_id или pk}/{uuid4}.{ext}`. Не возвращай `upload_to` обратно к плоской строке — иначе два ресторана, загрузившие файл с одинаковым именем, будут перезаписывать объекты друг друга в бакете.
