@@ -80,12 +80,6 @@ class RestaurantMeView(APIView):
         )
 
     def patch(self, request):
-        import boto3
-        import os
-        import io
-        import logging
-        logger = logging.getLogger(__name__)
-
         user = request.user
 
         if user.is_superuser:
@@ -101,13 +95,6 @@ class RestaurantMeView(APIView):
                 status=status.HTTP_403_FORBIDDEN,
             )
 
-        # Читаем файлы ДО save пока поток открыт
-        files_data = {}
-        for k, v in request.FILES.items():
-            content = v.read()
-            files_data[k] = (v.name, content)
-            v.seek(0)
-
         serializer = RestaurantUpdateSerializer(
             restaurant,
             data=request.data,
@@ -116,23 +103,6 @@ class RestaurantMeView(APIView):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         restaurant.refresh_from_db()
-
-        # Загружаем файлы в R2 через boto3 ПОСЛЕ save
-        if files_data:
-            try:
-                s3 = boto3.client(
-                    's3',
-                    endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
-                    aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
-                    aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
-                    region_name='auto',
-                )
-                for field_name, (filename, content) in files_data.items():
-                    key = f"restaurants/photos/{filename}"
-                    s3.upload_fileobj(io.BytesIO(content), 'turqr-media', key)
-                    logger.warning(f"R2 RESTAURANT UPLOAD OK: {key}")
-            except Exception as e:
-                logger.warning(f"R2 RESTAURANT UPLOAD ERROR: {e}")
 
         return Response(
             RestaurantMeSerializer(restaurant, context={"request": request}).data
@@ -498,19 +468,6 @@ class DishViewSet(viewsets.ModelViewSet):
         return Dish.objects.filter(restaurant=restaurant)
 
     def perform_create(self, serializer):
-        import boto3
-        import os
-        import io
-        import logging
-        logger = logging.getLogger(__name__)
-
-        # Читаем файлы ДО save
-        files_data = {}
-        for k, v in self.request.FILES.items():
-            content = v.read()
-            files_data[k] = (v.name, content)
-            v.seek(0)
-
         user = self.request.user
 
         if user.is_superuser:
@@ -529,37 +486,7 @@ class DishViewSet(viewsets.ModelViewSet):
 
             saved = serializer.save(restaurant=restaurant)
 
-        # Загружаем файлы в R2 после save
-        if files_data:
-            try:
-                s3 = boto3.client(
-                    's3',
-                    endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
-                    aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
-                    aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
-                    region_name='auto',
-                )
-                for field_name, (filename, content) in files_data.items():
-                    key = f"dishes/images/{filename}"
-                    s3.upload_fileobj(io.BytesIO(content), 'turqr-media', key)
-                    logger.warning(f"R2 CREATE UPLOAD OK: {key}")
-            except Exception as e:
-                logger.warning(f"R2 CREATE UPLOAD ERROR: {e}")
-
     def perform_update(self, serializer):
-        import logging
-        import boto3
-        import os
-        import io
-        logger = logging.getLogger(__name__)
-
-        # Читаем файлы ДО save пока поток открыт
-        files_data = {}
-        for k, v in self.request.FILES.items():
-            content = v.read()
-            files_data[k] = (v.name, content)
-            v.seek(0)  # сбрасываем для serializer
-
         user = self.request.user
         instance = self.get_object()
 
@@ -592,23 +519,6 @@ class DishViewSet(viewsets.ModelViewSet):
                 Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=None, archived_at=None)
             if new_category_final and new_category_final.is_system and saved.moved_to_unsorted_at is None:
                 Dish.objects.filter(pk=saved.pk).update(moved_to_unsorted_at=timezone.now())
-
-        # Загружаем файлы в R2 через boto3 ПОСЛЕ save
-        if files_data:
-            try:
-                s3 = boto3.client(
-                    's3',
-                    endpoint_url=f"https://{os.environ.get('R2_ACCOUNT_ID')}.r2.cloudflarestorage.com",
-                    aws_access_key_id=os.environ.get('R2_ACCESS_KEY_ID'),
-                    aws_secret_access_key=os.environ.get('R2_SECRET_ACCESS_KEY'),
-                    region_name='auto',
-                )
-                for field_name, (filename, content) in files_data.items():
-                    key = f"dishes/images/{filename}"
-                    s3.upload_fileobj(io.BytesIO(content), 'turqr-media', key)
-                    logger.warning(f"R2 UPLOAD OK: {key}")
-            except Exception as e:
-                logger.warning(f"R2 UPLOAD ERROR: {e}")
 
     def perform_destroy(self, instance):
         user = self.request.user

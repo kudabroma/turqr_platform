@@ -105,7 +105,6 @@ STATIC_URL = "/static/"
 _static_dir = BASE_DIR / "static"
 STATICFILES_DIRS = [_static_dir] if _static_dir.exists() else []
 STATIC_ROOT = BASE_DIR / "staticfiles"
-STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # =========================
 # MEDIA — Cloudflare R2
@@ -114,7 +113,6 @@ STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 USE_R2 = os.getenv("USE_R2", "0") == "1"
 
 if USE_R2:
-    DEFAULT_FILE_STORAGE = "storages.backends.s3boto3.S3Boto3Storage"
     AWS_ACCESS_KEY_ID = os.getenv("R2_ACCESS_KEY_ID")
     AWS_SECRET_ACCESS_KEY = os.getenv("R2_SECRET_ACCESS_KEY")
     AWS_STORAGE_BUCKET_NAME = "turqr-media"
@@ -129,9 +127,23 @@ if USE_R2:
     }
     MEDIA_URL = "https://media.turqr.com/"
     MEDIA_ROOT = ""
+    _default_storage_backend = "storages.backends.s3boto3.S3Boto3Storage"
 else:
     MEDIA_URL = "/media/"
     MEDIA_ROOT = BASE_DIR / "media"
+    _default_storage_backend = "django.core.files.storage.FileSystemStorage"
+
+# Django 6 больше не читает DEFAULT_FILE_STORAGE/STATICFILES_STORAGE (legacy-shim
+# убран) — единственный способ задать backend теперь STORAGES. Без этого блока
+# default_storage молча падает на локальный FileSystemStorage даже при USE_R2=1.
+STORAGES = {
+    "default": {
+        "BACKEND": _default_storage_backend,
+    },
+    "staticfiles": {
+        "BACKEND": "whitenoise.storage.CompressedManifestStaticFilesStorage",
+    },
+}
 
 AUTH_USER_MODEL = "restaurants.User"
 

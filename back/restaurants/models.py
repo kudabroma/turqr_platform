@@ -1,3 +1,5 @@
+import uuid
+
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
@@ -5,6 +7,26 @@ from django.utils import timezone
 
 def _default_languages():
     return ["tr", "ru", "en"]
+
+
+def _unique_upload_path(prefix, scope_id, filename):
+    """Строит ключ вида {prefix}/{scope_id}/{uuid4}.{ext}, чтобы одинаковые
+    исходные имена файлов от разных ресторанов не перезаписывали друг друга."""
+    ext = filename.rsplit(".", 1)[-1].lower() if "." in filename else ""
+    unique_name = f"{uuid.uuid4().hex}.{ext}" if ext else uuid.uuid4().hex
+    return f"{prefix}/{scope_id}/{unique_name}"
+
+
+def dish_image_upload_to(instance, filename):
+    return _unique_upload_path("dishes/images", instance.restaurant_id, filename)
+
+
+def restaurant_photo_upload_to(instance, filename):
+    return _unique_upload_path("restaurants/photos", instance.pk, filename)
+
+
+def restaurant_logo_upload_to(instance, filename):
+    return _unique_upload_path("restaurants/logos", instance.pk, filename)
 
 
 class Restaurant(models.Model):
@@ -45,15 +67,15 @@ class Restaurant(models.Model):
     )
 
     # ✅ Фото ресторана
-    photo1 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
-    photo2 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
-    photo3 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
-    photo4 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
-    photo5 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
-    photo6 = models.ImageField(upload_to="restaurants/photos/", null=True, blank=True)
+    photo1 = models.ImageField(upload_to=restaurant_photo_upload_to, null=True, blank=True)
+    photo2 = models.ImageField(upload_to=restaurant_photo_upload_to, null=True, blank=True)
+    photo3 = models.ImageField(upload_to=restaurant_photo_upload_to, null=True, blank=True)
+    photo4 = models.ImageField(upload_to=restaurant_photo_upload_to, null=True, blank=True)
+    photo5 = models.ImageField(upload_to=restaurant_photo_upload_to, null=True, blank=True)
+    photo6 = models.ImageField(upload_to=restaurant_photo_upload_to, null=True, blank=True)
 
     # ✅ Лого — тоже файл, чтобы работал logo.url и upload
-    logo = models.ImageField(upload_to="restaurants/logos/", null=True, blank=True)
+    logo = models.ImageField(upload_to=restaurant_logo_upload_to, null=True, blank=True)
 
     front_template = models.CharField(
         max_length=255,
@@ -144,7 +166,7 @@ class Dish(models.Model):
 
     
     price = models.DecimalField(max_digits=10, decimal_places=2, verbose_name="Цена")
-    image = models.ImageField(upload_to="dishes/images/", blank=True, null=True)
+    image = models.ImageField(upload_to=dish_image_upload_to, blank=True, null=True)
 
     category = models.ForeignKey(
         Category,
